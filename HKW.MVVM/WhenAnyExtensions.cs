@@ -17,6 +17,19 @@ public readonly record struct PropertyObservation<TSender, TValue>(
 /// </summary>
 public static class WhenAnyExtensions
 {
+    /// <summary>
+    /// Observes one property path and emits its current value on subscription followed by distinct changes.
+    /// Nested paths are rebound when an intermediate object changes; an unavailable path is suppressed until it recovers.
+    /// </summary>
+    /// <typeparam name="TSource">The notifying source type.</typeparam>
+    /// <typeparam name="TValue">The final property value type.</typeparam>
+    /// <param name="source">The source object whose property is observed.</param>
+    /// <param name="property">A property path rooted at <paramref name="source"/>, such as <c>x =&gt; x.Address.City</c>.</param>
+    /// <returns>A cold observable sequence of final property values.</returns>
+    /// <remarks>
+    /// <b>REFLECTION: YES.</b> The expression is parsed into <see cref="PropertyInfo"/> objects and each
+    /// property value is read with <see cref="PropertyInfo.GetValue(object)"/>.
+    /// </remarks>
     public static IObservable<TValue> WhenAnyValue<TSource, TValue>(
         this TSource source,
         Expression<Func<TSource, TValue>> property)
@@ -27,6 +40,22 @@ public static class WhenAnyExtensions
         return new PropertyPathObservable<TSource, TValue>(source, property);
     }
 
+    /// <summary>
+    /// Observes two properties and projects their latest values whenever either final value changes.
+    /// </summary>
+    /// <typeparam name="TSource">The notifying source type.</typeparam>
+    /// <typeparam name="T1">The first property value type.</typeparam>
+    /// <typeparam name="T2">The second property value type.</typeparam>
+    /// <typeparam name="TResult">The projected result type.</typeparam>
+    /// <param name="source">The source object whose properties are observed.</param>
+    /// <param name="property1">The first property path.</param>
+    /// <param name="property2">The second property path.</param>
+    /// <param name="selector">The function that combines the latest property values.</param>
+    /// <returns>A cold observable sequence of projected results.</returns>
+    /// <remarks>
+    /// <b>REFLECTION: YES.</b> Both property paths are evaluated by the reflection-based single-property
+    /// <see cref="WhenAnyValue{TSource,TValue}(TSource, Expression{Func{TSource,TValue}})"/> implementation.
+    /// </remarks>
     public static IObservable<TResult> WhenAnyValue<TSource, T1, T2, TResult>(
         this TSource source,
         Expression<Func<TSource, T1>> property1,
@@ -36,6 +65,24 @@ public static class WhenAnyExtensions
         Combine([source.WhenAnyValue(property1).Box(), source.WhenAnyValue(property2).Box()], values =>
             selector((T1)values[0]!, (T2)values[1]!));
 
+    /// <summary>
+    /// Observes three properties and projects their latest values whenever any final value changes.
+    /// </summary>
+    /// <typeparam name="TSource">The notifying source type.</typeparam>
+    /// <typeparam name="T1">The first property value type.</typeparam>
+    /// <typeparam name="T2">The second property value type.</typeparam>
+    /// <typeparam name="T3">The third property value type.</typeparam>
+    /// <typeparam name="TResult">The projected result type.</typeparam>
+    /// <param name="source">The source object whose properties are observed.</param>
+    /// <param name="property1">The first property path.</param>
+    /// <param name="property2">The second property path.</param>
+    /// <param name="property3">The third property path.</param>
+    /// <param name="selector">The function that combines the latest property values.</param>
+    /// <returns>A cold observable sequence of projected results.</returns>
+    /// <remarks>
+    /// <b>REFLECTION: YES.</b> All property paths are evaluated by the reflection-based single-property
+    /// <see cref="WhenAnyValue{TSource,TValue}(TSource, Expression{Func{TSource,TValue}})"/> implementation.
+    /// </remarks>
     public static IObservable<TResult> WhenAnyValue<TSource, T1, T2, T3, TResult>(
         this TSource source,
         Expression<Func<TSource, T1>> property1,
@@ -51,6 +98,26 @@ public static class WhenAnyExtensions
             ],
             values => selector((T1)values[0]!, (T2)values[1]!, (T3)values[2]!));
 
+    /// <summary>
+    /// Observes four properties and projects their latest values whenever any final value changes.
+    /// </summary>
+    /// <typeparam name="TSource">The notifying source type.</typeparam>
+    /// <typeparam name="T1">The first property value type.</typeparam>
+    /// <typeparam name="T2">The second property value type.</typeparam>
+    /// <typeparam name="T3">The third property value type.</typeparam>
+    /// <typeparam name="T4">The fourth property value type.</typeparam>
+    /// <typeparam name="TResult">The projected result type.</typeparam>
+    /// <param name="source">The source object whose properties are observed.</param>
+    /// <param name="property1">The first property path.</param>
+    /// <param name="property2">The second property path.</param>
+    /// <param name="property3">The third property path.</param>
+    /// <param name="property4">The fourth property path.</param>
+    /// <param name="selector">The function that combines the latest property values.</param>
+    /// <returns>A cold observable sequence of projected results.</returns>
+    /// <remarks>
+    /// <b>REFLECTION: YES.</b> All property paths are evaluated by the reflection-based single-property
+    /// <see cref="WhenAnyValue{TSource,TValue}(TSource, Expression{Func{TSource,TValue}})"/> implementation.
+    /// </remarks>
     public static IObservable<TResult> WhenAnyValue<TSource, T1, T2, T3, T4, TResult>(
         this TSource source,
         Expression<Func<TSource, T1>> property1,
@@ -68,6 +135,20 @@ public static class WhenAnyExtensions
             ],
             values => selector((T1)values[0]!, (T2)values[1]!, (T3)values[2]!, (T4)values[3]!));
 
+    /// <summary>
+    /// Observes a property path and projects an observation containing the sender, final property name, and value.
+    /// </summary>
+    /// <typeparam name="TSource">The notifying source type.</typeparam>
+    /// <typeparam name="TValue">The final property value type.</typeparam>
+    /// <typeparam name="TResult">The projected result type.</typeparam>
+    /// <param name="source">The source object whose property is observed.</param>
+    /// <param name="property">The property path to observe.</param>
+    /// <param name="selector">The function that projects each property observation.</param>
+    /// <returns>A cold observable sequence of projected observations.</returns>
+    /// <remarks>
+    /// <b>REFLECTION: YES.</b> This method parses property metadata and delegates value observation to the
+    /// reflection-based <see cref="WhenAnyValue{TSource,TValue}(TSource, Expression{Func{TSource,TValue}})"/> method.
+    /// </remarks>
     public static IObservable<TResult> WhenAny<TSource, TValue, TResult>(
         this TSource source,
         Expression<Func<TSource, TValue>> property,

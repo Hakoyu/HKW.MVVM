@@ -5,6 +5,13 @@ namespace HKW.MVVM;
 /// </summary>
 public static class ObservableExtensions
 {
+    /// <summary>Projects each source value into a new form.</summary>
+    /// <typeparam name="TSource">The source value type.</typeparam>
+    /// <typeparam name="TResult">The projected value type.</typeparam>
+    /// <param name="source">The observable sequence to transform.</param>
+    /// <param name="selector">The projection applied to each value.</param>
+    /// <returns>An observable sequence containing projected values.</returns>
+    /// <remarks><b>REFLECTION: NO.</b> Values are transformed by invoking the supplied delegate directly.</remarks>
     public static IObservable<TResult> Select<TSource, TResult>(
         this IObservable<TSource> source,
         Func<TSource, TResult> selector)
@@ -45,6 +52,12 @@ public static class ObservableExtensions
         });
     }
 
+    /// <summary>Filters an observable sequence using a predicate.</summary>
+    /// <typeparam name="TSource">The source value type.</typeparam>
+    /// <param name="source">The observable sequence to filter.</param>
+    /// <param name="predicate">A function that determines whether a value is emitted.</param>
+    /// <returns>An observable sequence containing only values accepted by the predicate.</returns>
+    /// <remarks><b>REFLECTION: NO.</b> The predicate is invoked directly for each value.</remarks>
     public static IObservable<TSource> Where<TSource>(
         this IObservable<TSource> source,
         Func<TSource, bool> predicate)
@@ -88,9 +101,20 @@ public static class ObservableExtensions
         });
     }
 
+    /// <summary>Suppresses consecutive duplicate values using the default equality comparer.</summary>
+    /// <typeparam name="TSource">The source value type.</typeparam>
+    /// <param name="source">The observable sequence whose consecutive values are compared.</param>
+    /// <returns>An observable sequence without consecutive duplicates.</returns>
+    /// <remarks><b>REFLECTION: NO.</b> Equality is evaluated by <see cref="EqualityComparer{T}.Default"/>.</remarks>
     public static IObservable<TSource> DistinctUntilChanged<TSource>(this IObservable<TSource> source) =>
         DistinctUntilChanged(source, EqualityComparer<TSource>.Default);
 
+    /// <summary>Suppresses consecutive duplicate values using a specified equality comparer.</summary>
+    /// <typeparam name="TSource">The source value type.</typeparam>
+    /// <param name="source">The observable sequence whose consecutive values are compared.</param>
+    /// <param name="comparer">The comparer used to determine whether adjacent values are equal.</param>
+    /// <returns>An observable sequence without consecutive duplicates.</returns>
+    /// <remarks><b>REFLECTION: NO.</b> Equality is evaluated by calling the supplied comparer directly.</remarks>
     public static IObservable<TSource> DistinctUntilChanged<TSource>(
         this IObservable<TSource> source,
         IEqualityComparer<TSource> comparer)
@@ -130,6 +154,12 @@ public static class ObservableExtensions
         });
     }
 
+    /// <summary>Prepends one value to an observable sequence.</summary>
+    /// <typeparam name="TSource">The source value type.</typeparam>
+    /// <param name="source">The observable sequence to precede.</param>
+    /// <param name="value">The value emitted before subscribing to the source.</param>
+    /// <returns>An observable sequence beginning with <paramref name="value"/>.</returns>
+    /// <remarks><b>REFLECTION: NO.</b> The initial value is sent directly to the observer.</remarks>
     public static IObservable<TSource> StartWith<TSource>(
         this IObservable<TSource> source,
         TSource value)
@@ -142,6 +172,12 @@ public static class ObservableExtensions
         });
     }
 
+    /// <summary>Skips a specified number of source values and then emits the remainder.</summary>
+    /// <typeparam name="TSource">The source value type.</typeparam>
+    /// <param name="source">The observable sequence to skip values from.</param>
+    /// <param name="count">The number of initial values to skip.</param>
+    /// <returns>An observable sequence containing values after the skipped prefix.</returns>
+    /// <remarks><b>REFLECTION: NO.</b> Values are counted directly.</remarks>
     public static IObservable<TSource> Skip<TSource>(this IObservable<TSource> source, int count)
     {
         ArgumentNullException.ThrowIfNull(source);
@@ -166,6 +202,12 @@ public static class ObservableExtensions
         });
     }
 
+    /// <summary>Emits at most a specified number of source values and then completes.</summary>
+    /// <typeparam name="TSource">The source value type.</typeparam>
+    /// <param name="source">The observable sequence to take values from.</param>
+    /// <param name="count">The maximum number of values to emit.</param>
+    /// <returns>An observable sequence containing no more than <paramref name="count"/> values.</returns>
+    /// <remarks><b>REFLECTION: NO.</b> Values are counted directly and the upstream subscription is disposed when the limit is reached.</remarks>
     public static IObservable<TSource> Take<TSource>(this IObservable<TSource> source, int count)
     {
         ArgumentNullException.ThrowIfNull(source);
@@ -207,6 +249,12 @@ public static class ObservableExtensions
         });
     }
 
+    /// <summary>Invokes an action for each value before forwarding that value unchanged.</summary>
+    /// <typeparam name="TSource">The source value type.</typeparam>
+    /// <param name="source">The observable sequence to inspect.</param>
+    /// <param name="onNext">The side-effect action invoked for each value.</param>
+    /// <returns>An observable sequence that mirrors the source.</returns>
+    /// <remarks><b>REFLECTION: NO.</b> The side-effect delegate is invoked directly.</remarks>
     public static IObservable<TSource> Do<TSource>(
         this IObservable<TSource> source,
         Action<TSource> onNext)
@@ -232,6 +280,12 @@ public static class ObservableExtensions
             observer.OnCompleted));
     }
 
+    /// <summary>Dispatches source values, errors, and completion through a synchronization context.</summary>
+    /// <typeparam name="TSource">The source value type.</typeparam>
+    /// <param name="source">The observable sequence whose notifications are dispatched.</param>
+    /// <param name="synchronizationContext">The synchronization context that receives notifications.</param>
+    /// <returns>An observable sequence whose notifications are posted to the context.</returns>
+    /// <remarks><b>REFLECTION: NO.</b> Notifications are scheduled with <see cref="SynchronizationContext.Post"/>.</remarks>
     public static IObservable<TSource> ObserveOn<TSource>(
         this IObservable<TSource> source,
         SynchronizationContext synchronizationContext)
@@ -244,10 +298,28 @@ public static class ObservableExtensions
             () => Post(synchronizationContext, observer.OnCompleted)));
     }
 
+    /// <summary>
+    /// Emits only the most recent value after the source remains quiet for the specified duration.
+    /// </summary>
+    /// <typeparam name="TSource">The source value type.</typeparam>
+    /// <param name="source">The observable sequence to throttle.</param>
+    /// <param name="dueTime">The required quiet period.</param>
+    /// <returns>A throttled observable sequence using <see cref="TimeProvider.System"/>.</returns>
+    /// <remarks><b>REFLECTION: NO.</b> Delayed emissions use <see cref="TimeProvider"/> timers.</remarks>
     public static IObservable<TSource> Throttle<TSource>(
         this IObservable<TSource> source,
         TimeSpan dueTime) => Throttle(source, dueTime, TimeProvider.System);
 
+    /// <summary>
+    /// Emits only the most recent value after the source remains quiet for the specified duration,
+    /// using a supplied time provider.
+    /// </summary>
+    /// <typeparam name="TSource">The source value type.</typeparam>
+    /// <param name="source">The observable sequence to throttle.</param>
+    /// <param name="dueTime">The required quiet period.</param>
+    /// <param name="timeProvider">The provider used to create timers.</param>
+    /// <returns>A throttled observable sequence.</returns>
+    /// <remarks><b>REFLECTION: NO.</b> Delayed emissions use <see cref="TimeProvider.CreateTimer"/> directly.</remarks>
     public static IObservable<TSource> Throttle<TSource>(
         this IObservable<TSource> source,
         TimeSpan dueTime,
@@ -362,6 +434,12 @@ public static class ObservableExtensions
         });
     }
 
+    /// <summary>Continues with a replacement observable when the source terminates with an error.</summary>
+    /// <typeparam name="TSource">The source value type.</typeparam>
+    /// <param name="source">The observable sequence to monitor for errors.</param>
+    /// <param name="handler">A function that maps the source error to a replacement sequence.</param>
+    /// <returns>An observable sequence that mirrors the source or its replacement after an error.</returns>
+    /// <remarks><b>REFLECTION: NO.</b> The error handler is invoked directly.</remarks>
     public static IObservable<TSource> Catch<TSource>(
         this IObservable<TSource> source,
         Func<Exception, IObservable<TSource>> handler)
@@ -393,6 +471,11 @@ public static class ObservableExtensions
         });
     }
 
+    /// <summary>Creates an observable sequence that emits one value and then completes.</summary>
+    /// <typeparam name="TSource">The emitted value type.</typeparam>
+    /// <param name="value">The single value to emit.</param>
+    /// <returns>An observable sequence containing exactly one value.</returns>
+    /// <remarks><b>REFLECTION: NO.</b> The value and completion notification are sent directly.</remarks>
     public static IObservable<TSource> Return<TSource>(TSource value) =>
         Create<TSource>(observer =>
         {
@@ -401,6 +484,10 @@ public static class ObservableExtensions
             return new ActionDisposable(() => { });
         });
 
+    /// <summary>Creates an observable sequence that completes without emitting any values.</summary>
+    /// <typeparam name="TSource">The sequence value type.</typeparam>
+    /// <returns>An empty, immediately completing observable sequence.</returns>
+    /// <remarks><b>REFLECTION: NO.</b> Completion is sent directly to the observer.</remarks>
     public static IObservable<TSource> Empty<TSource>() =>
         Create<TSource>(observer =>
         {

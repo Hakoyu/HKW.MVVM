@@ -184,9 +184,27 @@ internal sealed class ExceptionSubject : IObservable<Exception>, IDisposable
 /// </summary>
 public static class NativeObservableSubscriptionExtensions
 {
+    /// <summary>
+    /// Subscribes to an observable sequence and invokes an action for every value.
+    /// </summary>
+    /// <typeparam name="T">The type of value produced by the sequence.</typeparam>
+    /// <param name="source">The observable sequence to subscribe to.</param>
+    /// <param name="onNext">The action invoked for each value.</param>
+    /// <returns>A disposable object that cancels the subscription.</returns>
+    /// <remarks><b>REFLECTION: NO.</b> The method creates an <see cref="IObserver{T}"/> wrapper directly.</remarks>
     public static IDisposable Subscribe<T>(this IObservable<T> source, Action<T> onNext) =>
         Subscribe(source, onNext, error => throw new InvalidOperationException("Observable terminated with an error.", error));
 
+    /// <summary>
+    /// Subscribes to an observable sequence with callbacks for values, errors, and completion.
+    /// </summary>
+    /// <typeparam name="T">The type of value produced by the sequence.</typeparam>
+    /// <param name="source">The observable sequence to subscribe to.</param>
+    /// <param name="onNext">The action invoked for each value.</param>
+    /// <param name="onError">The action invoked when the sequence terminates with an error.</param>
+    /// <param name="onCompleted">The optional action invoked when the sequence completes successfully.</param>
+    /// <returns>A disposable object that cancels the subscription.</returns>
+    /// <remarks><b>REFLECTION: NO.</b> The method creates an <see cref="IObserver{T}"/> wrapper directly.</remarks>
     public static IDisposable Subscribe<T>(
         this IObservable<T> source,
         Action<T> onNext,

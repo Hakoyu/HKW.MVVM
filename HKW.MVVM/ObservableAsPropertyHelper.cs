@@ -129,6 +129,22 @@ public sealed class ObservableAsPropertyHelper<T> : IDisposable, INotifyProperty
 
 public static class ObservableAsPropertyHelperExtensions
 {
+    /// <summary>
+    /// Converts an observable sequence into a helper for a read-only owner property selected by an expression.
+    /// </summary>
+    /// <typeparam name="TOwner">The CommunityToolkit observable owner type.</typeparam>
+    /// <typeparam name="TValue">The property value type.</typeparam>
+    /// <param name="source">The sequence that supplies property values.</param>
+    /// <param name="owner">The object that owns the read-only property.</param>
+    /// <param name="property">An expression selecting a direct property on <paramref name="owner"/>.</param>
+    /// <param name="initialValue">The value exposed before the source produces its first distinct value.</param>
+    /// <param name="deferSubscription">Whether source subscription should be delayed until the helper value is first read.</param>
+    /// <param name="synchronizationContext">An optional context used to dispatch value changes and notifications.</param>
+    /// <returns>An observable property helper that stores the latest value and notifies the owner.</returns>
+    /// <remarks>
+    /// <b>REFLECTION: YES.</b> The expression is inspected for its property metadata, and updates invoke
+    /// CommunityToolkit's protected notification methods through cached <see cref="MethodInfo"/> instances.
+    /// </remarks>
     public static ObservableAsPropertyHelper<TValue> ToProperty<TOwner, TValue>(
         this IObservable<TValue> source,
         TOwner owner,
@@ -143,6 +159,22 @@ public static class ObservableAsPropertyHelperExtensions
         return ToProperty(source, owner, propertyName, initialValue, deferSubscription, synchronizationContext);
     }
 
+    /// <summary>
+    /// Converts an observable sequence into a helper for a read-only owner property identified by name.
+    /// </summary>
+    /// <typeparam name="TOwner">The CommunityToolkit observable owner type.</typeparam>
+    /// <typeparam name="TValue">The property value type.</typeparam>
+    /// <param name="source">The sequence that supplies property values.</param>
+    /// <param name="owner">The object that owns the read-only property.</param>
+    /// <param name="propertyName">The owner property name used in change notifications.</param>
+    /// <param name="initialValue">The value exposed before the source produces its first distinct value.</param>
+    /// <param name="deferSubscription">Whether source subscription should be delayed until the helper value is first read.</param>
+    /// <param name="synchronizationContext">An optional context used to dispatch value changes and notifications.</param>
+    /// <returns>An observable property helper that stores the latest value and notifies the owner.</returns>
+    /// <remarks>
+    /// <b>REFLECTION: YES.</b> Although the property name is supplied directly, updates invoke
+    /// CommunityToolkit's protected notification methods through cached <see cref="MethodInfo"/> instances.
+    /// </remarks>
     public static ObservableAsPropertyHelper<TValue> ToProperty<TOwner, TValue>(
         this IObservable<TValue> source,
         TOwner owner,

@@ -44,6 +44,9 @@ public static class LoggerMixins
     /// </summary>
     /// <param name="instance">The logger-enabled instance.</param>
     /// <returns>A logger created by <see cref="LogHost.LoggerFactory"/>.</returns>
+    /// <remarks>
+    /// logger category and does not inspect or invoke members through reflection.
+    /// </remarks>
     public static ILogger Log(this IEnableLogger instance)
     {
         ArgumentNullException.ThrowIfNull(instance);
