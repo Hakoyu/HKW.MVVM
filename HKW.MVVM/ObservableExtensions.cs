@@ -2,6 +2,16 @@ using Microsoft.Extensions.Logging;
 
 namespace HKW.MVVM;
 
+/// <summary>Specifies where an observable operation should be scheduled.</summary>
+public enum ObservableSchedulers
+{
+    /// <summary>Uses the <see cref="SynchronizationContext.Current"/> captured by the operator.</summary>
+    Current,
+
+    /// <summary>Uses the .NET thread pool.</summary>
+    ThreadPool
+}
+
 /// <summary>
 /// Common observable operators implemented without taking a dependency on System.Reactive.
 /// </summary>
@@ -363,6 +373,67 @@ public static class ObservableExtensions
             () => Post(synchronizationContext, observer.OnCompleted)));
     }
 
+    /// <summary>Dispatches source notifications through the selected scheduler.</summary>
+    /// <typeparam name="TSource">The source value type.</typeparam>
+    /// <param name="source">The observable sequence whose notifications are dispatched.</param>
+    /// <param name="scheduler">The scheduler used for observer notifications.</param>
+    /// <returns>An observable sequence whose notifications are scheduled on the selected scheduler.</returns>
+    /// <remarks>
+    /// <see cref="ObservableSchedulers.Current"/> captures
+    /// <see cref="SynchronizationContext.Current"/> when this operator is created. If no context is available,
+    /// it falls back to the thread pool. Notifications are queued in order.
+    /// </remarks>
+    public static IObservable<TSource> ObserveOn<TSource>(
+        this IObservable<TSource> source,
+        ObservableSchedulers scheduler)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        var synchronizationContext = GetSynchronizationContext(scheduler);
+
+        return Create<TSource>(observer =>
+        {
+            var dispatcher = new NotificationDispatcher<TSource>(observer, synchronizationContext);
+            var subscription = source.Subscribe(dispatcher.OnNext, dispatcher.OnError, dispatcher.OnCompleted);
+            dispatcher.SetSubscription(subscription);
+            return dispatcher;
+        });
+    }
+
+    /// <summary>Schedules subscription to the source on the selected scheduler.</summary>
+    /// <typeparam name="TSource">The source value type.</typeparam>
+    /// <param name="source">The observable sequence to subscribe to.</param>
+    /// <param name="scheduler">The scheduler used for the subscription action.</param>
+    /// <returns>An observable sequence whose source subscription is scheduled.</returns>
+    /// <remarks>
+    /// <see cref="ObservableSchedulers.Current"/> captures
+    /// <see cref="SynchronizationContext.Current"/> when this operator is created. If no context is available,
+    /// it falls back to the thread pool. Disposing before the scheduled action runs prevents the source from being
+    /// subscribed.
+    /// </remarks>
+    public static IObservable<TSource> SubscribeOn<TSource>(
+        this IObservable<TSource> source,
+        ObservableSchedulers scheduler)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        var synchronizationContext = GetSynchronizationContext(scheduler);
+
+        return Create<TSource>(observer =>
+        {
+            var scheduledSubscription = new ScheduledSubscription();
+            Schedule(synchronizationContext, () =>
+            {
+                if (scheduledSubscription.IsDisposed)
+                {
+                    return;
+                }
+
+                var subscription = source.Subscribe(observer);
+                scheduledSubscription.SetSubscription(subscription);
+            });
+            return scheduledSubscription;
+        });
+    }
+
     /// <summary>
     /// Emits only the most recent value after the source remains quiet for the specified duration.
     /// </summary>
@@ -374,6 +445,21 @@ public static class ObservableExtensions
     public static IObservable<TSource> Throttle<TSource>(
         this IObservable<TSource> source,
         TimeSpan dueTime) => Throttle(source, dueTime, TimeProvider.System);
+
+    /// <summary>
+    /// Emits only the most recent value after the source remains quiet for the specified duration,
+    /// and dispatches notifications through the selected scheduler.
+    /// </summary>
+    /// <typeparam name="TSource">The source value type.</typeparam>
+    /// <param name="source">The observable sequence to throttle.</param>
+    /// <param name="dueTime">The required quiet period.</param>
+    /// <param name="scheduler">The scheduler used for throttled notifications.</param>
+    /// <returns>A throttled observable sequence whose notifications use the selected scheduler.</returns>
+    public static IObservable<TSource> Throttle<TSource>(
+        this IObservable<TSource> source,
+        TimeSpan dueTime,
+        ObservableSchedulers scheduler) =>
+        Throttle(source, dueTime, TimeProvider.System).ObserveOn(scheduler);
 
     /// <summary>
     /// Emits only the most recent value after the source remains quiet for the specified duration,
@@ -565,6 +651,170 @@ public static class ObservableExtensions
 
     private static void Post(SynchronizationContext context, Action action) =>
         context.Post(static state => ((Action)state!).Invoke(), action);
+
+    private static SynchronizationContext? GetSynchronizationContext(ObservableSchedulers scheduler) =>
+        scheduler switch
+        {
+            ObservableSchedulers.Current => SynchronizationContext.Current,
+            ObservableSchedulers.ThreadPool => null,
+            _ => throw new ArgumentOutOfRangeException(nameof(scheduler), scheduler, "Unknown observable scheduler.")
+        };
+
+    private static void Schedule(SynchronizationContext? synchronizationContext, Action action)
+    {
+        if (synchronizationContext is not null)
+        {
+            Post(synchronizationContext, action);
+            return;
+        }
+
+        ThreadPool.QueueUserWorkItem(static state => ((Action)state!).Invoke(), action);
+    }
+
+    private sealed class NotificationDispatcher<T>(IObserver<T> observer, SynchronizationContext? context) : IDisposable
+    {
+        private readonly object _gate = new();
+        private IDisposable? _subscription;
+        private bool _stopped;
+        private bool _disposed;
+
+        public void SetSubscription(IDisposable subscription)
+        {
+            lock (_gate)
+            {
+                if (_disposed)
+                {
+                    subscription.Dispose();
+                    return;
+                }
+
+                _subscription = subscription;
+            }
+        }
+
+        public void OnNext(T value)
+        {
+            lock (_gate)
+            {
+                if (_stopped || _disposed)
+                {
+                    return;
+                }
+            }
+
+            Schedule(context, () =>
+            {
+                lock (_gate)
+                {
+                    if (_disposed)
+                    {
+                        return;
+                    }
+                }
+
+                observer.OnNext(value);
+            });
+        }
+
+        public void OnError(Exception error) => ScheduleTerminal(() => observer.OnError(error));
+
+        public void OnCompleted() => ScheduleTerminal(observer.OnCompleted);
+
+        public void Dispose()
+        {
+            IDisposable? subscription;
+            lock (_gate)
+            {
+                if (_disposed)
+                {
+                    return;
+                }
+
+                _disposed = true;
+                subscription = _subscription;
+                _subscription = null;
+            }
+
+            subscription?.Dispose();
+        }
+
+        private void ScheduleTerminal(Action terminal)
+        {
+            lock (_gate)
+            {
+                if (_stopped || _disposed)
+                {
+                    return;
+                }
+
+                _stopped = true;
+            }
+
+            Schedule(context, () =>
+            {
+                lock (_gate)
+                {
+                    if (_disposed)
+                    {
+                        return;
+                    }
+                }
+
+                terminal();
+                Dispose();
+            });
+        }
+    }
+
+    private sealed class ScheduledSubscription : IDisposable
+    {
+        private readonly object _gate = new();
+        private IDisposable? _subscription;
+        private bool _disposed;
+
+        public bool IsDisposed
+        {
+            get
+            {
+                lock (_gate)
+                {
+                    return _disposed;
+                }
+            }
+        }
+
+        public void SetSubscription(IDisposable subscription)
+        {
+            lock (_gate)
+            {
+                if (_disposed)
+                {
+                    subscription.Dispose();
+                    return;
+                }
+
+                _subscription = subscription;
+            }
+        }
+
+        public void Dispose()
+        {
+            IDisposable? subscription;
+            lock (_gate)
+            {
+                if (_disposed)
+                {
+                    return;
+                }
+
+                _disposed = true;
+                subscription = _subscription;
+                _subscription = null;
+            }
+
+            subscription?.Dispose();
+        }
+    }
 
     private static void ForwardError<T>(
         IObserver<T> observer,

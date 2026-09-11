@@ -164,6 +164,71 @@ public sealed class ObservableExtensionsTests
     }
 
     [TestMethod]
+    public void ObserveOn_CurrentSynchronizationContextUsesCapturedContext()
+    {
+        var source = new ManualObservable<int>();
+        var context = new QueuedSynchronizationContext();
+        var previousContext = SynchronizationContext.Current;
+        SynchronizationContext.SetSynchronizationContext(context);
+        try
+        {
+            var values = new List<int>();
+            using var subscription = source
+                .ObserveOn(ObservableSchedulers.Current)
+                .Subscribe(values.Add);
+
+            source.Emit(1);
+
+            Assert.IsEmpty(values);
+            Assert.AreEqual(1, context.PendingCount);
+            context.RunAll();
+            CollectionAssert.AreEqual(new[] { 1 }, values);
+        }
+        finally
+        {
+            SynchronizationContext.SetSynchronizationContext(previousContext);
+        }
+    }
+
+    [TestMethod]
+    public async Task ObserveOn_ThreadPoolForwardsNotificationOffCallerThread()
+    {
+        var source = new ManualObservable<int>();
+        var notification = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var subscription = source
+            .ObserveOn(ObservableSchedulers.ThreadPool)
+            .Subscribe(value => notification.TrySetResult(value));
+
+        source.Emit(1);
+
+        Assert.AreEqual(1, await notification.Task.WaitAsync(TimeSpan.FromSeconds(5)));
+    }
+
+    [TestMethod]
+    public void SubscribeOn_CurrentSynchronizationContextDelaysSubscription()
+    {
+        var source = new ManualObservable<int>();
+        var context = new QueuedSynchronizationContext();
+        var previousContext = SynchronizationContext.Current;
+        SynchronizationContext.SetSynchronizationContext(context);
+        try
+        {
+            using var subscription = source
+                .SubscribeOn(ObservableSchedulers.Current)
+                .Subscribe(_ => Assert.Fail());
+
+            Assert.AreEqual(0, source.SubscriptionCount);
+            Assert.AreEqual(1, context.PendingCount);
+            context.RunAll();
+            Assert.AreEqual(1, source.SubscriptionCount);
+        }
+        finally
+        {
+            SynchronizationContext.SetSynchronizationContext(previousContext);
+        }
+    }
+
+    [TestMethod]
     public async Task Throttle_EmitsOnlyLatestValueAfterQuietPeriod()
     {
         var source = new ManualObservable<int>();
@@ -192,6 +257,51 @@ public sealed class ObservableExtensionsTests
         source.Complete();
 
         CollectionAssert.AreEqual(new[] { "Next:1", "Completed" }, events);
+    }
+
+    [TestMethod]
+    public void Throttle_CurrentSynchronizationContextSchedulesValueAndCompletion()
+    {
+        var source = new ManualObservable<int>();
+        var context = new QueuedSynchronizationContext();
+        var previousContext = SynchronizationContext.Current;
+        SynchronizationContext.SetSynchronizationContext(context);
+        try
+        {
+            var events = new List<string>();
+            using var subscription = source
+                .Throttle(TimeSpan.FromMinutes(1), ObservableSchedulers.Current)
+                .Subscribe(
+                    value => events.Add($"Next:{value}"),
+                    _ => Assert.Fail(),
+                    () => events.Add("Completed"));
+
+            source.Emit(1);
+            source.Complete();
+
+            Assert.IsEmpty(events);
+            Assert.AreEqual(2, context.PendingCount);
+            context.RunAll();
+            CollectionAssert.AreEqual(new[] { "Next:1", "Completed" }, events);
+        }
+        finally
+        {
+            SynchronizationContext.SetSynchronizationContext(previousContext);
+        }
+    }
+
+    [TestMethod]
+    public async Task Throttle_ThreadPoolSchedulesNotification()
+    {
+        var source = new ManualObservable<int>();
+        var notification = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var subscription = source
+            .Throttle(TimeSpan.Zero, ObservableSchedulers.ThreadPool)
+            .Subscribe(value => notification.TrySetResult(value));
+
+        source.Emit(1);
+
+        Assert.AreEqual(1, await notification.Task.WaitAsync(TimeSpan.FromSeconds(5)));
     }
 
     [TestMethod]
@@ -260,10 +370,13 @@ public sealed class ObservableExtensionsTests
         Assert.ThrowsExactly<ArgumentNullException>(() => source.Select((Func<int, int>)null!));
         Assert.ThrowsExactly<ArgumentNullException>(() => source.Where(null!));
         Assert.ThrowsExactly<ArgumentNullException>(() => source.DistinctUntilChanged(null!));
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => source.Throttle(TimeSpan.Zero, (ObservableSchedulers)999));
         Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => source.Skip(-1));
         Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => source.Take(-1));
         Assert.ThrowsExactly<ArgumentNullException>(() => source.Do(null!));
         Assert.ThrowsExactly<ArgumentNullException>(() => source.ObserveOn(null!));
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => source.ObserveOn((ObservableSchedulers)999));
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => source.SubscribeOn((ObservableSchedulers)999));
         Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => source.Throttle(TimeSpan.FromMilliseconds(-1)));
         Assert.ThrowsExactly<ArgumentNullException>(() => source.Catch(null!));
     }
