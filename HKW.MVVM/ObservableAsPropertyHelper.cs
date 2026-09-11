@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.ComponentModel;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -152,7 +151,7 @@ public static class ObservableAsPropertyHelperExtensions
     /// <remarks>
     /// <b>REFLECTION: CONDITIONAL.</b> The property name is extracted from the expression. Owner notification
     /// prefers <see cref="IPropertyNotifier"/> and otherwise invokes CommunityToolkit's protected methods
-    /// through cached <see cref="MethodInfo"/> instances.
+    /// through cached delegates created from <see cref="MethodInfo"/> instances.
     /// </remarks>
     public static ObservableAsPropertyHelper<TValue> ToProperty<TOwner, TValue>(
         this IObservable<TValue> source,
@@ -190,7 +189,7 @@ public static class ObservableAsPropertyHelperExtensions
     /// <returns>An observable property helper that stores the latest value and notifies the owner.</returns>
     /// <remarks>
     /// <b>REFLECTION: CONDITIONAL.</b> Owner notification prefers <see cref="IPropertyNotifier"/> and otherwise
-    /// invokes CommunityToolkit's protected methods through cached <see cref="MethodInfo"/> instances.
+    /// invokes CommunityToolkit's protected methods through cached delegates created once with reflection.
     /// </remarks>
     public static ObservableAsPropertyHelper<TValue> ToProperty<TOwner, TValue>(
         this IObservable<TValue> source,
@@ -218,7 +217,11 @@ public static class ObservableAsPropertyHelperExtensions
 
 internal static class PropertyNotificationDispatcher
 {
-    private static readonly ConcurrentDictionary<Type, NotificationMethods> Cache = new();
+    private static readonly Action<ObservableObject, PropertyChangingEventArgs> PropertyChangingDelegate =
+        CreateDelegate<PropertyChangingEventArgs>("OnPropertyChanging");
+
+    private static readonly Action<ObservableObject, PropertyChangedEventArgs> PropertyChangedDelegate =
+        CreateDelegate<PropertyChangedEventArgs>("OnPropertyChanged");
 
     public static void NotifyPropertyChanging(ObservableObject owner, string propertyName)
     {
@@ -228,7 +231,7 @@ internal static class PropertyNotificationDispatcher
             return;
         }
 
-        GetMethods(owner).Changing.Invoke(owner, [new PropertyChangingEventArgs(propertyName)]);
+        PropertyChangingDelegate(owner, new PropertyChangingEventArgs(propertyName));
     }
 
     public static void NotifyPropertyChanged(ObservableObject owner, string propertyName)
@@ -239,29 +242,21 @@ internal static class PropertyNotificationDispatcher
             return;
         }
 
-        GetMethods(owner).Changed.Invoke(owner, [new PropertyChangedEventArgs(propertyName)]);
+        PropertyChangedDelegate(owner, new PropertyChangedEventArgs(propertyName));
     }
 
-    private static NotificationMethods GetMethods(ObservableObject owner) =>
-        Cache.GetOrAdd(
-            owner.GetType(),
-            static type => new NotificationMethods(
-                FindMethod(type, "OnPropertyChanging", typeof(PropertyChangingEventArgs)),
-                FindMethod(type, "OnPropertyChanged", typeof(PropertyChangedEventArgs))
+    private static Action<ObservableObject, TEventArgs> CreateDelegate<TEventArgs>(string methodName)
+        where TEventArgs : EventArgs =>
+        typeof(ObservableObject)
+            .GetMethod(
+                methodName,
+                BindingFlags.Instance | BindingFlags.NonPublic,
+                binder: null,
+                types: [typeof(TEventArgs)],
+                modifiers: null
             )
-        );
-
-    private static MethodInfo FindMethod(Type type, string name, Type argumentType) =>
-        type.GetMethod(
-            name,
-            BindingFlags.Instance | BindingFlags.NonPublic,
-            binder: null,
-            types: [argumentType],
-            modifiers: null
-        )
+            ?.CreateDelegate<Action<ObservableObject, TEventArgs>>()
         ?? throw new InvalidOperationException(
-            $"{type.FullName} does not expose {name}({argumentType.Name})."
+            $"{typeof(ObservableObject).FullName} does not expose {methodName}({typeof(TEventArgs).Name})."
         );
-
-    private sealed record NotificationMethods(MethodInfo Changing, MethodInfo Changed);
 }

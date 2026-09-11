@@ -200,6 +200,21 @@ public sealed class ObservableAsPropertyHelperTests
     }
 
     [TestMethod]
+    public void PlainObservableObject_UsesCachedDelegatesForNotifications()
+    {
+        var source = new ManualObservable<string>();
+        var owner = new PlainPropertyOwner();
+        using var helper = source.ToProperty(owner, x => x.Result, initialValue: string.Empty);
+        var events = new List<string>();
+        owner.PropertyChanging += (_, args) => events.Add($"Changing:{args.PropertyName}");
+        owner.PropertyChanged += (_, args) => events.Add($"Changed:{args.PropertyName}");
+
+        source.Emit("Updated");
+
+        CollectionAssert.AreEqual(new[] { "Changing:Result", "Changed:Result" }, events);
+    }
+
+    [TestMethod]
     public void InvalidPropertyExpression_ThrowsArgumentException()
     {
         var source = new ManualObservable<string>();

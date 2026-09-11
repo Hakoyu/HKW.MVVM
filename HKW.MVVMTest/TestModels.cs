@@ -129,6 +129,11 @@ internal sealed class TrackingPropertyOwner : ObservableObject, IPropertyNotifie
     }
 }
 
+internal sealed class PlainPropertyOwner : ObservableObject
+{
+    public string Result { get; private set; } = string.Empty;
+}
+
 internal sealed class ManualObservable<T> : IObservable<T>
 {
     private readonly List<IObserver<T>> _observers = [];
