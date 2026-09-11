@@ -306,7 +306,7 @@ public static class WhenAnyExtensions
     private sealed class DirectPropertySubscription<TSource, TValue> : IDisposable
         where TSource : class, INotifyPropertyChanged
     {
-        private readonly System.Threading.Lock _gate = new();
+        private readonly Lock _gate = new();
         private readonly TSource _source;
         private readonly Func<TSource, TValue> _getter;
         private readonly string _propertyName;
@@ -415,7 +415,7 @@ public static class WhenAnyExtensions
     private sealed class PropertyPathSubscription<TSource, TValue> : IDisposable
         where TSource : class, INotifyPropertyChanged
     {
-        private readonly System.Threading.Lock _gate = new();
+        private readonly Lock _gate = new();
         private readonly TSource _source;
         private readonly PropertyInfo[] _path;
         private readonly IObserver<TValue> _observer;
@@ -551,11 +551,13 @@ public static class WhenAnyExtensions
                 body = unary.Operand;
             }
 
-            return body is MemberExpression
-            {
-                Member: PropertyInfo { GetMethod: not null },
-                Expression: ParameterExpression parameter,
-            } && parameter == expression.Parameters[0];
+            return body
+                    is MemberExpression
+                    {
+                        Member: PropertyInfo { GetMethod: not null },
+                        Expression: ParameterExpression parameter,
+                    }
+                && parameter == expression.Parameters[0];
         }
 
         public static PropertyInfo[] Parse<TSource, TValue>(

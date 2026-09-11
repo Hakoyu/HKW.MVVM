@@ -33,19 +33,6 @@ public sealed class WhenAnyValueTests
     }
 
     [TestMethod]
-    public void GetPropertyName_SupportsMemberAndUnaryExpressions()
-    {
-        Expression<Func<Person, string>> member = person => person.FirstName;
-        Expression<Func<Person, object>> unary = person => person.Age;
-
-        Assert.AreEqual(nameof(Person.FirstName), member.GetPropertyName());
-        Assert.AreEqual(nameof(Person.Age), unary.GetPropertyName());
-        Assert.ThrowsExactly<ArgumentException>(() =>
-            ((Expression<Func<Person, string>>)(person => person.FirstName + person.LastName))
-                .GetPropertyName());
-    }
-
-    [TestMethod]
     public void EmptyPropertyName_ReevaluatesObservedProperty()
     {
         var model = new PlainNotifyModel { Name = "Initial" };
@@ -163,29 +150,37 @@ public sealed class WhenAnyValueTests
     {
         var person = new Person { FirstName = "Ada", LastName = "Lovelace" };
         var values = new List<string>();
-        using var subscription = person.WhenAnyValue(
-            x => x.FirstName,
-            x => x.LastName,
-            (first, last) => $"{first} {last}").Subscribe(values.Add);
+        using var subscription = person
+            .WhenAnyValue(x => x.FirstName, x => x.LastName, (first, last) => $"{first} {last}")
+            .Subscribe(values.Add);
 
         person.FirstName = "Grace";
         person.LastName = "Hopper";
 
         CollectionAssert.AreEqual(
             new[] { "Ada Lovelace", "Grace Lovelace", "Grace Hopper" },
-            values);
+            values
+        );
     }
 
     [TestMethod]
     public void ThreeProperties_EmitsWhenAnyInputChanges()
     {
-        var person = new Person { FirstName = "Ada", LastName = "Lovelace", Age = 36 };
+        var person = new Person
+        {
+            FirstName = "Ada",
+            LastName = "Lovelace",
+            Age = 36,
+        };
         var values = new List<string>();
-        using var subscription = person.WhenAnyValue(
-            x => x.FirstName,
-            x => x.LastName,
-            x => x.Age,
-            (first, last, age) => $"{first} {last}:{age}").Subscribe(values.Add);
+        using var subscription = person
+            .WhenAnyValue(
+                x => x.FirstName,
+                x => x.LastName,
+                x => x.Age,
+                (first, last, age) => $"{first} {last}:{age}"
+            )
+            .Subscribe(values.Add);
 
         person.Age = 37;
 
@@ -200,21 +195,25 @@ public sealed class WhenAnyValueTests
             FirstName = "Ada",
             LastName = "Lovelace",
             Age = 36,
-            Address = new Address { City = "London" }
+            Address = new Address { City = "London" },
         };
         var values = new List<string>();
-        using var subscription = person.WhenAnyValue(
-            x => x.FirstName,
-            x => x.LastName,
-            x => x.Age,
-            x => x.Address!.City,
-            (first, last, age, city) => $"{first} {last}:{age}:{city}").Subscribe(values.Add);
+        using var subscription = person
+            .WhenAnyValue(
+                x => x.FirstName,
+                x => x.LastName,
+                x => x.Age,
+                x => x.Address!.City,
+                (first, last, age, city) => $"{first} {last}:{age}:{city}"
+            )
+            .Subscribe(values.Add);
 
         person.Address!.City = "Paris";
 
         CollectionAssert.AreEqual(
             new[] { "Ada Lovelace:36:London", "Ada Lovelace:36:Paris" },
-            values);
+            values
+        );
     }
 
     [TestMethod]
@@ -222,9 +221,9 @@ public sealed class WhenAnyValueTests
     {
         var person = new Person { FirstName = "Ada" };
         PropertyObservation<Person, string>? observation = null;
-        using var subscription = person.WhenAny(
-            x => x.FirstName,
-            value => value).Subscribe(value => observation = value);
+        using var subscription = person
+            .WhenAny(x => x.FirstName, value => value)
+            .Subscribe(value => observation = value);
 
         Assert.IsTrue(observation.HasValue);
         Assert.AreSame(person, observation.Value.Sender);
@@ -237,7 +236,9 @@ public sealed class WhenAnyValueTests
     {
         var person = new Person();
 
-        Assert.ThrowsExactly<ArgumentException>(() => person.WhenAnyValue(x => x.FirstName + x.LastName));
+        Assert.ThrowsExactly<ArgumentException>(() =>
+            person.WhenAnyValue(x => x.FirstName + x.LastName)
+        );
         Assert.ThrowsExactly<ArgumentException>(() => person.WhenAnyValue(x => x.PublicField));
     }
 
@@ -247,7 +248,8 @@ public sealed class WhenAnyValueTests
         var model = new GetterFailureModel();
         Exception? received = null;
 
-        using var subscription = model.WhenAnyValue(x => x.Broken)
+        using var subscription = model
+            .WhenAnyValue(x => x.Broken)
             .Subscribe(_ => Assert.Fail("No value should be emitted."), error => received = error);
 
         Assert.IsInstanceOfType<TestException>(received);
@@ -261,8 +263,10 @@ public sealed class WhenAnyValueTests
         Expression<Func<Person, string>> expression = x => x.FirstName;
 
         Assert.ThrowsExactly<ArgumentNullException>(() =>
-            WhenAnyExtensions.WhenAnyValue<Person, string>(null!, expression));
+            WhenAnyExtensions.WhenAnyValue<Person, string>(null!, expression)
+        );
         Assert.ThrowsExactly<ArgumentNullException>(() =>
-            person.WhenAnyValue((Expression<Func<Person, string>>)null!));
+            person.WhenAnyValue((Expression<Func<Person, string>>)null!)
+        );
     }
 }

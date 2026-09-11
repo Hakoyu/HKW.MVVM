@@ -1,4 +1,5 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace HKW.MVVM;
@@ -7,13 +8,16 @@ internal static class Program
 {
     private static void Main()
     {
-        LogHost.LoggerFactory = LoggerFactory.Create(logging =>
+        using var loggerFactory = LoggerFactory.Create(logging =>
         {
             logging.ClearProviders();
             logging.AddProvider(new SimpleConsoleLoggerProvider());
             logging.SetMinimumLevel(LogLevel.Information);
         });
+        Ioc.Default.ConfigureServices(new LoggerFactoryServiceProvider(loggerFactory));
+
         var m = new TestModel();
+        //m.WhenAnyValue(x => x.Name).ObserveOn()
     }
 }
 
@@ -29,6 +33,12 @@ internal class TestModel : ObservableObject, IEnableLogger
         get => field;
         set => SetProperty(ref field, value);
     } = string.Empty;
+}
+
+internal sealed class LoggerFactoryServiceProvider(ILoggerFactory loggerFactory) : IServiceProvider
+{
+    public object? GetService(Type serviceType) =>
+        serviceType == typeof(ILoggerFactory) ? loggerFactory : null;
 }
 
 internal sealed class SimpleConsoleLoggerProvider : ILoggerProvider

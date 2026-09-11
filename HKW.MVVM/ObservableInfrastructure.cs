@@ -32,7 +32,7 @@ internal sealed class ActionDisposable(Action dispose) : IDisposable
 
 internal sealed class SingleAssignmentDisposable : IDisposable
 {
-    private readonly System.Threading.Lock _gate = new();
+    private readonly Lock _gate = new();
     private IDisposable? _disposable;
     private bool _assigned;
     private bool _disposed;
@@ -84,7 +84,7 @@ internal sealed class SingleAssignmentDisposable : IDisposable
 
 internal sealed class CompositeDisposable : IDisposable
 {
-    private readonly System.Threading.Lock _gate = new();
+    private readonly Lock _gate = new();
     private List<IDisposable>? _items = [];
 
     public void Add(IDisposable item)
@@ -126,7 +126,7 @@ internal sealed class CompositeDisposable : IDisposable
 
 internal sealed class ExceptionSubject : IObservable<Exception>, IDisposable
 {
-    private readonly System.Threading.Lock _gate = new();
+    private readonly Lock _gate = new();
     private List<IObserver<Exception>>? _observers = [];
 
     public IDisposable Subscribe(IObserver<Exception> observer)

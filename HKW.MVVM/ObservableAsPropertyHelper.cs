@@ -13,7 +13,7 @@ public sealed class ObservableAsPropertyHelper<T>
         INotifyPropertyChanged,
         INotifyPropertyChanging
 {
-    private readonly System.Threading.Lock _gate = new();
+    private readonly Lock _gate = new();
     private readonly IObservable<T> _source;
     private readonly ObservableObject _owner;
     private readonly string _propertyName;

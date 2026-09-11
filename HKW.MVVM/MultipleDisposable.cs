@@ -11,7 +11,7 @@ namespace HKW.MVVM;
 /// </remarks>
 public sealed class MultipleDisposable : ICollection<IDisposable>, IDisposable
 {
-    private readonly System.Threading.Lock _gate = new();
+    private readonly Lock _gate = new();
     private List<IDisposable>? _items = [];
 
     /// <summary>Gets the number of resources currently held by this container.</summary>
