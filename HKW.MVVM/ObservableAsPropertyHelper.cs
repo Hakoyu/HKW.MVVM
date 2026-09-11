@@ -111,11 +111,11 @@ public sealed class ObservableAsPropertyHelper<T>
 
                 var changingArgs = new PropertyChangingEventArgs(nameof(Value));
                 PropertyChanging?.Invoke(this, changingArgs);
-                PropertyNotificationDispatcher.RaisePropertyChanging(_owner, _propertyName);
+                PropertyNotificationDispatcher.NotifyPropertyChanging(_owner, _propertyName);
                 _value = value;
                 var changedArgs = new PropertyChangedEventArgs(nameof(Value));
                 PropertyChanged?.Invoke(this, changedArgs);
-                PropertyNotificationDispatcher.RaisePropertyChanged(_owner, _propertyName);
+                PropertyNotificationDispatcher.NotifyPropertyChanged(_owner, _propertyName);
             }
         });
 
@@ -150,8 +150,9 @@ public static class ObservableAsPropertyHelperExtensions
     /// <param name="synchronizationContext">An optional context used to dispatch value changes and notifications.</param>
     /// <returns>An observable property helper that stores the latest value and notifies the owner.</returns>
     /// <remarks>
-    /// <b>REFLECTION: YES.</b> The expression is inspected for its property metadata, and updates invoke
-    /// CommunityToolkit's protected notification methods through cached <see cref="MethodInfo"/> instances.
+    /// <b>REFLECTION: CONDITIONAL.</b> The property name is extracted from the expression. Owner notification
+    /// prefers <see cref="IPropertyNotifier"/> and otherwise invokes CommunityToolkit's protected methods
+    /// through cached <see cref="MethodInfo"/> instances.
     /// </remarks>
     public static ObservableAsPropertyHelper<TValue> ToProperty<TOwner, TValue>(
         this IObservable<TValue> source,
@@ -164,7 +165,7 @@ public static class ObservableAsPropertyHelperExtensions
         where TOwner : ObservableObject
     {
         ArgumentNullException.ThrowIfNull(property);
-        var propertyName = GetPropertyName(property);
+        var propertyName = property.GetPropertyName();
         return ToProperty(
             source,
             owner,
@@ -188,8 +189,8 @@ public static class ObservableAsPropertyHelperExtensions
     /// <param name="synchronizationContext">An optional context used to dispatch value changes and notifications.</param>
     /// <returns>An observable property helper that stores the latest value and notifies the owner.</returns>
     /// <remarks>
-    /// <b>REFLECTION: YES.</b> Although the property name is supplied directly, updates invoke
-    /// CommunityToolkit's protected notification methods through cached <see cref="MethodInfo"/> instances.
+    /// <b>REFLECTION: CONDITIONAL.</b> Owner notification prefers <see cref="IPropertyNotifier"/> and otherwise
+    /// invokes CommunityToolkit's protected methods through cached <see cref="MethodInfo"/> instances.
     /// </remarks>
     public static ObservableAsPropertyHelper<TValue> ToProperty<TOwner, TValue>(
         this IObservable<TValue> source,
@@ -213,44 +214,33 @@ public static class ObservableAsPropertyHelperExtensions
             synchronizationContext
         );
     }
-
-    private static string GetPropertyName<TOwner, TValue>(Expression<Func<TOwner, TValue>> property)
-    {
-        Expression body = property.Body;
-        if (
-            body is UnaryExpression
-            {
-                NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked
-            } conversion
-        )
-        {
-            body = conversion.Operand;
-        }
-
-        if (
-            body is not MemberExpression { Member: System.Reflection.PropertyInfo info } member
-            || member.Expression != property.Parameters[0]
-        )
-        {
-            throw new ArgumentException(
-                "The expression must select a direct owner property, for example x => x.FullName.",
-                nameof(property)
-            );
-        }
-
-        return info.Name;
-    }
 }
 
 internal static class PropertyNotificationDispatcher
 {
     private static readonly ConcurrentDictionary<Type, NotificationMethods> Cache = new();
 
-    public static void RaisePropertyChanging(ObservableObject owner, string propertyName) =>
-        GetMethods(owner).Changing.Invoke(owner, [new PropertyChangingEventArgs(propertyName)]);
+    public static void NotifyPropertyChanging(ObservableObject owner, string propertyName)
+    {
+        if (owner is IPropertyNotifier notifier)
+        {
+            notifier.NotifyPropertyChanging(propertyName);
+            return;
+        }
 
-    public static void RaisePropertyChanged(ObservableObject owner, string propertyName) =>
+        GetMethods(owner).Changing.Invoke(owner, [new PropertyChangingEventArgs(propertyName)]);
+    }
+
+    public static void NotifyPropertyChanged(ObservableObject owner, string propertyName)
+    {
+        if (owner is IPropertyNotifier notifier)
+        {
+            notifier.NotifyPropertyChanged(propertyName);
+            return;
+        }
+
         GetMethods(owner).Changed.Invoke(owner, [new PropertyChangedEventArgs(propertyName)]);
+    }
 
     private static NotificationMethods GetMethods(ObservableObject owner) =>
         Cache.GetOrAdd(

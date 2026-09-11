@@ -4,7 +4,7 @@ using HKW.MVVM;
 
 namespace HKW.MVVMTest;
 
-internal sealed class Person : ObservableObject
+internal sealed class Person : ObservableObjectEx
 {
     public string FirstName
     {
@@ -36,7 +36,7 @@ internal sealed class Person : ObservableObject
         OnPropertyChanged(new PropertyChangedEventArgs(propertyName));
 }
 
-internal sealed class Address : ObservableObject
+internal sealed class Address : ObservableObjectEx
 {
     public string City
     {
@@ -63,7 +63,7 @@ internal sealed class PlainNotifyModel : INotifyPropertyChanged
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 }
 
-internal sealed class ComputedPerson : ObservableObject, IDisposable
+internal sealed class ComputedPerson : ObservableObjectEx, IDisposable
 {
     private readonly ObservableAsPropertyHelper<string> _fullName;
 
@@ -94,7 +94,7 @@ internal sealed class ComputedPerson : ObservableObject, IDisposable
     public void Dispose() => _fullName.Dispose();
 }
 
-internal sealed class PropertyOwner : ObservableObject
+internal sealed class PropertyOwner : ObservableObjectEx
 {
     public string Result { get; private set; } = string.Empty;
 
@@ -107,6 +107,27 @@ internal sealed class GetterFailureModel : ObservableObject
 }
 
 internal sealed class TestException(string message) : Exception(message);
+
+internal sealed class TrackingPropertyOwner : ObservableObject, IPropertyNotifier
+{
+    public int ChangingNotificationCount { get; private set; }
+
+    public int ChangedNotificationCount { get; private set; }
+
+    public string Result { get; private set; } = string.Empty;
+
+    public void NotifyPropertyChanging(string? propertyName = null)
+    {
+        ChangingNotificationCount++;
+        OnPropertyChanging(propertyName);
+    }
+
+    public void NotifyPropertyChanged(string? propertyName = null)
+    {
+        ChangedNotificationCount++;
+        OnPropertyChanged(propertyName);
+    }
+}
 
 internal sealed class ManualObservable<T> : IObservable<T>
 {

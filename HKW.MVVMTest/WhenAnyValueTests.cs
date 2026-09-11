@@ -33,6 +33,19 @@ public sealed class WhenAnyValueTests
     }
 
     [TestMethod]
+    public void GetPropertyName_SupportsMemberAndUnaryExpressions()
+    {
+        Expression<Func<Person, string>> member = person => person.FirstName;
+        Expression<Func<Person, object>> unary = person => person.Age;
+
+        Assert.AreEqual(nameof(Person.FirstName), member.GetPropertyName());
+        Assert.AreEqual(nameof(Person.Age), unary.GetPropertyName());
+        Assert.ThrowsExactly<ArgumentException>(() =>
+            ((Expression<Func<Person, string>>)(person => person.FirstName + person.LastName))
+                .GetPropertyName());
+    }
+
+    [TestMethod]
     public void EmptyPropertyName_ReevaluatesObservedProperty()
     {
         var model = new PlainNotifyModel { Name = "Initial" };

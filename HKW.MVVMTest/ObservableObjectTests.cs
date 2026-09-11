@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using HKW.MVVM;
 
 namespace HKW.MVVMTest;
 
@@ -33,6 +34,21 @@ public sealed class ObservableObjectTests
 
         Assert.AreEqual(0, changingCount);
         Assert.AreEqual(0, changedCount);
+    }
+
+    [TestMethod]
+    public void ObservableObjectEx_PublicNotifyMethods_RaiseNotifications()
+    {
+        var model = new ObservableObjectEx();
+        var events = new List<string>();
+        model.PropertyChanging += (_, args) => events.Add($"Changing:{args.PropertyName}");
+        model.PropertyChanged += (_, args) => events.Add($"Changed:{args.PropertyName}");
+
+        model.NotifyPropertyChanging("Result");
+        model.NotifyPropertyChanged("Result");
+
+        CollectionAssert.AreEqual(new[] { "Changing:Result", "Changed:Result" }, events);
+        Assert.IsInstanceOfType<IPropertyNotifier>(model);
     }
 
 }

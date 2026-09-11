@@ -187,6 +187,19 @@ public sealed class ObservableAsPropertyHelperTests
     }
 
     [TestMethod]
+    public void PropertyNotifier_IsPreferredOverReflection()
+    {
+        var source = new ManualObservable<string>();
+        var owner = new TrackingPropertyOwner();
+        using var helper = source.ToProperty(owner, x => x.Result, initialValue: string.Empty);
+
+        source.Emit("Updated");
+
+        Assert.AreEqual(1, owner.ChangingNotificationCount);
+        Assert.AreEqual(1, owner.ChangedNotificationCount);
+    }
+
+    [TestMethod]
     public void InvalidPropertyExpression_ThrowsArgumentException()
     {
         var source = new ManualObservable<string>();
