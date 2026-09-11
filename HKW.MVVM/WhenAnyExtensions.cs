@@ -371,7 +371,10 @@ public static class WhenAnyExtensions
                 try
                 {
                     value = _getter(_source);
-                    if (!_hasValue || !EqualityComparer<TValue>.Default.Equals(_lastValue!, value!))
+                    if (
+                        _hasValue is false
+                        || EqualityComparer<TValue>.Default.Equals(_lastValue!, value!) is false
+                    )
                     {
                         _hasValue = true;
                         _lastValue = value;
@@ -499,7 +502,10 @@ public static class WhenAnyExtensions
                     }
 
                     value = (TValue?)owner;
-                    if (!_hasValue || !EqualityComparer<TValue>.Default.Equals(_lastValue!, value!))
+                    if (
+                        _hasValue is false
+                        || EqualityComparer<TValue>.Default.Equals(_lastValue!, value!) is false
+                    )
                     {
                         _hasValue = true;
                         _lastValue = value;

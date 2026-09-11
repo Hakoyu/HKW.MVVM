@@ -39,7 +39,7 @@ public sealed class ObservableAsPropertyHelper<T>
         _value = initialValue;
         _synchronizationContext = synchronizationContext;
 
-        if (!deferSubscription)
+        if (deferSubscription is false)
         {
             EnsureSubscribed();
         }

@@ -19,7 +19,8 @@ internal sealed class ThrottleSubscription<TSource> : IDisposable
         IObservable<TSource> source,
         IObserver<TSource> observer,
         TimeSpan dueTime,
-        TimeProvider timeProvider)
+        TimeProvider timeProvider
+    )
     {
         _observer = observer;
         _dueTime = dueTime;
@@ -71,7 +72,8 @@ internal sealed class ThrottleSubscription<TSource> : IDisposable
                 },
                 (this, version),
                 _dueTime,
-                Timeout.InfiniteTimeSpan);
+                Timeout.InfiniteTimeSpan
+            );
         }
     }
 
@@ -80,7 +82,7 @@ internal sealed class ThrottleSubscription<TSource> : IDisposable
         TSource? value;
         lock (_gate)
         {
-            if (_stopped || !_hasValue || _version != expectedVersion)
+            if (_stopped || _hasValue is false || _version != expectedVersion)
             {
                 return;
             }

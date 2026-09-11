@@ -68,7 +68,7 @@ internal sealed class SimpleConsoleLogger(string categoryName) : ILogger
         Func<TState, Exception?, string> formatter
     )
     {
-        if (!IsEnabled(logLevel))
+        if (IsEnabled(logLevel) is false)
             return;
 
         Console.WriteLine($"[{logLevel}] {_categoryName}: {formatter(state, exception)}");

@@ -77,7 +77,7 @@ public static class LogHost
 
         var loggerFactory = LoggerFactory;
         var loggerCache = Volatile.Read(ref _loggerCache);
-        if (!ReferenceEquals(loggerCache.CacheLoggerFactory, loggerFactory))
+        if (ReferenceEquals(loggerCache.CacheLoggerFactory, loggerFactory) is false)
         {
             loggerCache = new LoggerCache(loggerFactory);
             Interlocked.Exchange(ref _loggerCache, loggerCache);

@@ -52,7 +52,7 @@ internal sealed class SingleAssignmentDisposable : IDisposable
                 }
 
                 _assigned = true;
-                if (!_disposed)
+                if (_disposed is false)
                 {
                     _disposable = value;
                     return;
