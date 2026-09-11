@@ -1,4 +1,5 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
+﻿using System.Collections.ObjectModel;
+using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -12,11 +13,18 @@ internal static class Program
         {
             logging.ClearProviders();
             logging.AddProvider(new SimpleConsoleLoggerProvider());
-            logging.SetMinimumLevel(LogLevel.Information);
+            logging.SetMinimumLevel(LogLevel.Debug);
         });
         Ioc.Default.ConfigureServices(new LoggerFactoryServiceProvider(loggerFactory));
 
-        _ = new TestModel();
+        //_ = new TestModel();
+        var c = new ObservableCollection<int>();
+        c.WhenAnyValue(x => x.Count).Log(LogHost.Default).Subscribe(x => Console.WriteLine(x));
+        c.Add(1);
+        c.Add(2);
+        c.Add(3);
+        c.Add(4);
+        c.Add(5);
     }
 }
 

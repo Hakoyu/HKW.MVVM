@@ -43,6 +43,15 @@ public static class LogHost
     private static ILoggerFactory? _loggerFactoryOverride;
 
     /// <summary>
+    /// Gets the default <see cref="ILogger"/> associated with <see cref="LogHost"/>.
+    /// </summary>
+    /// <remarks>
+    /// The logger is created by <see cref="LoggerFactory"/> and uses the fully qualified name of
+    /// <see cref="LogHost"/> as its category.
+    /// </remarks>
+    public static ILogger Default => GetLogger(typeof(LogHost));
+
+    /// <summary>
     /// Gets or sets an explicit process-wide logger factory.
     /// </summary>
     /// <remarks>

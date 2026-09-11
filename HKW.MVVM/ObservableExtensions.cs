@@ -42,6 +42,26 @@ public static class ObservableExtensions
     }
 
     /// <summary>
+    /// Logs each notification from an observable sequence at the specified level using a logger-enabled owner.
+    /// </summary>
+    /// <typeparam name="TSource">The source value type.</typeparam>
+    /// <param name="source">The observable sequence to log.</param>
+    /// <param name="loggerOwner">The object whose runtime type supplies the logger category.</param>
+    /// <param name="logLevel">The level used to log every sequence notification.</param>
+    /// <param name="message">A label used to identify this sequence in log entries.</param>
+    /// <returns>A cold observable sequence that logs and forwards every source notification.</returns>
+    public static IObservable<TSource> Log<TSource>(
+        this IObservable<TSource> source,
+        IEnableLogger loggerOwner,
+        LogLevel logLevel,
+        string? message = null
+    )
+    {
+        ArgumentNullException.ThrowIfNull(loggerOwner);
+        return Log(source, loggerOwner.Log(), logLevel, message);
+    }
+
+    /// <summary>
     /// Logs each notification from an observable sequence with a specified logger and forwards it unchanged.
     /// </summary>
     /// <typeparam name="TSource">The source value type.</typeparam>
@@ -60,6 +80,41 @@ public static class ObservableExtensions
         string? message = null
     )
     {
+        return Log(source, logger, LogLevel.Debug, LogLevel.Error, message);
+    }
+
+    /// <summary>
+    /// Logs each notification from an observable sequence at the specified level and forwards it unchanged.
+    /// </summary>
+    /// <typeparam name="TSource">The source value type.</typeparam>
+    /// <param name="source">The observable sequence to log.</param>
+    /// <param name="logger">The logger that receives sequence notifications.</param>
+    /// <param name="logLevel">The level used to log every sequence notification.</param>
+    /// <param name="message">A label used to identify this sequence in log entries.</param>
+    /// <returns>A cold observable sequence that logs and forwards every source notification.</returns>
+    /// <remarks>
+    /// The supplied level is used for values, errors, and successful completion. Errors retain the original
+    /// exception. Logging begins only after subscription.
+    /// <b>REFLECTION: NO.</b> Logging and observer notification methods are invoked directly.
+    /// </remarks>
+    public static IObservable<TSource> Log<TSource>(
+        this IObservable<TSource> source,
+        ILogger logger,
+        LogLevel logLevel,
+        string? message = null
+    )
+    {
+        return Log(source, logger, logLevel, logLevel, message);
+    }
+
+    private static IObservable<TSource> Log<TSource>(
+        IObservable<TSource> source,
+        ILogger logger,
+        LogLevel notificationLogLevel,
+        LogLevel errorLogLevel,
+        string? message
+    )
+    {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(logger);
         var label = string.IsNullOrWhiteSpace(message) ? "Observable" : message;
@@ -68,12 +123,13 @@ public static class ObservableExtensions
             source.Subscribe(
                 value =>
                 {
-                    logger.LogDebug("{Observable}: OnNext({Value})", label, value);
+                    logger.Log(notificationLogLevel, "{Observable}: OnNext({Value})", label, value);
                     observer.OnNext(value);
                 },
                 error =>
                 {
-                    logger.LogError(
+                    logger.Log(
+                        errorLogLevel,
                         error,
                         "{Observable}: OnError({ErrorMessage})",
                         label,
@@ -83,7 +139,7 @@ public static class ObservableExtensions
                 },
                 () =>
                 {
-                    logger.LogDebug("{Observable}: OnCompleted()", label);
+                    logger.Log(notificationLogLevel, "{Observable}: OnCompleted()", label);
                     observer.OnCompleted();
                 }
             )

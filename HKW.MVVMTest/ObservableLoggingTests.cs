@@ -51,6 +51,26 @@ public sealed class ObservableLoggingTests
     }
 
     [TestMethod]
+    public void Log_WithLogLevel_UsesSpecifiedLevelForAllNotifications()
+    {
+        var source = new ManualObservable<int>();
+        var logger = new RecordingLogger();
+        Exception? receivedError = null;
+        using var subscription = source.Log(logger, LogLevel.Warning, "Custom level").Subscribe(
+            _ => { },
+            error => receivedError = error);
+        var expectedError = new TestException("Expected.");
+
+        source.Emit(42);
+        source.Fail(expectedError);
+
+        Assert.AreSame(expectedError, receivedError);
+        Assert.HasCount(2, logger.Entries);
+        Assert.IsTrue(logger.Entries.All(entry => entry.Level == LogLevel.Warning));
+        Assert.AreSame(expectedError, logger.Entries[1].Exception);
+    }
+
+    [TestMethod]
     public void Log_IsColdUntilSubscribed()
     {
         var source = new ManualObservable<int>();
@@ -88,6 +108,20 @@ public sealed class ObservableLoggingTests
     }
 
     [TestMethod]
+    public void Log_WithIEnableLoggerAndLogLevel_UsesSpecifiedLevel()
+    {
+        var logger = new RecordingLogger();
+        var source = new ManualObservable<int>();
+        var owner = new LoggerOwnerWithLogger(logger);
+        using var subscription = source.Log(owner, LogLevel.Trace).Subscribe(_ => { });
+
+        source.Emit(1);
+
+        Assert.HasCount(1, logger.Entries);
+        Assert.AreEqual(LogLevel.Trace, logger.Entries[0].Level);
+    }
+
+    [TestMethod]
     public void Log_ValidatesArguments()
     {
         var source = new ManualObservable<int>();
@@ -102,6 +136,11 @@ public sealed class ObservableLoggingTests
     }
 
     private sealed class LoggerOwner : IEnableLogger;
+
+    private sealed class LoggerOwnerWithLogger(ILogger logger) : IEnableLoggerWithLogger
+    {
+        public ILogger Logger { get; } = logger;
+    }
 
     private sealed class SingleLoggerFactory(ILogger logger) : ILoggerFactory
     {
