@@ -2,7 +2,7 @@
 
 轻量级 .NET MVVM 响应式辅助库，提供属性观察、派生属性、Observable 操作符、资源释放和日志支持。
 
-本库面向希望使用响应式 MVVM 编程模型、但不希望引入 ReactiveUI 或 `System.Reactive` 依赖的项目。
+本库面向希望使用响应式 MVVM 编程模型、但不希望引入 ReactiveUI 依赖的项目。
 
 ## 特性
 
@@ -133,14 +133,11 @@ observable.ObserveOn(synchronizationContext);
 - `Select`、`Where`、`Do` 和 `DistinctUntilChanged` 的用户委托发生异常时，会转发为 `OnError` 并释放上游订阅。
 - `Throttle` 在源完成时会先发送待处理的最后一个值，再发送完成通知。
 - 所有返回订阅的操作都应由调用方负责释放，推荐使用 `using`、`MultipleDisposable` 或 `DisposeWith`。
-- 本库提供的是轻量 Observable 抽象，不承诺与 System.Reactive 的全部 API 或全部调度器实现兼容。
 
 ## 依赖
 
 - [CommunityToolkit.Mvvm](https://www.nuget.org/packages/CommunityToolkit.Mvvm)
 - [Microsoft.Extensions.Logging](https://www.nuget.org/packages/Microsoft.Extensions.Logging)
-
-本库不会传递引入 ReactiveUI 或 `System.Reactive`。
 
 ## 开源协议
 
