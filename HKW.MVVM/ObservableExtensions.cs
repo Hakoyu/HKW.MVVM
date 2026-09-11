@@ -542,7 +542,7 @@ public static class ObservableExtensions
         ArgumentNullException.ThrowIfNull(handler);
         return Create<TSource>(observer =>
         {
-            var subscriptions = new CompositeDisposable();
+            var subscriptions = new MultipleDisposable();
             subscriptions.Add(
                 source.Subscribe(
                     observer.OnNext,

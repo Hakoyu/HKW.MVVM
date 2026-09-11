@@ -82,48 +82,6 @@ internal sealed class SingleAssignmentDisposable : IDisposable
     }
 }
 
-internal sealed class CompositeDisposable : IDisposable
-{
-    private readonly Lock _gate = new();
-    private List<IDisposable>? _items = [];
-
-    public void Add(IDisposable item)
-    {
-        ArgumentNullException.ThrowIfNull(item);
-
-        lock (_gate)
-        {
-            if (_items is not null)
-            {
-                _items.Add(item);
-                return;
-            }
-        }
-
-        item.Dispose();
-    }
-
-    public void Dispose()
-    {
-        List<IDisposable>? items;
-        lock (_gate)
-        {
-            items = _items;
-            _items = null;
-        }
-
-        if (items is null)
-        {
-            return;
-        }
-
-        foreach (var item in items)
-        {
-            item.Dispose();
-        }
-    }
-}
-
 internal sealed class ExceptionSubject : IObservable<Exception>, IDisposable
 {
     private readonly Lock _gate = new();

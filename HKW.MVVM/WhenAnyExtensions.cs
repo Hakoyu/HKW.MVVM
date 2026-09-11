@@ -219,7 +219,7 @@ public static class WhenAnyExtensions
             var values = new object?[sources.Count];
             var hasValue = new bool[sources.Count];
             var stopped = false;
-            var subscriptions = new CompositeDisposable();
+            var subscriptions = new MultipleDisposable();
 
             for (var index = 0; index < sources.Count; index++)
             {
