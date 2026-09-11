@@ -9,7 +9,7 @@ public enum ObservableSchedulers
     Current,
 
     /// <summary>Uses the .NET thread pool.</summary>
-    ThreadPool
+    ThreadPool,
 }
 
 /// <summary>
@@ -34,7 +34,8 @@ public static class ObservableExtensions
     public static IObservable<TSource> Log<TSource>(
         this IObservable<TSource> source,
         IEnableLogger loggerOwner,
-        string? message = null)
+        string? message = null
+    )
     {
         ArgumentNullException.ThrowIfNull(loggerOwner);
         return Log(source, loggerOwner.Log(), message);
@@ -56,28 +57,37 @@ public static class ObservableExtensions
     public static IObservable<TSource> Log<TSource>(
         this IObservable<TSource> source,
         ILogger logger,
-        string? message = null)
+        string? message = null
+    )
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(logger);
         var label = string.IsNullOrWhiteSpace(message) ? "Observable" : message;
 
-        return Create<TSource>(observer => source.Subscribe(
-            value =>
-            {
-                logger.LogDebug("{Observable}: OnNext({Value})", label, value);
-                observer.OnNext(value);
-            },
-            error =>
-            {
-                logger.LogError(error, "{Observable}: OnError({ErrorMessage})", label, error.Message);
-                observer.OnError(error);
-            },
-            () =>
-            {
-                logger.LogDebug("{Observable}: OnCompleted()", label);
-                observer.OnCompleted();
-            }));
+        return Create<TSource>(observer =>
+            source.Subscribe(
+                value =>
+                {
+                    logger.LogDebug("{Observable}: OnNext({Value})", label, value);
+                    observer.OnNext(value);
+                },
+                error =>
+                {
+                    logger.LogError(
+                        error,
+                        "{Observable}: OnError({ErrorMessage})",
+                        label,
+                        error.Message
+                    );
+                    observer.OnError(error);
+                },
+                () =>
+                {
+                    logger.LogDebug("{Observable}: OnCompleted()", label);
+                    observer.OnCompleted();
+                }
+            )
+        );
     }
 
     /// <summary>Projects each source value into a new form.</summary>
@@ -89,7 +99,8 @@ public static class ObservableExtensions
     /// <remarks><b>REFLECTION: NO.</b> Values are transformed by invoking the supplied delegate directly.</remarks>
     public static IObservable<TResult> Select<TSource, TResult>(
         this IObservable<TSource> source,
-        Func<TSource, TResult> selector)
+        Func<TSource, TResult> selector
+    )
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(selector);
@@ -122,7 +133,8 @@ public static class ObservableExtensions
                     observer.OnNext(result);
                 },
                 error => ForwardError(observer, subscription, ref stopped, error),
-                () => ForwardCompletion(observer, subscription, ref stopped));
+                () => ForwardCompletion(observer, subscription, ref stopped)
+            );
             return subscription;
         });
     }
@@ -135,7 +147,8 @@ public static class ObservableExtensions
     /// <remarks><b>REFLECTION: NO.</b> The predicate is invoked directly for each value.</remarks>
     public static IObservable<TSource> Where<TSource>(
         this IObservable<TSource> source,
-        Func<TSource, bool> predicate)
+        Func<TSource, bool> predicate
+    )
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(predicate);
@@ -171,7 +184,8 @@ public static class ObservableExtensions
                     }
                 },
                 error => ForwardError(observer, subscription, ref stopped, error),
-                () => ForwardCompletion(observer, subscription, ref stopped));
+                () => ForwardCompletion(observer, subscription, ref stopped)
+            );
             return subscription;
         });
     }
@@ -181,8 +195,9 @@ public static class ObservableExtensions
     /// <param name="source">The observable sequence whose consecutive values are compared.</param>
     /// <returns>An observable sequence without consecutive duplicates.</returns>
     /// <remarks><b>REFLECTION: NO.</b> Equality is evaluated by <see cref="EqualityComparer{T}.Default"/>.</remarks>
-    public static IObservable<TSource> DistinctUntilChanged<TSource>(this IObservable<TSource> source) =>
-        DistinctUntilChanged(source, EqualityComparer<TSource>.Default);
+    public static IObservable<TSource> DistinctUntilChanged<TSource>(
+        this IObservable<TSource> source
+    ) => DistinctUntilChanged(source, EqualityComparer<TSource>.Default);
 
     /// <summary>Suppresses consecutive duplicate values using a specified equality comparer.</summary>
     /// <typeparam name="TSource">The source value type.</typeparam>
@@ -192,7 +207,8 @@ public static class ObservableExtensions
     /// <remarks><b>REFLECTION: NO.</b> Equality is evaluated by calling the supplied comparer directly.</remarks>
     public static IObservable<TSource> DistinctUntilChanged<TSource>(
         this IObservable<TSource> source,
-        IEqualityComparer<TSource> comparer)
+        IEqualityComparer<TSource> comparer
+    )
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(comparer);
@@ -225,7 +241,8 @@ public static class ObservableExtensions
                     observer.OnNext(value);
                 },
                 observer.OnError,
-                observer.OnCompleted);
+                observer.OnCompleted
+            );
         });
     }
 
@@ -237,7 +254,8 @@ public static class ObservableExtensions
     /// <remarks><b>REFLECTION: NO.</b> The initial value is sent directly to the observer.</remarks>
     public static IObservable<TSource> StartWith<TSource>(
         this IObservable<TSource> source,
-        TSource value)
+        TSource value
+    )
     {
         ArgumentNullException.ThrowIfNull(source);
         return Create<TSource>(observer =>
@@ -273,7 +291,8 @@ public static class ObservableExtensions
                     }
                 },
                 observer.OnError,
-                observer.OnCompleted);
+                observer.OnCompleted
+            );
         });
     }
 
@@ -319,7 +338,8 @@ public static class ObservableExtensions
                     }
                 },
                 error => ForwardError(observer, subscription, ref stopped, error),
-                () => ForwardCompletion(observer, subscription, ref stopped));
+                () => ForwardCompletion(observer, subscription, ref stopped)
+            );
             return subscription;
         });
     }
@@ -332,27 +352,31 @@ public static class ObservableExtensions
     /// <remarks><b>REFLECTION: NO.</b> The side-effect delegate is invoked directly.</remarks>
     public static IObservable<TSource> Do<TSource>(
         this IObservable<TSource> source,
-        Action<TSource> onNext)
+        Action<TSource> onNext
+    )
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(onNext);
-        return Create<TSource>(observer => source.Subscribe(
-            value =>
-            {
-                try
+        return Create<TSource>(observer =>
+            source.Subscribe(
+                value =>
                 {
-                    onNext(value);
-                }
-                catch (Exception exception)
-                {
-                    observer.OnError(exception);
-                    return;
-                }
+                    try
+                    {
+                        onNext(value);
+                    }
+                    catch (Exception exception)
+                    {
+                        observer.OnError(exception);
+                        return;
+                    }
 
-                observer.OnNext(value);
-            },
-            observer.OnError,
-            observer.OnCompleted));
+                    observer.OnNext(value);
+                },
+                observer.OnError,
+                observer.OnCompleted
+            )
+        );
     }
 
     /// <summary>Dispatches source values, errors, and completion through a synchronization context.</summary>
@@ -363,14 +387,18 @@ public static class ObservableExtensions
     /// <remarks><b>REFLECTION: NO.</b> Notifications are scheduled with <see cref="SynchronizationContext.Post"/>.</remarks>
     public static IObservable<TSource> ObserveOn<TSource>(
         this IObservable<TSource> source,
-        SynchronizationContext synchronizationContext)
+        SynchronizationContext synchronizationContext
+    )
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(synchronizationContext);
-        return Create<TSource>(observer => source.Subscribe(
-            value => Post(synchronizationContext, () => observer.OnNext(value)),
-            error => Post(synchronizationContext, () => observer.OnError(error)),
-            () => Post(synchronizationContext, observer.OnCompleted)));
+        return Create<TSource>(observer =>
+            source.Subscribe(
+                value => Post(synchronizationContext, () => observer.OnNext(value)),
+                error => Post(synchronizationContext, () => observer.OnError(error)),
+                () => Post(synchronizationContext, observer.OnCompleted)
+            )
+        );
     }
 
     /// <summary>Dispatches source notifications through the selected scheduler.</summary>
@@ -385,7 +413,8 @@ public static class ObservableExtensions
     /// </remarks>
     public static IObservable<TSource> ObserveOn<TSource>(
         this IObservable<TSource> source,
-        ObservableSchedulers scheduler)
+        ObservableSchedulers scheduler
+    )
     {
         ArgumentNullException.ThrowIfNull(source);
         var synchronizationContext = GetSynchronizationContext(scheduler);
@@ -393,7 +422,11 @@ public static class ObservableExtensions
         return Create<TSource>(observer =>
         {
             var dispatcher = new NotificationDispatcher<TSource>(observer, synchronizationContext);
-            var subscription = source.Subscribe(dispatcher.OnNext, dispatcher.OnError, dispatcher.OnCompleted);
+            var subscription = source.Subscribe(
+                dispatcher.OnNext,
+                dispatcher.OnError,
+                dispatcher.OnCompleted
+            );
             dispatcher.SetSubscription(subscription);
             return dispatcher;
         });
@@ -412,7 +445,8 @@ public static class ObservableExtensions
     /// </remarks>
     public static IObservable<TSource> SubscribeOn<TSource>(
         this IObservable<TSource> source,
-        ObservableSchedulers scheduler)
+        ObservableSchedulers scheduler
+    )
     {
         ArgumentNullException.ThrowIfNull(source);
         var synchronizationContext = GetSynchronizationContext(scheduler);
@@ -420,16 +454,19 @@ public static class ObservableExtensions
         return Create<TSource>(observer =>
         {
             var scheduledSubscription = new ScheduledSubscription();
-            Schedule(synchronizationContext, () =>
-            {
-                if (scheduledSubscription.IsDisposed)
+            Schedule(
+                synchronizationContext,
+                () =>
                 {
-                    return;
-                }
+                    if (scheduledSubscription.IsDisposed)
+                    {
+                        return;
+                    }
 
-                var subscription = source.Subscribe(observer);
-                scheduledSubscription.SetSubscription(subscription);
-            });
+                    var subscription = source.Subscribe(observer);
+                    scheduledSubscription.SetSubscription(subscription);
+                }
+            );
             return scheduledSubscription;
         });
     }
@@ -444,7 +481,8 @@ public static class ObservableExtensions
     /// <remarks><b>REFLECTION: NO.</b> Delayed emissions use <see cref="TimeProvider"/> timers.</remarks>
     public static IObservable<TSource> Throttle<TSource>(
         this IObservable<TSource> source,
-        TimeSpan dueTime) => Throttle(source, dueTime, TimeProvider.System);
+        TimeSpan dueTime
+    ) => Throttle(source, dueTime, TimeProvider.System);
 
     /// <summary>
     /// Emits only the most recent value after the source remains quiet for the specified duration,
@@ -458,8 +496,8 @@ public static class ObservableExtensions
     public static IObservable<TSource> Throttle<TSource>(
         this IObservable<TSource> source,
         TimeSpan dueTime,
-        ObservableSchedulers scheduler) =>
-        Throttle(source, dueTime, TimeProvider.System).ObserveOn(scheduler);
+        ObservableSchedulers scheduler
+    ) => Throttle(source, dueTime, TimeProvider.System).ObserveOn(scheduler);
 
     /// <summary>
     /// Emits only the most recent value after the source remains quiet for the specified duration,
@@ -474,115 +512,19 @@ public static class ObservableExtensions
     public static IObservable<TSource> Throttle<TSource>(
         this IObservable<TSource> source,
         TimeSpan dueTime,
-        TimeProvider timeProvider)
+        TimeProvider timeProvider
+    )
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(timeProvider);
         ArgumentOutOfRangeException.ThrowIfLessThan(dueTime, TimeSpan.Zero);
 
-        return Create<TSource>(observer =>
-        {
-            var gate = new object();
-            ITimer? timer = null;
-            var version = 0L;
-            var stopped = false;
-            var hasValue = false;
-            TSource? lastValue = default;
-
-            void Emit(long expectedVersion)
-            {
-                TSource? value;
-                lock (gate)
-                {
-                    if (stopped || !hasValue || version != expectedVersion)
-                    {
-                        return;
-                    }
-
-                    hasValue = false;
-                    value = lastValue;
-                }
-
-                observer.OnNext(value!);
-            }
-
-            var subscription = source.Subscribe(
-                value =>
-                {
-                    long currentVersion;
-                    lock (gate)
-                    {
-                        if (stopped)
-                        {
-                            return;
-                        }
-
-                        hasValue = true;
-                        lastValue = value;
-                        currentVersion = ++version;
-                        timer?.Dispose();
-                        timer = timeProvider.CreateTimer(
-                            static state =>
-                            {
-                                var work = ((Action<long> Emit, long Version))state!;
-                                work.Emit(work.Version);
-                            },
-                            ((Action<long>)Emit, currentVersion),
-                            dueTime,
-                            Timeout.InfiniteTimeSpan);
-                    }
-                },
-                error =>
-                {
-                    lock (gate)
-                    {
-                        if (stopped)
-                        {
-                            return;
-                        }
-
-                        stopped = true;
-                        hasValue = false;
-                        timer?.Dispose();
-                    }
-
-                    observer.OnError(error);
-                },
-                () =>
-                {
-                    TSource? value;
-                    bool emit;
-                    lock (gate)
-                    {
-                        if (stopped)
-                        {
-                            return;
-                        }
-
-                        stopped = true;
-                        timer?.Dispose();
-                        emit = hasValue;
-                        value = lastValue;
-                        hasValue = false;
-                    }
-
-                    if (emit)
-                    {
-                        observer.OnNext(value!);
-                    }
-
-                    observer.OnCompleted();
-                });
-
-            return new CompositeDisposableWithAction(subscription, () =>
-            {
-                lock (gate)
-                {
-                    stopped = true;
-                    timer?.Dispose();
-                }
-            });
-        });
+        return Create<TSource>(observer => new ThrottleSubscription<TSource>(
+            source,
+            observer,
+            dueTime,
+            timeProvider
+        ));
     }
 
     /// <summary>Continues with a replacement observable when the source terminates with an error.</summary>
@@ -593,31 +535,39 @@ public static class ObservableExtensions
     /// <remarks><b>REFLECTION: NO.</b> The error handler is invoked directly.</remarks>
     public static IObservable<TSource> Catch<TSource>(
         this IObservable<TSource> source,
-        Func<Exception, IObservable<TSource>> handler)
+        Func<Exception, IObservable<TSource>> handler
+    )
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(handler);
         return Create<TSource>(observer =>
         {
             var subscriptions = new CompositeDisposable();
-            subscriptions.Add(source.Subscribe(
-                observer.OnNext,
-                error =>
-                {
-                    IObservable<TSource> replacement;
-                    try
+            subscriptions.Add(
+                source.Subscribe(
+                    observer.OnNext,
+                    error =>
                     {
-                        replacement = handler(error) ?? throw new InvalidOperationException("The catch handler returned null.");
-                    }
-                    catch (Exception exception)
-                    {
-                        observer.OnError(exception);
-                        return;
-                    }
+                        IObservable<TSource> replacement;
+                        try
+                        {
+                            replacement =
+                                handler(error)
+                                ?? throw new InvalidOperationException(
+                                    "The catch handler returned null."
+                                );
+                        }
+                        catch (Exception exception)
+                        {
+                            observer.OnError(exception);
+                            return;
+                        }
 
-                    subscriptions.Add(replacement.Subscribe(observer));
-                },
-                observer.OnCompleted));
+                        subscriptions.Add(replacement.Subscribe(observer));
+                    },
+                    observer.OnCompleted
+                )
+            );
             return subscriptions;
         });
     }
@@ -652,12 +602,18 @@ public static class ObservableExtensions
     private static void Post(SynchronizationContext context, Action action) =>
         context.Post(static state => ((Action)state!).Invoke(), action);
 
-    private static SynchronizationContext? GetSynchronizationContext(ObservableSchedulers scheduler) =>
+    private static SynchronizationContext? GetSynchronizationContext(
+        ObservableSchedulers scheduler
+    ) =>
         scheduler switch
         {
             ObservableSchedulers.Current => SynchronizationContext.Current,
             ObservableSchedulers.ThreadPool => null,
-            _ => throw new ArgumentOutOfRangeException(nameof(scheduler), scheduler, "Unknown observable scheduler.")
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(scheduler),
+                scheduler,
+                "Unknown observable scheduler."
+            ),
         };
 
     private static void Schedule(SynchronizationContext? synchronizationContext, Action action)
@@ -671,7 +627,10 @@ public static class ObservableExtensions
         ThreadPool.QueueUserWorkItem(static state => ((Action)state!).Invoke(), action);
     }
 
-    private sealed class NotificationDispatcher<T>(IObserver<T> observer, SynchronizationContext? context) : IDisposable
+    private sealed class NotificationDispatcher<T>(
+        IObserver<T> observer,
+        SynchronizationContext? context
+    ) : IDisposable
     {
         private readonly object _gate = new();
         private IDisposable? _subscription;
@@ -702,18 +661,21 @@ public static class ObservableExtensions
                 }
             }
 
-            Schedule(context, () =>
-            {
-                lock (_gate)
+            Schedule(
+                context,
+                () =>
                 {
-                    if (_disposed)
+                    lock (_gate)
                     {
-                        return;
+                        if (_disposed)
+                        {
+                            return;
+                        }
                     }
-                }
 
-                observer.OnNext(value);
-            });
+                    observer.OnNext(value);
+                }
+            );
         }
 
         public void OnError(Exception error) => ScheduleTerminal(() => observer.OnError(error));
@@ -750,19 +712,22 @@ public static class ObservableExtensions
                 _stopped = true;
             }
 
-            Schedule(context, () =>
-            {
-                lock (_gate)
+            Schedule(
+                context,
+                () =>
                 {
-                    if (_disposed)
+                    lock (_gate)
                     {
-                        return;
+                        if (_disposed)
+                        {
+                            return;
+                        }
                     }
-                }
 
-                terminal();
-                Dispose();
-            });
+                    terminal();
+                    Dispose();
+                }
+            );
         }
     }
 
@@ -820,7 +785,8 @@ public static class ObservableExtensions
         IObserver<T> observer,
         IDisposable subscription,
         ref bool stopped,
-        Exception error)
+        Exception error
+    )
     {
         if (stopped)
         {
@@ -835,7 +801,8 @@ public static class ObservableExtensions
     private static void ForwardCompletion<T>(
         IObserver<T> observer,
         IDisposable subscription,
-        ref bool stopped)
+        ref bool stopped
+    )
     {
         if (stopped)
         {
@@ -845,17 +812,5 @@ public static class ObservableExtensions
         stopped = true;
         observer.OnCompleted();
         subscription.Dispose();
-    }
-
-    private sealed class CompositeDisposableWithAction(IDisposable subscription, Action dispose) : IDisposable
-    {
-        private IDisposable? _subscription = subscription;
-        private Action? _dispose = dispose;
-
-        public void Dispose()
-        {
-            Interlocked.Exchange(ref _dispose, null)?.Invoke();
-            Interlocked.Exchange(ref _subscription, null)?.Dispose();
-        }
     }
 }

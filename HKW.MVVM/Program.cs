@@ -17,7 +17,7 @@ internal static class Program
         Ioc.Default.ConfigureServices(new LoggerFactoryServiceProvider(loggerFactory));
 
         var m = new TestModel();
-        //m.WhenAnyValue(x => x.Name).ObserveOn()
+        //m.WhenAnyValue(x => x.Name).ObserveOn().SUn
     }
 }
 
