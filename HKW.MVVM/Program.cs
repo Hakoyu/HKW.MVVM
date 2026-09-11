@@ -1,4 +1,7 @@
-﻿namespace HKW.MVVM;
+﻿using CommunityToolkit.Mvvm.ComponentModel;
+using Microsoft.Extensions.Logging;
+
+namespace HKW.MVVM;
 
 internal static class Program
 {
@@ -7,3 +10,5 @@ internal static class Program
         // var obs = new ObservableObject();
     }
 }
+
+public class TestModel : ObservableObject { }
