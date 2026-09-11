@@ -1,0 +1,338 @@
+using System.ComponentModel;
+using System.Linq.Expressions;
+using System.Reflection;
+
+namespace HKW.MVVM;
+
+/// <summary>
+/// A property observation containing the object, property name, and current value.
+/// </summary>
+public readonly record struct PropertyObservation<TSender, TValue>(
+    TSender Sender,
+    string PropertyName,
+    TValue Value);
+
+/// <summary>
+/// Converts <see cref="INotifyPropertyChanged"/> properties into cold observable streams.
+/// </summary>
+public static class WhenAnyExtensions
+{
+    public static IObservable<TValue> WhenAnyValue<TSource, TValue>(
+        this TSource source,
+        Expression<Func<TSource, TValue>> property)
+        where TSource : class, INotifyPropertyChanged
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(property);
+        return new PropertyPathObservable<TSource, TValue>(source, property);
+    }
+
+    public static IObservable<TResult> WhenAnyValue<TSource, T1, T2, TResult>(
+        this TSource source,
+        Expression<Func<TSource, T1>> property1,
+        Expression<Func<TSource, T2>> property2,
+        Func<T1, T2, TResult> selector)
+        where TSource : class, INotifyPropertyChanged =>
+        Combine([source.WhenAnyValue(property1).Box(), source.WhenAnyValue(property2).Box()], values =>
+            selector((T1)values[0]!, (T2)values[1]!));
+
+    public static IObservable<TResult> WhenAnyValue<TSource, T1, T2, T3, TResult>(
+        this TSource source,
+        Expression<Func<TSource, T1>> property1,
+        Expression<Func<TSource, T2>> property2,
+        Expression<Func<TSource, T3>> property3,
+        Func<T1, T2, T3, TResult> selector)
+        where TSource : class, INotifyPropertyChanged =>
+        Combine(
+            [
+                source.WhenAnyValue(property1).Box(),
+                source.WhenAnyValue(property2).Box(),
+                source.WhenAnyValue(property3).Box()
+            ],
+            values => selector((T1)values[0]!, (T2)values[1]!, (T3)values[2]!));
+
+    public static IObservable<TResult> WhenAnyValue<TSource, T1, T2, T3, T4, TResult>(
+        this TSource source,
+        Expression<Func<TSource, T1>> property1,
+        Expression<Func<TSource, T2>> property2,
+        Expression<Func<TSource, T3>> property3,
+        Expression<Func<TSource, T4>> property4,
+        Func<T1, T2, T3, T4, TResult> selector)
+        where TSource : class, INotifyPropertyChanged =>
+        Combine(
+            [
+                source.WhenAnyValue(property1).Box(),
+                source.WhenAnyValue(property2).Box(),
+                source.WhenAnyValue(property3).Box(),
+                source.WhenAnyValue(property4).Box()
+            ],
+            values => selector((T1)values[0]!, (T2)values[1]!, (T3)values[2]!, (T4)values[3]!));
+
+    public static IObservable<TResult> WhenAny<TSource, TValue, TResult>(
+        this TSource source,
+        Expression<Func<TSource, TValue>> property,
+        Func<PropertyObservation<TSource, TValue>, TResult> selector)
+        where TSource : class, INotifyPropertyChanged
+    {
+        ArgumentNullException.ThrowIfNull(selector);
+        var propertyName = PropertyPath.Parse(property).Last().Name;
+        return Select(
+            source.WhenAnyValue(property),
+            value => selector(new PropertyObservation<TSource, TValue>(source, propertyName, value)));
+    }
+
+    private static IObservable<TResult> Select<TSource, TResult>(
+        IObservable<TSource> source,
+        Func<TSource, TResult> selector) =>
+        new AnonymousObservable<TResult>(observer => source.Subscribe(
+            value =>
+            {
+                try
+                {
+                    observer.OnNext(selector(value));
+                }
+                catch (Exception exception)
+                {
+                    observer.OnError(exception);
+                }
+            },
+            observer.OnError,
+            observer.OnCompleted));
+
+    private static IObservable<TResult> Combine<TResult>(
+        IReadOnlyList<IObservable<object?>> sources,
+        Func<object?[], TResult> selector) =>
+        new AnonymousObservable<TResult>(observer =>
+        {
+            var gate = new object();
+            var values = new object?[sources.Count];
+            var hasValue = new bool[sources.Count];
+            var stopped = false;
+            var subscriptions = new CompositeDisposable();
+
+            for (var index = 0; index < sources.Count; index++)
+            {
+                var capturedIndex = index;
+                subscriptions.Add(sources[index].Subscribe(
+                    value =>
+                    {
+                        TResult result;
+                        lock (gate)
+                        {
+                            if (stopped)
+                            {
+                                return;
+                            }
+
+                            values[capturedIndex] = value;
+                            hasValue[capturedIndex] = true;
+                            if (Array.IndexOf(hasValue, false) >= 0)
+                            {
+                                return;
+                            }
+
+                            try
+                            {
+                                result = selector((object?[])values.Clone());
+                            }
+                            catch (Exception exception)
+                            {
+                                stopped = true;
+                                observer.OnError(exception);
+                                subscriptions.Dispose();
+                                return;
+                            }
+                        }
+
+                        observer.OnNext(result);
+                    },
+                    error =>
+                    {
+                        lock (gate)
+                        {
+                            if (stopped)
+                            {
+                                return;
+                            }
+
+                            stopped = true;
+                        }
+
+                        observer.OnError(error);
+                        subscriptions.Dispose();
+                    }));
+            }
+
+            return subscriptions;
+        });
+
+    private static IObservable<object?> Box<T>(this IObservable<T> source) =>
+        Select(source, value => (object?)value);
+
+    private sealed class PropertyPathObservable<TSource, TValue>(
+        TSource source,
+        Expression<Func<TSource, TValue>> expression) : IObservable<TValue>
+        where TSource : class, INotifyPropertyChanged
+    {
+        private readonly PropertyInfo[] _path = PropertyPath.Parse(expression);
+
+        public IDisposable Subscribe(IObserver<TValue> observer)
+        {
+            ArgumentNullException.ThrowIfNull(observer);
+            return new PropertyPathSubscription<TSource, TValue>(source, _path, observer);
+        }
+    }
+
+    private sealed class PropertyPathSubscription<TSource, TValue> : IDisposable
+        where TSource : class, INotifyPropertyChanged
+    {
+        private readonly object _gate = new();
+        private readonly TSource _source;
+        private readonly PropertyInfo[] _path;
+        private readonly IObserver<TValue> _observer;
+        private readonly List<(INotifyPropertyChanged Owner, PropertyChangedEventHandler Handler)> _handlers = [];
+        private bool _hasValue;
+        private TValue? _lastValue;
+        private bool _disposed;
+
+        public PropertyPathSubscription(TSource source, PropertyInfo[] path, IObserver<TValue> observer)
+        {
+            _source = source;
+            _path = path;
+            _observer = observer;
+            RebuildAndPublish();
+        }
+
+        public void Dispose()
+        {
+            lock (_gate)
+            {
+                if (_disposed)
+                {
+                    return;
+                }
+
+                _disposed = true;
+                DetachHandlers();
+            }
+        }
+
+        private void RebuildAndPublish()
+        {
+            TValue? value = default;
+            Exception? error = null;
+            var publish = false;
+
+            lock (_gate)
+            {
+                if (_disposed)
+                {
+                    return;
+                }
+
+                DetachHandlers();
+                object? owner = _source;
+
+                try
+                {
+                    for (var index = 0; index < _path.Length; index++)
+                    {
+                        if (owner is null)
+                        {
+                            return;
+                        }
+
+                        if (owner is INotifyPropertyChanged notifier)
+                        {
+                            var watchedName = _path[index].Name;
+                            PropertyChangedEventHandler handler = (_, eventArgs) =>
+                            {
+                                if (string.IsNullOrEmpty(eventArgs.PropertyName) || eventArgs.PropertyName == watchedName)
+                                {
+                                    RebuildAndPublish();
+                                }
+                            };
+                            notifier.PropertyChanged += handler;
+                            _handlers.Add((notifier, handler));
+                        }
+
+                        owner = _path[index].GetValue(owner);
+                    }
+
+                    value = (TValue?)owner;
+                    if (!_hasValue || !EqualityComparer<TValue>.Default.Equals(_lastValue!, value!))
+                    {
+                        _hasValue = true;
+                        _lastValue = value;
+                        publish = true;
+                    }
+                }
+                catch (TargetInvocationException exception)
+                {
+                    error = exception.InnerException ?? exception;
+                    _disposed = true;
+                    DetachHandlers();
+                }
+                catch (Exception exception)
+                {
+                    error = exception;
+                    _disposed = true;
+                    DetachHandlers();
+                }
+            }
+
+            if (error is not null)
+            {
+                _observer.OnError(error);
+            }
+            else if (publish)
+            {
+                _observer.OnNext(value!);
+            }
+        }
+
+        private void DetachHandlers()
+        {
+            foreach (var (owner, handler) in _handlers)
+            {
+                owner.PropertyChanged -= handler;
+            }
+
+            _handlers.Clear();
+        }
+    }
+
+    private static class PropertyPath
+    {
+        public static PropertyInfo[] Parse<TSource, TValue>(Expression<Func<TSource, TValue>> expression)
+        {
+            ArgumentNullException.ThrowIfNull(expression);
+            Expression current = expression.Body;
+            if (current is UnaryExpression { NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked } conversion)
+            {
+                current = conversion.Operand;
+            }
+
+            var path = new Stack<PropertyInfo>();
+            while (current is MemberExpression memberExpression)
+            {
+                if (memberExpression.Member is not PropertyInfo property || property.GetMethod is null)
+                {
+                    throw new ArgumentException("The expression must contain readable properties only.", nameof(expression));
+                }
+
+                path.Push(property);
+                current = memberExpression.Expression!;
+            }
+
+            if (current != expression.Parameters[0] || path.Count == 0)
+            {
+                throw new ArgumentException(
+                    "The expression must be a property path rooted at its parameter, for example x => x.Customer.Name.",
+                    nameof(expression));
+            }
+
+            return path.ToArray();
+        }
+    }
+}
