@@ -1,5 +1,5 @@
 using System.ComponentModel;
-using System.Runtime.CompilerServices;
+using CommunityToolkit.Mvvm.ComponentModel;
 using HKW.MVVM;
 
 namespace HKW.MVVMTest;
@@ -36,6 +36,9 @@ internal sealed class Person : ObservableObject
     }
 
     public string PublicField = string.Empty;
+
+    public void RaiseChanged(string? propertyName) =>
+        OnPropertyChanged(new PropertyChangedEventArgs(propertyName));
 }
 
 internal sealed class Address : ObservableObject

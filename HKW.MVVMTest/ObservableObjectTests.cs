@@ -1,5 +1,4 @@
 using System.ComponentModel;
-using HKW.MVVM;
 
 namespace HKW.MVVMTest;
 
@@ -36,28 +35,4 @@ public sealed class ObservableObjectTests
         Assert.AreEqual(0, changedCount);
     }
 
-    [TestMethod]
-    public void RaiseMethods_RaiseSpecifiedPropertyNames()
-    {
-        var model = new Person();
-        PropertyChangingEventArgs? changing = null;
-        PropertyChangedEventArgs? changed = null;
-        model.PropertyChanging += (_, args) => changing = args;
-        model.PropertyChanged += (_, args) => changed = args;
-
-        model.RaisePropertyChanging("Calculated");
-        model.RaisePropertyChanged("Calculated");
-
-        Assert.AreEqual("Calculated", changing?.PropertyName);
-        Assert.AreEqual("Calculated", changed?.PropertyName);
-    }
-
-    [TestMethod]
-    public void RaiseMethods_WhenPropertyNameIsEmpty_Throw()
-    {
-        var model = new Person();
-
-        Assert.ThrowsExactly<ArgumentException>(() => model.RaisePropertyChanging(string.Empty));
-        Assert.ThrowsExactly<ArgumentException>(() => model.RaisePropertyChanged(string.Empty));
-    }
 }

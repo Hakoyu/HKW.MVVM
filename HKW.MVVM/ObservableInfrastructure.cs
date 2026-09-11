@@ -28,6 +28,56 @@ internal sealed class ActionDisposable(Action dispose) : IDisposable
     public void Dispose() => Interlocked.Exchange(ref _dispose, null)?.Invoke();
 }
 
+internal sealed class SingleAssignmentDisposable : IDisposable
+{
+    private readonly object _gate = new();
+    private IDisposable? _disposable;
+    private bool _assigned;
+    private bool _disposed;
+
+    public IDisposable Disposable
+    {
+        set
+        {
+            ArgumentNullException.ThrowIfNull(value);
+            lock (_gate)
+            {
+                if (_assigned)
+                {
+                    throw new InvalidOperationException("The disposable has already been assigned.");
+                }
+
+                _assigned = true;
+                if (!_disposed)
+                {
+                    _disposable = value;
+                    return;
+                }
+            }
+
+            value.Dispose();
+        }
+    }
+
+    public void Dispose()
+    {
+        IDisposable? disposable;
+        lock (_gate)
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            _disposed = true;
+            disposable = _disposable;
+            _disposable = null;
+        }
+
+        disposable?.Dispose();
+    }
+}
+
 internal sealed class CompositeDisposable : IDisposable
 {
     private readonly object _gate = new();

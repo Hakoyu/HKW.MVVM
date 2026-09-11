@@ -14,7 +14,7 @@ public sealed class WhenAnyValueTests
         using var subscription = person.WhenAnyValue(x => x.FirstName).Subscribe(values.Add);
 
         person.FirstName = "Grace";
-        person.RaisePropertyChanged(nameof(Person.FirstName));
+        person.RaiseChanged(nameof(Person.FirstName));
         person.FirstName = "Katherine";
 
         CollectionAssert.AreEqual(new[] { "Ada", "Grace", "Katherine" }, values);

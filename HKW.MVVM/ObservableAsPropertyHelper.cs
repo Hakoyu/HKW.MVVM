@@ -1,5 +1,8 @@
 using System.ComponentModel;
+using System.Collections.Concurrent;
 using System.Linq.Expressions;
+using System.Reflection;
+using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace HKW.MVVM;
 
@@ -10,7 +13,7 @@ public sealed class ObservableAsPropertyHelper<T> : IDisposable, INotifyProperty
 {
     private readonly object _gate = new();
     private readonly IObservable<T> _source;
-    private readonly IPropertyChangeNotifier _owner;
+    private readonly ObservableObject _owner;
     private readonly string _propertyName;
     private readonly SynchronizationContext? _synchronizationContext;
     private readonly ExceptionSubject _exceptions = new();
@@ -21,7 +24,7 @@ public sealed class ObservableAsPropertyHelper<T> : IDisposable, INotifyProperty
 
     internal ObservableAsPropertyHelper(
         IObservable<T> source,
-        IPropertyChangeNotifier owner,
+        ObservableObject owner,
         string propertyName,
         T initialValue,
         bool deferSubscription,
@@ -103,11 +106,11 @@ public sealed class ObservableAsPropertyHelper<T> : IDisposable, INotifyProperty
 
             var changingArgs = new PropertyChangingEventArgs(nameof(Value));
             PropertyChanging?.Invoke(this, changingArgs);
-            _owner.RaisePropertyChanging(_propertyName);
+            PropertyNotificationDispatcher.RaisePropertyChanging(_owner, _propertyName);
             _value = value;
             var changedArgs = new PropertyChangedEventArgs(nameof(Value));
             PropertyChanged?.Invoke(this, changedArgs);
-            _owner.RaisePropertyChanged(_propertyName);
+            PropertyNotificationDispatcher.RaisePropertyChanged(_owner, _propertyName);
         }
     });
 
@@ -133,7 +136,7 @@ public static class ObservableAsPropertyHelperExtensions
         TValue initialValue = default!,
         bool deferSubscription = false,
         SynchronizationContext? synchronizationContext = null)
-        where TOwner : class, IPropertyChangeNotifier
+        where TOwner : ObservableObject
     {
         ArgumentNullException.ThrowIfNull(property);
         var propertyName = GetPropertyName(property);
@@ -147,7 +150,7 @@ public static class ObservableAsPropertyHelperExtensions
         TValue initialValue = default!,
         bool deferSubscription = false,
         SynchronizationContext? synchronizationContext = null)
-        where TOwner : class, IPropertyChangeNotifier
+        where TOwner : ObservableObject
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(owner);
@@ -177,4 +180,31 @@ public static class ObservableAsPropertyHelperExtensions
 
         return info.Name;
     }
+}
+
+internal static class PropertyNotificationDispatcher
+{
+    private static readonly ConcurrentDictionary<Type, NotificationMethods> Cache = new();
+
+    public static void RaisePropertyChanging(ObservableObject owner, string propertyName) =>
+        GetMethods(owner).Changing.Invoke(owner, [new PropertyChangingEventArgs(propertyName)]);
+
+    public static void RaisePropertyChanged(ObservableObject owner, string propertyName) =>
+        GetMethods(owner).Changed.Invoke(owner, [new PropertyChangedEventArgs(propertyName)]);
+
+    private static NotificationMethods GetMethods(ObservableObject owner) =>
+        Cache.GetOrAdd(owner.GetType(), static type => new NotificationMethods(
+            FindMethod(type, "OnPropertyChanging", typeof(PropertyChangingEventArgs)),
+            FindMethod(type, "OnPropertyChanged", typeof(PropertyChangedEventArgs))));
+
+    private static MethodInfo FindMethod(Type type, string name, Type argumentType) =>
+        type.GetMethod(
+            name,
+            BindingFlags.Instance | BindingFlags.NonPublic,
+            binder: null,
+            types: [argumentType],
+            modifiers: null)
+        ?? throw new InvalidOperationException($"{type.FullName} does not expose {name}({argumentType.Name}).");
+
+    private sealed record NotificationMethods(MethodInfo Changing, MethodInfo Changed);
 }
