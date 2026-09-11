@@ -223,6 +223,8 @@ public sealed class IEnableLoggerTests
             EventId eventId,
             TState state,
             Exception? exception,
-            Func<TState, Exception?, string> formatter) { }
+            Func<TState, Exception?, string> formatter
+        )
+        { }
     }
 }

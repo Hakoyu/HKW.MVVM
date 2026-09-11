@@ -181,6 +181,18 @@ internal sealed class ManualObservable<T> : IObservable<T>
     }
 }
 
+internal sealed class SynchronousObservable<T>(Action<IObserver<T>> subscribe) : IObservable<T>
+{
+    public int DisposalCount { get; private set; }
+
+    public IDisposable Subscribe(IObserver<T> observer)
+    {
+        ArgumentNullException.ThrowIfNull(observer);
+        subscribe(observer);
+        return new CallbackDisposable(() => DisposalCount++);
+    }
+}
+
 internal sealed class CallbackDisposable(Action callback) : IDisposable
 {
     private Action? _callback = callback;

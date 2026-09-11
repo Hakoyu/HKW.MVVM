@@ -8,10 +8,11 @@ internal sealed class ThrottleSubscription<TSource> : IDisposable
     private readonly TimeSpan _dueTime;
     private readonly TimeProvider _timeProvider;
     private readonly Lock _gate = new();
-    private IDisposable? _subscription;
+    private readonly SingleAssignmentDisposable _subscription = new();
     private ITimer? _timer;
     private long _version;
     private bool _stopped;
+    private bool _disposed;
     private bool _hasValue;
     private TSource? _lastValue;
 
@@ -25,30 +26,36 @@ internal sealed class ThrottleSubscription<TSource> : IDisposable
         _observer = observer;
         _dueTime = dueTime;
         _timeProvider = timeProvider;
-        _subscription = source.Subscribe(OnNext, OnError, OnCompleted);
+        try
+        {
+            _subscription.Disposable = source.Subscribe(OnNext, OnError, OnCompleted);
+        }
+        catch
+        {
+            Dispose();
+            throw;
+        }
     }
 
     public void Dispose()
     {
-        IDisposable? subscription;
         ITimer? timer;
         lock (_gate)
         {
-            if (_stopped)
+            if (_disposed)
             {
                 return;
             }
 
+            _disposed = true;
             _stopped = true;
             _hasValue = false;
             timer = _timer;
             _timer = null;
-            subscription = _subscription;
-            _subscription = null;
         }
 
         timer?.Dispose();
-        subscription?.Dispose();
+        _subscription.Dispose();
     }
 
     private void OnNext(TSource value)
@@ -105,12 +112,14 @@ internal sealed class ThrottleSubscription<TSource> : IDisposable
             }
 
             _stopped = true;
+            _disposed = true;
             _hasValue = false;
             timer = _timer;
             _timer = null;
         }
 
         timer?.Dispose();
+        _subscription.Dispose();
         _observer.OnError(error);
     }
 
@@ -127,6 +136,7 @@ internal sealed class ThrottleSubscription<TSource> : IDisposable
             }
 
             _stopped = true;
+            _disposed = true;
             timer = _timer;
             _timer = null;
             emit = _hasValue;
@@ -135,6 +145,7 @@ internal sealed class ThrottleSubscription<TSource> : IDisposable
         }
 
         timer?.Dispose();
+        _subscription.Dispose();
         if (emit)
         {
             _observer.OnNext(value!);

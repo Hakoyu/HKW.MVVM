@@ -5,6 +5,13 @@ namespace HKW.MVVMTest;
 [TestClass]
 public sealed class ObservableExtensionsTests
 {
+    private sealed class ThrowingComparer : IEqualityComparer<int>
+    {
+        public bool Equals(int x, int y) => throw new InvalidOperationException("Comparer failed.");
+
+        public int GetHashCode(int obj) => obj;
+    }
+
     [TestMethod]
     public void WhereAndSelect_FilterAndTransformValues()
     {
@@ -85,6 +92,25 @@ public sealed class ObservableExtensionsTests
     }
 
     [TestMethod]
+    public void DistinctUntilChanged_WhenComparerThrows_TerminatesAndDisposesSource()
+    {
+        var source = new ManualObservable<int>();
+        var received = 0;
+        Exception? error = null;
+        using var subscription = source
+            .DistinctUntilChanged(new ThrowingComparer())
+            .Subscribe(_ => received++, exception => error = exception);
+
+        source.Emit(1);
+        source.Emit(2);
+        source.Emit(3);
+
+        Assert.AreEqual(1, received);
+        Assert.IsInstanceOfType<InvalidOperationException>(error);
+        Assert.AreEqual(1, source.DisposalCount);
+    }
+
+    [TestMethod]
     public void StartWith_EmitsInitialValueBeforeSourceValues()
     {
         var source = new ManualObservable<int>();
@@ -141,6 +167,24 @@ public sealed class ObservableExtensionsTests
         source.Emit(1);
 
         CollectionAssert.AreEqual(new[] { "Do:1", "Next:1" }, events);
+    }
+
+    [TestMethod]
+    public void Do_WhenSideEffectThrows_TerminatesAndDisposesSource()
+    {
+        var source = new ManualObservable<int>();
+        Exception? error = null;
+        var values = new List<int>();
+        using var subscription = source
+            .Do(_ => throw new TestException("Side effect failed."))
+            .Subscribe(values.Add, exception => error = exception);
+
+        source.Emit(1);
+        source.Emit(2);
+
+        Assert.IsEmpty(values);
+        Assert.IsInstanceOfType<TestException>(error);
+        Assert.AreEqual(1, source.DisposalCount);
     }
 
     [TestMethod]
@@ -257,6 +301,35 @@ public sealed class ObservableExtensionsTests
         source.Complete();
 
         CollectionAssert.AreEqual(new[] { "Next:1", "Completed" }, events);
+    }
+
+    [TestMethod]
+    public void Throttle_SynchronousCompletion_DisposesSourceSubscription()
+    {
+        var source = new SynchronousObservable<int>(observer => observer.OnCompleted());
+        var completed = false;
+
+        using var subscription = source.Throttle(TimeSpan.Zero).Subscribe(
+            _ => Assert.Fail(),
+            _ => Assert.Fail(),
+            () => completed = true);
+
+        Assert.IsTrue(completed);
+        Assert.AreEqual(1, source.DisposalCount);
+    }
+
+    [TestMethod]
+    public void Throttle_SynchronousError_DisposesSourceSubscription()
+    {
+        var source = new SynchronousObservable<int>(observer => observer.OnError(new TestException("Expected.")));
+        Exception? error = null;
+
+        using var subscription = source
+            .Throttle(TimeSpan.Zero)
+            .Subscribe(_ => Assert.Fail(), received => error = received);
+
+        Assert.IsInstanceOfType<TestException>(error);
+        Assert.AreEqual(1, source.DisposalCount);
     }
 
     [TestMethod]

@@ -557,12 +557,11 @@ public static class WhenAnyExtensions
                 body = unary.Operand;
             }
 
-            return body
-                    is MemberExpression
-                    {
-                        Member: PropertyInfo { GetMethod: not null },
-                        Expression: ParameterExpression parameter,
-                    }
+            return body is MemberExpression
+            {
+                Member: PropertyInfo { GetMethod: not null },
+                Expression: ParameterExpression parameter,
+            }
                 && parameter == expression.Parameters[0];
         }
 

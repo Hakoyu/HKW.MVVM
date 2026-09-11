@@ -217,9 +217,16 @@ public static class ObservableExtensions
         {
             var hasValue = false;
             TSource? lastValue = default;
-            return source.Subscribe(
+            var stopped = false;
+            var subscription = new SingleAssignmentDisposable();
+            subscription.Disposable = source.Subscribe(
                 value =>
                 {
+                    if (stopped)
+                    {
+                        return;
+                    }
+
                     bool equals;
                     try
                     {
@@ -227,7 +234,9 @@ public static class ObservableExtensions
                     }
                     catch (Exception exception)
                     {
+                        stopped = true;
                         observer.OnError(exception);
+                        subscription.Dispose();
                         return;
                     }
 
@@ -240,9 +249,10 @@ public static class ObservableExtensions
                     lastValue = value;
                     observer.OnNext(value);
                 },
-                observer.OnError,
-                observer.OnCompleted
+                error => ForwardError(observer, subscription, ref stopped, error),
+                () => ForwardCompletion(observer, subscription, ref stopped)
             );
+            return subscription;
         });
     }
 
@@ -358,25 +368,34 @@ public static class ObservableExtensions
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(onNext);
         return Create<TSource>(observer =>
-            source.Subscribe(
+        {
+            var stopped = false;
+            var subscription = new SingleAssignmentDisposable();
+            subscription.Disposable = source.Subscribe(
                 value =>
                 {
+                    if (stopped)
+                    {
+                        return;
+                    }
+
                     try
                     {
                         onNext(value);
                     }
                     catch (Exception exception)
                     {
-                        observer.OnError(exception);
+                        ForwardError(observer, subscription, ref stopped, exception);
                         return;
                     }
 
                     observer.OnNext(value);
                 },
-                observer.OnError,
-                observer.OnCompleted
-            )
-        );
+                error => ForwardError(observer, subscription, ref stopped, error),
+                () => ForwardCompletion(observer, subscription, ref stopped)
+            );
+            return subscription;
+        });
     }
 
     /// <summary>Dispatches source values, errors, and completion through a synchronization context.</summary>

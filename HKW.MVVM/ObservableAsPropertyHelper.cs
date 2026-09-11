@@ -45,10 +45,13 @@ public sealed class ObservableAsPropertyHelper<T>
         }
     }
 
+    /// <summary>Raised before <see cref="Value"/> changes.</summary>
     public event PropertyChangingEventHandler? PropertyChanging;
 
+    /// <summary>Raised after <see cref="Value"/> changes.</summary>
     public event PropertyChangedEventHandler? PropertyChanged;
 
+    /// <summary>Gets the latest value received from the source observable.</summary>
     public T Value
     {
         get
@@ -64,6 +67,7 @@ public sealed class ObservableAsPropertyHelper<T>
     /// <summary>Receives terminal errors produced by the source.</summary>
     public IObservable<Exception> ThrownExceptions => _exceptions;
 
+    /// <summary>Stops observing the source and releases all owned resources.</summary>
     public void Dispose()
     {
         IDisposable? subscription;
@@ -134,6 +138,7 @@ public sealed class ObservableAsPropertyHelper<T>
     }
 }
 
+/// <summary>Provides extensions for exposing observable values as read-only properties.</summary>
 public static class ObservableAsPropertyHelperExtensions
 {
     /// <summary>
