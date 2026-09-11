@@ -1,5 +1,5 @@
-using System.ComponentModel;
 using System.Collections.Concurrent;
+using System.ComponentModel;
 using System.Linq.Expressions;
 using System.Reflection;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -9,9 +9,12 @@ namespace HKW.MVVM;
 /// <summary>
 /// Stores the latest value from an observable and raises notifications for a read-only owner property.
 /// </summary>
-public sealed class ObservableAsPropertyHelper<T> : IDisposable, INotifyPropertyChanged, INotifyPropertyChanging
+public sealed class ObservableAsPropertyHelper<T>
+    : IDisposable,
+        INotifyPropertyChanged,
+        INotifyPropertyChanging
 {
-    private readonly object _gate = new();
+    private readonly System.Threading.Lock _gate = new();
     private readonly IObservable<T> _source;
     private readonly ObservableObject _owner;
     private readonly string _propertyName;
@@ -28,7 +31,8 @@ public sealed class ObservableAsPropertyHelper<T> : IDisposable, INotifyProperty
         string propertyName,
         T initialValue,
         bool deferSubscription,
-        SynchronizationContext? synchronizationContext)
+        SynchronizationContext? synchronizationContext
+    )
     {
         _source = source;
         _owner = owner;
@@ -95,28 +99,32 @@ public sealed class ObservableAsPropertyHelper<T> : IDisposable, INotifyProperty
         }
     }
 
-    private void SetValue(T value) => Dispatch(() =>
-    {
-        lock (_gate)
+    private void SetValue(T value) =>
+        Dispatch(() =>
         {
-            if (_disposed || EqualityComparer<T>.Default.Equals(_value, value))
+            lock (_gate)
             {
-                return;
-            }
+                if (_disposed || EqualityComparer<T>.Default.Equals(_value, value))
+                {
+                    return;
+                }
 
-            var changingArgs = new PropertyChangingEventArgs(nameof(Value));
-            PropertyChanging?.Invoke(this, changingArgs);
-            PropertyNotificationDispatcher.RaisePropertyChanging(_owner, _propertyName);
-            _value = value;
-            var changedArgs = new PropertyChangedEventArgs(nameof(Value));
-            PropertyChanged?.Invoke(this, changedArgs);
-            PropertyNotificationDispatcher.RaisePropertyChanged(_owner, _propertyName);
-        }
-    });
+                var changingArgs = new PropertyChangingEventArgs(nameof(Value));
+                PropertyChanging?.Invoke(this, changingArgs);
+                PropertyNotificationDispatcher.RaisePropertyChanging(_owner, _propertyName);
+                _value = value;
+                var changedArgs = new PropertyChangedEventArgs(nameof(Value));
+                PropertyChanged?.Invoke(this, changedArgs);
+                PropertyNotificationDispatcher.RaisePropertyChanged(_owner, _propertyName);
+            }
+        });
 
     private void Dispatch(Action action)
     {
-        if (_synchronizationContext is null || SynchronizationContext.Current == _synchronizationContext)
+        if (
+            _synchronizationContext is null
+            || SynchronizationContext.Current == _synchronizationContext
+        )
         {
             action();
         }
@@ -151,12 +159,20 @@ public static class ObservableAsPropertyHelperExtensions
         Expression<Func<TOwner, TValue>> property,
         TValue initialValue = default!,
         bool deferSubscription = false,
-        SynchronizationContext? synchronizationContext = null)
+        SynchronizationContext? synchronizationContext = null
+    )
         where TOwner : ObservableObject
     {
         ArgumentNullException.ThrowIfNull(property);
         var propertyName = GetPropertyName(property);
-        return ToProperty(source, owner, propertyName, initialValue, deferSubscription, synchronizationContext);
+        return ToProperty(
+            source,
+            owner,
+            propertyName,
+            initialValue,
+            deferSubscription,
+            synchronizationContext
+        );
     }
 
     /// <summary>
@@ -181,7 +197,8 @@ public static class ObservableAsPropertyHelperExtensions
         string propertyName,
         TValue initialValue = default!,
         bool deferSubscription = false,
-        SynchronizationContext? synchronizationContext = null)
+        SynchronizationContext? synchronizationContext = null
+    )
         where TOwner : ObservableObject
     {
         ArgumentNullException.ThrowIfNull(source);
@@ -193,21 +210,32 @@ public static class ObservableAsPropertyHelperExtensions
             propertyName,
             initialValue,
             deferSubscription,
-            synchronizationContext);
+            synchronizationContext
+        );
     }
 
     private static string GetPropertyName<TOwner, TValue>(Expression<Func<TOwner, TValue>> property)
     {
         Expression body = property.Body;
-        if (body is UnaryExpression { NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked } conversion)
+        if (
+            body is UnaryExpression
+            {
+                NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked
+            } conversion
+        )
         {
             body = conversion.Operand;
         }
 
-        if (body is not MemberExpression { Member: System.Reflection.PropertyInfo info } member ||
-            member.Expression != property.Parameters[0])
+        if (
+            body is not MemberExpression { Member: System.Reflection.PropertyInfo info } member
+            || member.Expression != property.Parameters[0]
+        )
         {
-            throw new ArgumentException("The expression must select a direct owner property, for example x => x.FullName.", nameof(property));
+            throw new ArgumentException(
+                "The expression must select a direct owner property, for example x => x.FullName.",
+                nameof(property)
+            );
         }
 
         return info.Name;
@@ -225,9 +253,13 @@ internal static class PropertyNotificationDispatcher
         GetMethods(owner).Changed.Invoke(owner, [new PropertyChangedEventArgs(propertyName)]);
 
     private static NotificationMethods GetMethods(ObservableObject owner) =>
-        Cache.GetOrAdd(owner.GetType(), static type => new NotificationMethods(
-            FindMethod(type, "OnPropertyChanging", typeof(PropertyChangingEventArgs)),
-            FindMethod(type, "OnPropertyChanged", typeof(PropertyChangedEventArgs))));
+        Cache.GetOrAdd(
+            owner.GetType(),
+            static type => new NotificationMethods(
+                FindMethod(type, "OnPropertyChanging", typeof(PropertyChangingEventArgs)),
+                FindMethod(type, "OnPropertyChanged", typeof(PropertyChangedEventArgs))
+            )
+        );
 
     private static MethodInfo FindMethod(Type type, string name, Type argumentType) =>
         type.GetMethod(
@@ -235,8 +267,11 @@ internal static class PropertyNotificationDispatcher
             BindingFlags.Instance | BindingFlags.NonPublic,
             binder: null,
             types: [argumentType],
-            modifiers: null)
-        ?? throw new InvalidOperationException($"{type.FullName} does not expose {name}({argumentType.Name}).");
+            modifiers: null
+        )
+        ?? throw new InvalidOperationException(
+            $"{type.FullName} does not expose {name}({argumentType.Name})."
+        );
 
     private sealed record NotificationMethods(MethodInfo Changing, MethodInfo Changed);
 }

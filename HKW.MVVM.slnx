@@ -1,4 +1,7 @@
 <Solution>
+  <Folder Name="/Solution Items/">
+    <File Path=".editorconfig" />
+  </Folder>
   <Project Path="HKW.MVVM/HKW.MVVM.csproj" />
   <Project Path="HKW.MVVMTest/HKW.MVVMTest.csproj" Id="eae4c84a-d92f-4f04-ad5a-e34bc37ada50" />
 </Solution>

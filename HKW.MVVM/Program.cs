@@ -28,7 +28,7 @@ internal class TestModel : ObservableObject, IEnableLogger
     {
         get => field;
         set => SetProperty(ref field, value);
-    }
+    } = string.Empty;
 }
 
 internal sealed class SimpleConsoleLoggerProvider : ILoggerProvider

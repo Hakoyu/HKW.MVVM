@@ -10,7 +10,8 @@ namespace HKW.MVVM;
 public readonly record struct PropertyObservation<TSender, TValue>(
     TSender Sender,
     string PropertyName,
-    TValue Value);
+    TValue Value
+);
 
 /// <summary>
 /// Converts <see cref="INotifyPropertyChanged"/> properties into cold observable streams.
@@ -32,7 +33,8 @@ public static class WhenAnyExtensions
     /// </remarks>
     public static IObservable<TValue> WhenAnyValue<TSource, TValue>(
         this TSource source,
-        Expression<Func<TSource, TValue>> property)
+        Expression<Func<TSource, TValue>> property
+    )
         where TSource : class, INotifyPropertyChanged
     {
         ArgumentNullException.ThrowIfNull(source);
@@ -60,10 +62,13 @@ public static class WhenAnyExtensions
         this TSource source,
         Expression<Func<TSource, T1>> property1,
         Expression<Func<TSource, T2>> property2,
-        Func<T1, T2, TResult> selector)
+        Func<T1, T2, TResult> selector
+    )
         where TSource : class, INotifyPropertyChanged =>
-        Combine([source.WhenAnyValue(property1).Box(), source.WhenAnyValue(property2).Box()], values =>
-            selector((T1)values[0]!, (T2)values[1]!));
+        Combine(
+            [source.WhenAnyValue(property1).Box(), source.WhenAnyValue(property2).Box()],
+            values => selector((T1)values[0]!, (T2)values[1]!)
+        );
 
     /// <summary>
     /// Observes three properties and projects their latest values whenever any final value changes.
@@ -88,15 +93,17 @@ public static class WhenAnyExtensions
         Expression<Func<TSource, T1>> property1,
         Expression<Func<TSource, T2>> property2,
         Expression<Func<TSource, T3>> property3,
-        Func<T1, T2, T3, TResult> selector)
+        Func<T1, T2, T3, TResult> selector
+    )
         where TSource : class, INotifyPropertyChanged =>
         Combine(
             [
                 source.WhenAnyValue(property1).Box(),
                 source.WhenAnyValue(property2).Box(),
-                source.WhenAnyValue(property3).Box()
+                source.WhenAnyValue(property3).Box(),
             ],
-            values => selector((T1)values[0]!, (T2)values[1]!, (T3)values[2]!));
+            values => selector((T1)values[0]!, (T2)values[1]!, (T3)values[2]!)
+        );
 
     /// <summary>
     /// Observes four properties and projects their latest values whenever any final value changes.
@@ -124,16 +131,18 @@ public static class WhenAnyExtensions
         Expression<Func<TSource, T2>> property2,
         Expression<Func<TSource, T3>> property3,
         Expression<Func<TSource, T4>> property4,
-        Func<T1, T2, T3, T4, TResult> selector)
+        Func<T1, T2, T3, T4, TResult> selector
+    )
         where TSource : class, INotifyPropertyChanged =>
         Combine(
             [
                 source.WhenAnyValue(property1).Box(),
                 source.WhenAnyValue(property2).Box(),
                 source.WhenAnyValue(property3).Box(),
-                source.WhenAnyValue(property4).Box()
+                source.WhenAnyValue(property4).Box(),
             ],
-            values => selector((T1)values[0]!, (T2)values[1]!, (T3)values[2]!, (T4)values[3]!));
+            values => selector((T1)values[0]!, (T2)values[1]!, (T3)values[2]!, (T4)values[3]!)
+        );
 
     /// <summary>
     /// Observes a property path and projects an observation containing the sender, final property name, and value.
@@ -152,37 +161,44 @@ public static class WhenAnyExtensions
     public static IObservable<TResult> WhenAny<TSource, TValue, TResult>(
         this TSource source,
         Expression<Func<TSource, TValue>> property,
-        Func<PropertyObservation<TSource, TValue>, TResult> selector)
+        Func<PropertyObservation<TSource, TValue>, TResult> selector
+    )
         where TSource : class, INotifyPropertyChanged
     {
         ArgumentNullException.ThrowIfNull(selector);
         var propertyName = PropertyPath.Parse(property).Last().Name;
         return Select(
             source.WhenAnyValue(property),
-            value => selector(new PropertyObservation<TSource, TValue>(source, propertyName, value)));
+            value => selector(new PropertyObservation<TSource, TValue>(source, propertyName, value))
+        );
     }
 
     private static IObservable<TResult> Select<TSource, TResult>(
         IObservable<TSource> source,
-        Func<TSource, TResult> selector) =>
-        new AnonymousObservable<TResult>(observer => source.Subscribe(
-            value =>
-            {
-                try
+        Func<TSource, TResult> selector
+    ) =>
+        new AnonymousObservable<TResult>(observer =>
+            source.Subscribe(
+                value =>
                 {
-                    observer.OnNext(selector(value));
-                }
-                catch (Exception exception)
-                {
-                    observer.OnError(exception);
-                }
-            },
-            observer.OnError,
-            observer.OnCompleted));
+                    try
+                    {
+                        observer.OnNext(selector(value));
+                    }
+                    catch (Exception exception)
+                    {
+                        observer.OnError(exception);
+                    }
+                },
+                observer.OnError,
+                observer.OnCompleted
+            )
+        );
 
     private static IObservable<TResult> Combine<TResult>(
         IReadOnlyList<IObservable<object?>> sources,
-        Func<object?[], TResult> selector) =>
+        Func<object?[], TResult> selector
+    ) =>
         new AnonymousObservable<TResult>(observer =>
         {
             var gate = new object();
@@ -194,54 +210,58 @@ public static class WhenAnyExtensions
             for (var index = 0; index < sources.Count; index++)
             {
                 var capturedIndex = index;
-                subscriptions.Add(sources[index].Subscribe(
-                    value =>
-                    {
-                        TResult result;
-                        lock (gate)
-                        {
-                            if (stopped)
+                subscriptions.Add(
+                    sources[index]
+                        .Subscribe(
+                            value =>
                             {
-                                return;
-                            }
+                                TResult result;
+                                lock (gate)
+                                {
+                                    if (stopped)
+                                    {
+                                        return;
+                                    }
 
-                            values[capturedIndex] = value;
-                            hasValue[capturedIndex] = true;
-                            if (Array.IndexOf(hasValue, false) >= 0)
-                            {
-                                return;
-                            }
+                                    values[capturedIndex] = value;
+                                    hasValue[capturedIndex] = true;
+                                    if (Array.IndexOf(hasValue, false) >= 0)
+                                    {
+                                        return;
+                                    }
 
-                            try
+                                    try
+                                    {
+                                        result = selector((object?[])values.Clone());
+                                    }
+                                    catch (Exception exception)
+                                    {
+                                        stopped = true;
+                                        observer.OnError(exception);
+                                        subscriptions.Dispose();
+                                        return;
+                                    }
+                                }
+
+                                observer.OnNext(result);
+                            },
+                            error =>
                             {
-                                result = selector((object?[])values.Clone());
-                            }
-                            catch (Exception exception)
-                            {
-                                stopped = true;
-                                observer.OnError(exception);
+                                lock (gate)
+                                {
+                                    if (stopped)
+                                    {
+                                        return;
+                                    }
+
+                                    stopped = true;
+                                }
+
+                                observer.OnError(error);
                                 subscriptions.Dispose();
-                                return;
                             }
-                        }
-
-                        observer.OnNext(result);
-                    },
-                    error =>
-                    {
-                        lock (gate)
-                        {
-                            if (stopped)
-                            {
-                                return;
-                            }
-
-                            stopped = true;
-                        }
-
-                        observer.OnError(error);
-                        subscriptions.Dispose();
-                    }));
+                        )
+                );
             }
 
             return subscriptions;
@@ -252,7 +272,8 @@ public static class WhenAnyExtensions
 
     private sealed class PropertyPathObservable<TSource, TValue>(
         TSource source,
-        Expression<Func<TSource, TValue>> expression) : IObservable<TValue>
+        Expression<Func<TSource, TValue>> expression
+    ) : IObservable<TValue>
         where TSource : class, INotifyPropertyChanged
     {
         private readonly PropertyInfo[] _path = PropertyPath.Parse(expression);
@@ -267,16 +288,23 @@ public static class WhenAnyExtensions
     private sealed class PropertyPathSubscription<TSource, TValue> : IDisposable
         where TSource : class, INotifyPropertyChanged
     {
-        private readonly object _gate = new();
+        private readonly System.Threading.Lock _gate = new();
         private readonly TSource _source;
         private readonly PropertyInfo[] _path;
         private readonly IObserver<TValue> _observer;
-        private readonly List<(INotifyPropertyChanged Owner, PropertyChangedEventHandler Handler)> _handlers = [];
+        private readonly List<(
+            INotifyPropertyChanged Owner,
+            PropertyChangedEventHandler Handler
+        )> _handlers = [];
         private bool _hasValue;
         private TValue? _lastValue;
         private bool _disposed;
 
-        public PropertyPathSubscription(TSource source, PropertyInfo[] path, IObserver<TValue> observer)
+        public PropertyPathSubscription(
+            TSource source,
+            PropertyInfo[] path,
+            IObserver<TValue> observer
+        )
         {
             _source = source;
             _path = path;
@@ -328,7 +356,10 @@ public static class WhenAnyExtensions
                             var watchedName = _path[index].Name;
                             PropertyChangedEventHandler handler = (_, eventArgs) =>
                             {
-                                if (string.IsNullOrEmpty(eventArgs.PropertyName) || eventArgs.PropertyName == watchedName)
+                                if (
+                                    string.IsNullOrEmpty(eventArgs.PropertyName)
+                                    || eventArgs.PropertyName == watchedName
+                                )
                                 {
                                     RebuildAndPublish();
                                 }
@@ -385,11 +416,18 @@ public static class WhenAnyExtensions
 
     private static class PropertyPath
     {
-        public static PropertyInfo[] Parse<TSource, TValue>(Expression<Func<TSource, TValue>> expression)
+        public static PropertyInfo[] Parse<TSource, TValue>(
+            Expression<Func<TSource, TValue>> expression
+        )
         {
             ArgumentNullException.ThrowIfNull(expression);
             Expression current = expression.Body;
-            if (current is UnaryExpression { NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked } conversion)
+            if (
+                current is UnaryExpression
+                {
+                    NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked
+                } conversion
+            )
             {
                 current = conversion.Operand;
             }
@@ -397,9 +435,15 @@ public static class WhenAnyExtensions
             var path = new Stack<PropertyInfo>();
             while (current is MemberExpression memberExpression)
             {
-                if (memberExpression.Member is not PropertyInfo property || property.GetMethod is null)
+                if (
+                    memberExpression.Member is not PropertyInfo property
+                    || property.GetMethod is null
+                )
                 {
-                    throw new ArgumentException("The expression must contain readable properties only.", nameof(expression));
+                    throw new ArgumentException(
+                        "The expression must contain readable properties only.",
+                        nameof(expression)
+                    );
                 }
 
                 path.Push(property);
@@ -410,7 +454,8 @@ public static class WhenAnyExtensions
             {
                 throw new ArgumentException(
                     "The expression must be a property path rooted at its parameter, for example x => x.Customer.Name.",
-                    nameof(expression));
+                    nameof(expression)
+                );
             }
 
             return path.ToArray();

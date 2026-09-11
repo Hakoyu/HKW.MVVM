@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Logging;
+
 namespace HKW.MVVM;
 
 /// <summary>
@@ -5,6 +7,69 @@ namespace HKW.MVVM;
 /// </summary>
 public static class ObservableExtensions
 {
+    /// <summary>
+    /// Logs each notification from an observable sequence and forwards the sequence unchanged.
+    /// </summary>
+    /// <typeparam name="TSource">The source value type.</typeparam>
+    /// <param name="source">The observable sequence to log.</param>
+    /// <param name="loggerOwner">The object whose runtime type supplies the logger category.</param>
+    /// <param name="message">A label used to identify this sequence in log entries.</param>
+    /// <returns>A cold observable sequence that logs and forwards every source notification.</returns>
+    /// <remarks>
+    /// Values and successful completion are logged at <see cref="LogLevel.Debug"/>; errors are logged at
+    /// <see cref="LogLevel.Error"/> and retain the original exception. Logging begins only after subscription.
+    /// <b>REFLECTION: NO.</b> The logger is obtained through <see cref="LoggerMixins.Log(IEnableLogger)"/>
+    /// and notifications are forwarded directly.
+    /// </remarks>
+    public static IObservable<TSource> Log<TSource>(
+        this IObservable<TSource> source,
+        IEnableLogger loggerOwner,
+        string? message = null)
+    {
+        ArgumentNullException.ThrowIfNull(loggerOwner);
+        return Log(source, loggerOwner.Log(), message);
+    }
+
+    /// <summary>
+    /// Logs each notification from an observable sequence with a specified logger and forwards it unchanged.
+    /// </summary>
+    /// <typeparam name="TSource">The source value type.</typeparam>
+    /// <param name="source">The observable sequence to log.</param>
+    /// <param name="logger">The logger that receives sequence notifications.</param>
+    /// <param name="message">A label used to identify this sequence in log entries.</param>
+    /// <returns>A cold observable sequence that logs and forwards every source notification.</returns>
+    /// <remarks>
+    /// Values and successful completion are logged at <see cref="LogLevel.Debug"/>; errors are logged at
+    /// <see cref="LogLevel.Error"/> and retain the original exception. Logging begins only after subscription.
+    /// <b>REFLECTION: NO.</b> Logging and observer notification methods are invoked directly.
+    /// </remarks>
+    public static IObservable<TSource> Log<TSource>(
+        this IObservable<TSource> source,
+        ILogger logger,
+        string? message = null)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(logger);
+        var label = string.IsNullOrWhiteSpace(message) ? "Observable" : message;
+
+        return Create<TSource>(observer => source.Subscribe(
+            value =>
+            {
+                logger.LogDebug("{Observable}: OnNext({Value})", label, value);
+                observer.OnNext(value);
+            },
+            error =>
+            {
+                logger.LogError(error, "{Observable}: OnError({ErrorMessage})", label, error.Message);
+                observer.OnError(error);
+            },
+            () =>
+            {
+                logger.LogDebug("{Observable}: OnCompleted()", label);
+                observer.OnCompleted();
+            }));
+    }
+
     /// <summary>Projects each source value into a new form.</summary>
     /// <typeparam name="TSource">The source value type.</typeparam>
     /// <typeparam name="TResult">The projected value type.</typeparam>

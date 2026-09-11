@@ -1,6 +1,7 @@
 namespace HKW.MVVM;
 
-internal sealed class AnonymousObservable<T>(Func<IObserver<T>, IDisposable> subscribe) : IObservable<T>
+internal sealed class AnonymousObservable<T>(Func<IObserver<T>, IDisposable> subscribe)
+    : IObservable<T>
 {
     public IDisposable Subscribe(IObserver<T> observer)
     {
@@ -12,7 +13,8 @@ internal sealed class AnonymousObservable<T>(Func<IObserver<T>, IDisposable> sub
 internal sealed class AnonymousObserver<T>(
     Action<T> onNext,
     Action<Exception>? onError = null,
-    Action? onCompleted = null) : IObserver<T>
+    Action? onCompleted = null
+) : IObserver<T>
 {
     public void OnNext(T value) => onNext(value);
 
@@ -30,7 +32,7 @@ internal sealed class ActionDisposable(Action dispose) : IDisposable
 
 internal sealed class SingleAssignmentDisposable : IDisposable
 {
-    private readonly object _gate = new();
+    private readonly System.Threading.Lock _gate = new();
     private IDisposable? _disposable;
     private bool _assigned;
     private bool _disposed;
@@ -44,7 +46,9 @@ internal sealed class SingleAssignmentDisposable : IDisposable
             {
                 if (_assigned)
                 {
-                    throw new InvalidOperationException("The disposable has already been assigned.");
+                    throw new InvalidOperationException(
+                        "The disposable has already been assigned."
+                    );
                 }
 
                 _assigned = true;
@@ -80,7 +84,7 @@ internal sealed class SingleAssignmentDisposable : IDisposable
 
 internal sealed class CompositeDisposable : IDisposable
 {
-    private readonly object _gate = new();
+    private readonly System.Threading.Lock _gate = new();
     private List<IDisposable>? _items = [];
 
     public void Add(IDisposable item)
@@ -122,7 +126,7 @@ internal sealed class CompositeDisposable : IDisposable
 
 internal sealed class ExceptionSubject : IObservable<Exception>, IDisposable
 {
-    private readonly object _gate = new();
+    private readonly System.Threading.Lock _gate = new();
     private List<IObserver<Exception>>? _observers = [];
 
     public IDisposable Subscribe(IObserver<Exception> observer)
@@ -193,7 +197,12 @@ public static class NativeObservableSubscriptionExtensions
     /// <returns>A disposable object that cancels the subscription.</returns>
     /// <remarks><b>REFLECTION: NO.</b> The method creates an <see cref="IObserver{T}"/> wrapper directly.</remarks>
     public static IDisposable Subscribe<T>(this IObservable<T> source, Action<T> onNext) =>
-        Subscribe(source, onNext, error => throw new InvalidOperationException("Observable terminated with an error.", error));
+        Subscribe(
+            source,
+            onNext,
+            error =>
+                throw new InvalidOperationException("Observable terminated with an error.", error)
+        );
 
     /// <summary>
     /// Subscribes to an observable sequence with callbacks for values, errors, and completion.
@@ -209,7 +218,8 @@ public static class NativeObservableSubscriptionExtensions
         this IObservable<T> source,
         Action<T> onNext,
         Action<Exception> onError,
-        Action? onCompleted = null)
+        Action? onCompleted = null
+    )
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(onNext);
