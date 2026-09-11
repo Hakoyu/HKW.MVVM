@@ -217,11 +217,15 @@ public static class ObservableAsPropertyHelperExtensions
 
 internal static class PropertyNotificationDispatcher
 {
-    private static readonly Action<ObservableObject, PropertyChangingEventArgs> PropertyChangingDelegate =
-        CreateDelegate<PropertyChangingEventArgs>("OnPropertyChanging");
+    private static readonly Action<
+        ObservableObject,
+        PropertyChangingEventArgs
+    > PropertyChangingDelegate = CreateDelegate<PropertyChangingEventArgs>("OnPropertyChanging");
 
-    private static readonly Action<ObservableObject, PropertyChangedEventArgs> PropertyChangedDelegate =
-        CreateDelegate<PropertyChangedEventArgs>("OnPropertyChanged");
+    private static readonly Action<
+        ObservableObject,
+        PropertyChangedEventArgs
+    > PropertyChangedDelegate = CreateDelegate<PropertyChangedEventArgs>("OnPropertyChanged");
 
     public static void NotifyPropertyChanging(ObservableObject owner, string propertyName)
     {
@@ -245,7 +249,9 @@ internal static class PropertyNotificationDispatcher
         PropertyChangedDelegate(owner, new PropertyChangedEventArgs(propertyName));
     }
 
-    private static Action<ObservableObject, TEventArgs> CreateDelegate<TEventArgs>(string methodName)
+    private static Action<ObservableObject, TEventArgs> CreateDelegate<TEventArgs>(
+        string methodName
+    )
         where TEventArgs : EventArgs =>
         typeof(ObservableObject)
             .GetMethod(

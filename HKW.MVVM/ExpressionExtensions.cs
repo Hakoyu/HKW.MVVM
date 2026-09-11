@@ -3,7 +3,7 @@ using System.Linq.Expressions;
 namespace HKW.MVVM;
 
 /// <summary>Provides helpers for expression trees.</summary>
-public static class ExpressionExtensions
+internal static class ExpressionExtensions
 {
     /// <summary>Gets the selected member name from an expression.</summary>
     public static string GetPropertyName(this LambdaExpression expression)
