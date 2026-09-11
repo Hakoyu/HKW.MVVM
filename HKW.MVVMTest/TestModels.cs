@@ -6,33 +6,28 @@ namespace HKW.MVVMTest;
 
 internal sealed class Person : ObservableObject
 {
-    private string _firstName = string.Empty;
-    private string _lastName = string.Empty;
-    private int _age;
-    private Address? _address;
-
     public string FirstName
     {
-        get => _firstName;
-        set => SetProperty(ref _firstName, value);
-    }
+        get => field;
+        set => SetProperty(ref field, value);
+    } = string.Empty;
 
     public string LastName
     {
-        get => _lastName;
-        set => SetProperty(ref _lastName, value);
-    }
+        get => field;
+        set => SetProperty(ref field, value);
+    } = string.Empty;
 
     public int Age
     {
-        get => _age;
-        set => SetProperty(ref _age, value);
+        get => field;
+        set => SetProperty(ref field, value);
     }
 
     public Address? Address
     {
-        get => _address;
-        set => SetProperty(ref _address, value);
+        get => field;
+        set => SetProperty(ref field, value);
     }
 
     public string PublicField = string.Empty;
@@ -43,30 +38,26 @@ internal sealed class Person : ObservableObject
 
 internal sealed class Address : ObservableObject
 {
-    private string _city = string.Empty;
-
     public string City
     {
-        get => _city;
-        set => SetProperty(ref _city, value);
-    }
+        get => field;
+        set => SetProperty(ref field, value);
+    } = string.Empty;
 }
 
 internal sealed class PlainNotifyModel : INotifyPropertyChanged
 {
-    private string _name = string.Empty;
-
     public event PropertyChangedEventHandler? PropertyChanged;
 
     public string Name
     {
-        get => _name;
+        get => field;
         set
         {
-            _name = value;
+            field = value;
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Name)));
         }
-    }
+    } = string.Empty;
 
     public void Raise(string? propertyName) =>
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
@@ -75,29 +66,28 @@ internal sealed class PlainNotifyModel : INotifyPropertyChanged
 internal sealed class ComputedPerson : ObservableObject, IDisposable
 {
     private readonly ObservableAsPropertyHelper<string> _fullName;
-    private string _firstName = string.Empty;
-    private string _lastName = string.Empty;
 
     public ComputedPerson()
     {
         _fullName = this.WhenAnyValue(
                 x => x.FirstName,
                 x => x.LastName,
-                static (first, last) => $"{first} {last}".Trim())
+                static (first, last) => $"{first} {last}".Trim()
+            )
             .ToProperty(this, x => x.FullName, initialValue: string.Empty);
     }
 
     public string FirstName
     {
-        get => _firstName;
-        set => SetProperty(ref _firstName, value);
-    }
+        get => field;
+        set => SetProperty(ref field, value);
+    } = string.Empty;
 
     public string LastName
     {
-        get => _lastName;
-        set => SetProperty(ref _lastName, value);
-    }
+        get => field;
+        set => SetProperty(ref field, value);
+    } = string.Empty;
 
     public string FullName => _fullName.Value;
 
