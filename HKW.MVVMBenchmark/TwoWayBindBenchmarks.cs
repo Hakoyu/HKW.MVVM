@@ -6,20 +6,25 @@ using HKW.MVVM;
 
 namespace HKW.MVVMBenchmark;
 
-/// <summary>Compares expression-setter and assignment-action TwoWayBind overloads.</summary>
+/// <summary>Compares TwoWayBind overloads with equivalent direct PropertyChanged handlers.</summary>
 [MemoryDiagnoser]
 [GroupBenchmarksBy(BenchmarkLogicalGroupRule.ByCategory)]
 [CategoriesColumn]
 public class TwoWayBindBenchmarks
 {
+    private readonly BindingObject _directCreateSource = new();
+    private readonly BindingObject _directCreateTarget = new();
     private readonly BindingObject _expressionCreateSource = new();
     private readonly BindingObject _expressionCreateTarget = new();
     private readonly BindingObject _assignmentCreateSource = new();
     private readonly BindingObject _assignmentCreateTarget = new();
+    private readonly BindingObject _directUpdateSource = new();
+    private readonly BindingObject _directUpdateTarget = new();
     private readonly BindingObject _expressionUpdateSource = new();
     private readonly BindingObject _expressionUpdateTarget = new();
     private readonly BindingObject _assignmentUpdateSource = new();
     private readonly BindingObject _assignmentUpdateTarget = new();
+    private IDisposable? _directBinding;
     private IDisposable? _expressionBinding;
     private IDisposable? _assignmentBinding;
     private int _value;
@@ -28,14 +33,17 @@ public class TwoWayBindBenchmarks
     [GlobalSetup(
         Targets =
         [
+            nameof(DirectSourceToTargetUpdate),
             nameof(ExpressionSourceToTargetUpdate),
             nameof(AssignmentSourceToTargetUpdate),
+            nameof(DirectTargetToSourceUpdate),
             nameof(ExpressionTargetToSourceUpdate),
             nameof(AssignmentTargetToSourceUpdate),
         ]
     )]
     public void SetupUpdateBindings()
     {
+        _directBinding = new DirectTwoWayBinding(_directUpdateSource, _directUpdateTarget);
         _expressionBinding = _expressionUpdateTarget.TwoWayBind(
             _expressionUpdateSource,
             source => source.Value,
@@ -54,20 +62,31 @@ public class TwoWayBindBenchmarks
     [GlobalCleanup(
         Targets =
         [
+            nameof(DirectSourceToTargetUpdate),
             nameof(ExpressionSourceToTargetUpdate),
             nameof(AssignmentSourceToTargetUpdate),
+            nameof(DirectTargetToSourceUpdate),
             nameof(ExpressionTargetToSourceUpdate),
             nameof(AssignmentTargetToSourceUpdate),
         ]
     )]
     public void CleanupUpdateBindings()
     {
+        _directBinding?.Dispose();
         _expressionBinding?.Dispose();
         _assignmentBinding?.Dispose();
     }
 
-    /// <summary>Measures binding creation, two setter compilations, subscriptions, and disposal.</summary>
+    /// <summary>Measures direct event-handler binding creation, initial synchronization, and disposal.</summary>
     [Benchmark(Baseline = true)]
+    [BenchmarkCategory("CreateAndDispose")]
+    public void DirectCreateAndDispose()
+    {
+        using var binding = new DirectTwoWayBinding(_directCreateSource, _directCreateTarget);
+    }
+
+    /// <summary>Measures binding creation, two setter compilations, subscriptions, and disposal.</summary>
+    [Benchmark]
     [BenchmarkCategory("CreateAndDispose")]
     public void ExpressionCreateAndDispose()
     {
@@ -92,8 +111,13 @@ public class TwoWayBindBenchmarks
         );
     }
 
-    /// <summary>Measures one source-to-target update through an existing expression binding.</summary>
+    /// <summary>Measures one source-to-target update through direct event handlers.</summary>
     [Benchmark(Baseline = true)]
+    [BenchmarkCategory("SourceToTargetUpdate")]
+    public void DirectSourceToTargetUpdate() => _directUpdateSource.Value = ++_value;
+
+    /// <summary>Measures one source-to-target update through an existing expression binding.</summary>
+    [Benchmark]
     [BenchmarkCategory("SourceToTargetUpdate")]
     public void ExpressionSourceToTargetUpdate() => _expressionUpdateSource.Value = ++_value;
 
@@ -102,8 +126,13 @@ public class TwoWayBindBenchmarks
     [BenchmarkCategory("SourceToTargetUpdate")]
     public void AssignmentSourceToTargetUpdate() => _assignmentUpdateSource.Value = ++_value;
 
-    /// <summary>Measures one target-to-source update through an existing expression binding.</summary>
+    /// <summary>Measures one target-to-source update through direct event handlers.</summary>
     [Benchmark(Baseline = true)]
+    [BenchmarkCategory("TargetToSourceUpdate")]
+    public void DirectTargetToSourceUpdate() => _directUpdateTarget.Value = ++_value;
+
+    /// <summary>Measures one target-to-source update through an existing expression binding.</summary>
+    [Benchmark]
     [BenchmarkCategory("TargetToSourceUpdate")]
     public void ExpressionTargetToSourceUpdate() => _expressionUpdateTarget.Value = ++_value;
 
@@ -130,6 +159,72 @@ public class TwoWayBindBenchmarks
 
                 _value = value;
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Value)));
+            }
+        }
+    }
+
+    private sealed class DirectTwoWayBinding : IDisposable
+    {
+        private readonly BindingObject _source;
+        private readonly BindingObject _target;
+        private bool _updatingSource;
+        private bool _updatingTarget;
+        private bool _disposed;
+
+        public DirectTwoWayBinding(BindingObject source, BindingObject target)
+        {
+            _source = source;
+            _target = target;
+            _target.Value = _source.Value;
+            _source.PropertyChanged += OnSourcePropertyChanged;
+            _target.PropertyChanged += OnTargetPropertyChanged;
+        }
+
+        public void Dispose()
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            _disposed = true;
+            _source.PropertyChanged -= OnSourcePropertyChanged;
+            _target.PropertyChanged -= OnTargetPropertyChanged;
+        }
+
+        private void OnSourcePropertyChanged(object? sender, PropertyChangedEventArgs eventArgs)
+        {
+            if (_updatingSource || eventArgs.PropertyName != nameof(BindingObject.Value))
+            {
+                return;
+            }
+
+            try
+            {
+                _updatingTarget = true;
+                _target.Value = _source.Value;
+            }
+            finally
+            {
+                _updatingTarget = false;
+            }
+        }
+
+        private void OnTargetPropertyChanged(object? sender, PropertyChangedEventArgs eventArgs)
+        {
+            if (_updatingTarget || eventArgs.PropertyName != nameof(BindingObject.Value))
+            {
+                return;
+            }
+
+            try
+            {
+                _updatingSource = true;
+                _source.Value = _target.Value;
+            }
+            finally
+            {
+                _updatingSource = false;
             }
         }
     }
