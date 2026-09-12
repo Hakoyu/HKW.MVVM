@@ -44,6 +44,14 @@ public class MultiPropertyWhenAnyValueBenchmarks
     private int _reactiveUIResult;
     private int _value;
 
+    [GlobalSetup]
+    public void ReactiveUIBuildApp()
+    {
+        ReactiveUI.Builder.BuilderMixins.BuildApp(
+            ReactiveUI.Builder.RxAppBuilder.CreateReactiveUIBuilder().WithCoreServices()
+        );
+    }
+
     /// <summary>Creates long-lived subscriptions used by update benchmarks.</summary>
     [GlobalSetup(
         Targets = [
@@ -60,9 +68,6 @@ public class MultiPropertyWhenAnyValueBenchmarks
     )]
     public void SetupUpdateSubscriptions()
     {
-        ReactiveUI.Builder.BuilderMixins.BuildApp(
-            ReactiveUI.Builder.RxAppBuilder.CreateReactiveUIBuilder().WithCoreServices()
-        );
         _directOneSubscription = new DirectCombinedSubscription(
             _directOneUpdateSource,
             1,
@@ -174,9 +179,6 @@ public class MultiPropertyWhenAnyValueBenchmarks
     [BenchmarkCategory("OnePropertyCreateAndDispose")]
     public void ReactiveUIOnePropertyCreateAndDispose()
     {
-        ReactiveUI.Builder.BuilderMixins.BuildApp(
-            ReactiveUI.Builder.RxAppBuilder.CreateReactiveUIBuilder().WithCoreServices()
-        );
         using var subscription = ReactiveUI
             .WhenAnyMixins.WhenAnyValue(_reactiveUIOneCreateSource, source => source.Value1)
             .Subscribe(value => _reactiveUIResult = value);
@@ -213,9 +215,6 @@ public class MultiPropertyWhenAnyValueBenchmarks
     [BenchmarkCategory("TwoPropertiesCreateAndDispose")]
     public void ReactiveUITwoPropertiesCreateAndDispose()
     {
-        ReactiveUI.Builder.BuilderMixins.BuildApp(
-            ReactiveUI.Builder.RxAppBuilder.CreateReactiveUIBuilder().WithCoreServices()
-        );
         using var subscription = ReactiveUI
             .WhenAnyMixins.WhenAnyValue(
                 _reactiveUITwoCreateSource,
@@ -259,9 +258,6 @@ public class MultiPropertyWhenAnyValueBenchmarks
     [BenchmarkCategory("FourPropertiesCreateAndDispose")]
     public void ReactiveUIFourPropertiesCreateAndDispose()
     {
-        ReactiveUI.Builder.BuilderMixins.BuildApp(
-            ReactiveUI.Builder.RxAppBuilder.CreateReactiveUIBuilder().WithCoreServices()
-        );
         using var subscription = ReactiveUI
             .WhenAnyMixins.WhenAnyValue(
                 _reactiveUIFourCreateSource,

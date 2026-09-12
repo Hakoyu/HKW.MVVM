@@ -33,6 +33,14 @@ public class BindToBenchmarks
     private IDisposable? _propertyChangedBinding;
     private int _value;
 
+    [GlobalSetup]
+    public void ReactiveUIBuildApp()
+    {
+        ReactiveUI.Builder.BuilderMixins.BuildApp(
+            ReactiveUI.Builder.RxAppBuilder.CreateReactiveUIBuilder().WithCoreServices()
+        );
+    }
+
     /// <summary>Creates the long-lived bindings used by the update benchmarks.</summary>
     [GlobalSetup(
         Targets = [
@@ -45,9 +53,6 @@ public class BindToBenchmarks
     )]
     public void SetupUpdateBindings()
     {
-        ReactiveUI.Builder.BuilderMixins.BuildApp(
-            ReactiveUI.Builder.RxAppBuilder.CreateReactiveUIBuilder().WithCoreServices()
-        );
         _directBinding = _directSource.Subscribe(new AssignmentObserver(_directTarget));
         _expressionBinding = _expressionSource.BindTo(_expressionTarget, target => target.Value);
         _assignmentBinding = _assignmentSource.BindTo(
@@ -116,9 +121,6 @@ public class BindToBenchmarks
     [BenchmarkCategory("CreateAndDispose")]
     public void ReactiveUICreateAndDispose()
     {
-        ReactiveUI.Builder.BuilderMixins.BuildApp(
-            ReactiveUI.Builder.RxAppBuilder.CreateReactiveUIBuilder().WithCoreServices()
-        );
         using var binding = ReactiveUI.PropertyBindingMixins.BindTo(
             _reactiveUISource,
             _reactiveUITarget,

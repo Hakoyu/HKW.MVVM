@@ -35,6 +35,14 @@ public class NestedWhenAnyValueBenchmarks
     private int _reactiveUIResult;
     private int _value;
 
+    [GlobalSetup]
+    public void ReactiveUIBuildApp()
+    {
+        ReactiveUI.Builder.BuilderMixins.BuildApp(
+            ReactiveUI.Builder.RxAppBuilder.CreateReactiveUIBuilder().WithCoreServices()
+        );
+    }
+
     /// <summary>Creates subscriptions used by leaf-update and rebind benchmarks.</summary>
     [GlobalSetup(
         Targets = [
@@ -110,9 +118,6 @@ public class NestedWhenAnyValueBenchmarks
     [BenchmarkCategory("CreateAndDispose")]
     public void ReactiveUIWhenAnyValueCreateAndDispose()
     {
-        ReactiveUI.Builder.BuilderMixins.BuildApp(
-            ReactiveUI.Builder.RxAppBuilder.CreateReactiveUIBuilder().WithCoreServices()
-        );
         using var subscription = ReactiveUI
             .WhenAnyMixins.WhenAnyValue(_reactiveUICreateRoot, root => root.Child.Value)
             .Subscribe(value => _reactiveUIResult = value);

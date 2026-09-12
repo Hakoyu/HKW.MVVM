@@ -34,6 +34,14 @@ public class TwoWayBindBenchmarks
     private IDisposable? _reactiveUIBinding;
     private int _value;
 
+    [GlobalSetup]
+    public void ReactiveUIBuildApp()
+    {
+        ReactiveUI.Builder.BuilderMixins.BuildApp(
+            ReactiveUI.Builder.RxAppBuilder.CreateReactiveUIBuilder().WithCoreServices()
+        );
+    }
+
     /// <summary>Creates the long-lived bindings used by the update benchmarks.</summary>
     [GlobalSetup(
         Targets = [
@@ -49,9 +57,6 @@ public class TwoWayBindBenchmarks
     )]
     public void SetupUpdateBindings()
     {
-        ReactiveUI.Builder.BuilderMixins.BuildApp(
-            ReactiveUI.Builder.RxAppBuilder.CreateReactiveUIBuilder().WithCoreServices()
-        );
         _directBinding = new DirectTwoWayBinding(_directUpdateSource, _directUpdateTarget);
         _expressionBinding = _expressionUpdateTarget.TwoWayBind(
             _expressionUpdateSource,
@@ -133,9 +138,6 @@ public class TwoWayBindBenchmarks
     [BenchmarkCategory("CreateAndDispose")]
     public void ReactiveUICreateAndDispose()
     {
-        ReactiveUI.Builder.BuilderMixins.BuildApp(
-            ReactiveUI.Builder.RxAppBuilder.CreateReactiveUIBuilder().WithCoreServices()
-        );
         using var binding = ReactiveUI.PropertyBindingMixins.Bind(
             _reactiveUICreateTarget,
             _reactiveUICreateSource,
