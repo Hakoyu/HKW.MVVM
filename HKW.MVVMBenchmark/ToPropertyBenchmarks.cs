@@ -47,18 +47,7 @@ public class ToPropertyBenchmarks
     private int _value;
 
     /// <summary>Creates long-lived properties used by update benchmarks.</summary>
-    [GlobalSetup(
-        Targets = [
-            nameof(DirectFastOwnerUpdate),
-            nameof(ToPropertyFastOwnerUpdate),
-            nameof(DirectPlainOwnerUpdate),
-            nameof(ToPropertyPlainOwnerUpdate),
-            nameof(ReactiveUIUpdate),
-            nameof(DirectEqualValue),
-            nameof(ToPropertyEqualValue),
-            nameof(ReactiveUIEqualValue),
-        ]
-    )]
+    [GlobalSetup]
     public void SetupUpdateProperties()
     {
         ReactiveUI.Builder.BuilderMixins.BuildApp(
@@ -101,18 +90,7 @@ public class ToPropertyBenchmarks
     }
 
     /// <summary>Disposes long-lived properties used by update benchmarks.</summary>
-    [GlobalCleanup(
-        Targets = [
-            nameof(DirectFastOwnerUpdate),
-            nameof(ToPropertyFastOwnerUpdate),
-            nameof(DirectPlainOwnerUpdate),
-            nameof(ToPropertyPlainOwnerUpdate),
-            nameof(ReactiveUIUpdate),
-            nameof(DirectEqualValue),
-            nameof(ToPropertyEqualValue),
-            nameof(ReactiveUIEqualValue),
-        ]
-    )]
+    [GlobalCleanup]
     public void CleanupUpdateProperties()
     {
         _directFastProperty?.Dispose();

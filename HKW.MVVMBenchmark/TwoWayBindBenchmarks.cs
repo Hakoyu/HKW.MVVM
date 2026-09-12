@@ -63,18 +63,7 @@ public class TwoWayBindBenchmarks
     }
 
     /// <summary>Disposes the long-lived bindings used by the update benchmarks.</summary>
-    [GlobalCleanup(
-        Targets = [
-            nameof(DirectSourceToTargetUpdate),
-            nameof(ExpressionSourceToTargetUpdate),
-            nameof(AssignmentSourceToTargetUpdate),
-            nameof(ReactiveUISourceToTargetUpdate),
-            nameof(DirectTargetToSourceUpdate),
-            nameof(ExpressionTargetToSourceUpdate),
-            nameof(AssignmentTargetToSourceUpdate),
-            nameof(ReactiveUITargetToSourceUpdate),
-        ]
-    )]
+    [GlobalCleanup]
     public void CleanupUpdateBindings()
     {
         _directBinding?.Dispose();

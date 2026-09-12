@@ -58,16 +58,7 @@ public class NestedWhenAnyValueBenchmarks
     }
 
     /// <summary>Disposes subscriptions used by update benchmarks.</summary>
-    [GlobalCleanup(
-        Targets = [
-            nameof(DirectLeafUpdate),
-            nameof(WhenAnyValueLeafUpdate),
-            nameof(ReactiveUIWhenAnyValueLeafUpdate),
-            nameof(DirectIntermediateRebind),
-            nameof(WhenAnyValueIntermediateRebind),
-            nameof(ReactiveUIWhenAnyValueIntermediateRebind),
-        ]
-    )]
+    [GlobalCleanup]
     public void CleanupUpdateSubscriptions()
     {
         _directSubscription?.Dispose();

@@ -58,15 +58,7 @@ public class BindToBenchmarks
     }
 
     /// <summary>Disposes the long-lived bindings used by the update benchmarks.</summary>
-    [GlobalCleanup(
-        Targets = [
-            nameof(DirectUpdate),
-            nameof(ExpressionUpdate),
-            nameof(AssignmentUpdate),
-            nameof(ReactiveUIUpdate),
-            nameof(PropertyChangedUpdate),
-        ]
-    )]
+    [GlobalCleanup]
     public void CleanupUpdateBindings()
     {
         _directBinding?.Dispose();

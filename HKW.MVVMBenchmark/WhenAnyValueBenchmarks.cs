@@ -48,13 +48,7 @@ public class WhenAnyValueBenchmarks
     }
 
     /// <summary>Disposes the long-lived subscriptions used by update benchmarks.</summary>
-    [GlobalCleanup(
-        Targets = [
-            nameof(DirectUpdate),
-            nameof(WhenAnyValueUpdate),
-            nameof(ReactiveUIWhenAnyValueUpdate),
-        ]
-    )]
+    [GlobalCleanup]
     public void CleanupUpdateSubscriptions()
     {
         _directSubscription?.Dispose();

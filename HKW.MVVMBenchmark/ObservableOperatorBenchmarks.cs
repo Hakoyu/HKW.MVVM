@@ -26,7 +26,7 @@ public class ObservableOperatorBenchmarks
     public PipelineKind Pipeline { get; set; }
 
     /// <summary>Creates long-lived subscriptions used by message-delivery benchmarks.</summary>
-    [GlobalSetup(Targets = [nameof(DirectUpdate), nameof(OperatorUpdate)])]
+    [GlobalSetup]
     public void SetupUpdateSubscriptions()
     {
         _directSubscription = SubscribeDirect(
@@ -42,7 +42,7 @@ public class ObservableOperatorBenchmarks
     }
 
     /// <summary>Disposes subscriptions used by message-delivery benchmarks.</summary>
-    [GlobalCleanup(Targets = [nameof(DirectUpdate), nameof(OperatorUpdate)])]
+    [GlobalCleanup]
     public void CleanupUpdateSubscriptions()
     {
         _directSubscription?.Dispose();
@@ -147,11 +147,7 @@ public class ObservableOperatorBenchmarks
             }
 
             var result = Transform(value);
-            if (
-                pipeline is PipelineKind.WhereSelectDistinct
-                && _hasValue
-                && _lastValue == result
-            )
+            if (pipeline is PipelineKind.WhereSelectDistinct && _hasValue && _lastValue == result)
             {
                 return;
             }
@@ -178,10 +174,8 @@ public class ObservableOperatorBenchmarks
 
         public void Emit(T value) => _observer?.OnNext(value);
 
-        private sealed class Subscription(
-            BenchmarkObservable<T> source,
-            IObserver<T> observer
-        ) : IDisposable
+        private sealed class Subscription(BenchmarkObservable<T> source, IObserver<T> observer)
+            : IDisposable
         {
             private BenchmarkObservable<T>? _source = source;
 

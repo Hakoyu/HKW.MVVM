@@ -109,19 +109,7 @@ public class MultiPropertyWhenAnyValueBenchmarks
     }
 
     /// <summary>Disposes subscriptions used by update benchmarks.</summary>
-    [GlobalCleanup(
-        Targets = [
-            nameof(DirectOnePropertyUpdate),
-            nameof(WhenAnyValueOnePropertyUpdate),
-            nameof(ReactiveUIOnePropertyUpdate),
-            nameof(DirectTwoPropertiesUpdate),
-            nameof(WhenAnyValueTwoPropertiesUpdate),
-            nameof(ReactiveUITwoPropertiesUpdate),
-            nameof(DirectFourPropertiesUpdate),
-            nameof(WhenAnyValueFourPropertiesUpdate),
-            nameof(ReactiveUIFourPropertiesUpdate),
-        ]
-    )]
+    [GlobalCleanup]
     public void CleanupUpdateSubscriptions()
     {
         _directOneSubscription?.Dispose();
