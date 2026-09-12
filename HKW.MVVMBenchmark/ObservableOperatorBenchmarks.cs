@@ -170,11 +170,11 @@ public class ObservableOperatorBenchmarks
                 onNext
             ),
             PipelineKind.WhereSelectDistinct => ReactiveUI.Primitives.SubscribeExtensions.Subscribe(
-                ReactiveUI.Primitives.LinqExtensions.Where(
-                    ReactiveUI.Primitives.LinqExtensions.DistinctUntilChanged(
-                        ReactiveUI.Primitives.LinqExtensions.Select(source, Transform)
-                    ),
-                    IsEven
+                ReactiveUI.Primitives.LinqExtensions.DistinctUntilChanged(
+                    ReactiveUI.Primitives.LinqExtensions.Select(
+                        ReactiveUI.Primitives.LinqExtensions.Where(source, IsEven),
+                        Transform
+                    )
                 ),
                 onNext
             ),
