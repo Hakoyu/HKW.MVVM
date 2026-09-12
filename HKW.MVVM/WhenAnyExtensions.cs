@@ -307,6 +307,27 @@ public static class WhenAnyExtensions
         }
     }
 
+    private static class PropertyPathLeafGetterCache<TValue>
+    {
+        public static readonly MemoizingLRUCache<PropertyInfo, Func<object, TValue>> Getters =
+            new(Compile, 64);
+
+        private static Func<object, TValue> Compile(PropertyInfo property)
+        {
+            var owner = Expression.Parameter(typeof(object), "owner");
+            Expression body = Expression.Property(
+                Expression.Convert(owner, property.DeclaringType!),
+                property
+            );
+            if (body.Type != typeof(TValue))
+            {
+                body = Expression.Convert(body, typeof(TValue));
+            }
+
+            return Expression.Lambda<Func<object, TValue>>(body, owner).Compile();
+        }
+    }
+
     private sealed class DirectPropertyObservable<TSource, TValue>(
         TSource source,
         Func<TSource, TValue> getter,
@@ -405,18 +426,32 @@ public static class WhenAnyExtensions
         }
     }
 
-    private sealed class PropertyPathObservable<TSource, TValue>(
-        TSource source,
-        Expression<Func<TSource, TValue>> expression
-    ) : IObservable<TValue>
+    private sealed class PropertyPathObservable<TSource, TValue> : IObservable<TValue>
         where TSource : class, INotifyPropertyChanged
     {
-        private readonly PropertyInfo[] _path = PropertyPath.Parse(expression);
+        private readonly TSource _source;
+        private readonly PropertyInfo[] _path;
+        private readonly Func<object, TValue> _leafGetter;
+
+        public PropertyPathObservable(
+            TSource source,
+            Expression<Func<TSource, TValue>> expression
+        )
+        {
+            _source = source;
+            _path = PropertyPath.Parse(expression);
+            _leafGetter = PropertyPathLeafGetterCache<TValue>.Getters.Get(_path[^1]);
+        }
 
         public IDisposable Subscribe(IObserver<TValue> observer)
         {
             ArgumentNullException.ThrowIfNull(observer);
-            return new PropertyPathSubscription<TSource, TValue>(source, _path, observer);
+            return new PropertyPathSubscription<TSource, TValue>(
+                _source,
+                _path,
+                _leafGetter,
+                observer
+            );
         }
     }
 
@@ -426,11 +461,11 @@ public static class WhenAnyExtensions
         private readonly Lock _gate = new();
         private readonly TSource _source;
         private readonly PropertyInfo[] _path;
+        private readonly Func<object, TValue> _leafGetter;
         private readonly IObserver<TValue> _observer;
-        private readonly List<(
-            INotifyPropertyChanged Owner,
-            PropertyChangedEventHandler Handler
-        )> _handlers = [];
+        private readonly object?[] _owners;
+        private readonly INotifyPropertyChanged?[] _notifiers;
+        private readonly PropertyChangedEventHandler[] _handlers;
         private bool _hasValue;
         private TValue? _lastValue;
         private bool _disposed;
@@ -438,13 +473,25 @@ public static class WhenAnyExtensions
         public PropertyPathSubscription(
             TSource source,
             PropertyInfo[] path,
+            Func<object, TValue> leafGetter,
             IObserver<TValue> observer
         )
         {
             _source = source;
             _path = path;
+            _leafGetter = leafGetter;
             _observer = observer;
-            RebuildAndPublish();
+            _owners = new object?[path.Length];
+            _notifiers = new INotifyPropertyChanged?[path.Length];
+            _handlers = new PropertyChangedEventHandler[path.Length];
+            for (var index = 0; index < path.Length; index++)
+            {
+                var capturedIndex = index;
+                _handlers[index] = (sender, eventArgs) =>
+                    OnPropertyChanged(capturedIndex, sender, eventArgs);
+            }
+
+            RebuildAndPublish(0);
         }
 
         public void Dispose()
@@ -457,11 +504,26 @@ public static class WhenAnyExtensions
                 }
 
                 _disposed = true;
-                DetachHandlers();
+                DetachHandlersFrom(0);
             }
         }
 
-        private void RebuildAndPublish()
+        private void OnPropertyChanged(
+            int pathIndex,
+            object? _,
+            PropertyChangedEventArgs eventArgs
+        )
+        {
+            if (
+                string.IsNullOrEmpty(eventArgs.PropertyName)
+                || eventArgs.PropertyName == _path[pathIndex].Name
+            )
+            {
+                RebuildAndPublish(pathIndex);
+            }
+        }
+
+        private void RebuildAndPublish(int changedPathIndex)
         {
             TValue? value = default;
             Exception? error = null;
@@ -474,39 +536,46 @@ public static class WhenAnyExtensions
                     return;
                 }
 
-                DetachHandlers();
-                object? owner = _source;
-
                 try
                 {
-                    for (var index = 0; index < _path.Length; index++)
+                    object? owner;
+                    if (changedPathIndex == 0 && _owners[0] is null)
+                    {
+                        owner = _source;
+                    }
+                    else
+                    {
+                        owner = _owners[changedPathIndex];
+                    }
+
+                    DetachHandlersFrom(changedPathIndex + 1);
+                    for (var index = changedPathIndex; index < _path.Length; index++)
                     {
                         if (owner is null)
                         {
                             return;
                         }
 
-                        if (owner is INotifyPropertyChanged notifier)
+                        if (index > changedPathIndex || _owners[index] is null)
                         {
-                            var watchedName = _path[index].Name;
-                            PropertyChangedEventHandler handler = (_, eventArgs) =>
+                            _owners[index] = owner;
+                            if (owner is INotifyPropertyChanged notifier)
                             {
-                                if (
-                                    string.IsNullOrEmpty(eventArgs.PropertyName)
-                                    || eventArgs.PropertyName == watchedName
-                                )
-                                {
-                                    RebuildAndPublish();
-                                }
-                            };
-                            notifier.PropertyChanged += handler;
-                            _handlers.Add((notifier, handler));
+                                notifier.PropertyChanged += _handlers[index];
+                                _notifiers[index] = notifier;
+                            }
                         }
 
-                        owner = _path[index].GetValue(owner);
+                        if (index == _path.Length - 1)
+                        {
+                            value = _leafGetter(owner);
+                        }
+                        else
+                        {
+                            owner = _path[index].GetValue(owner);
+                        }
                     }
 
-                    value = (TValue?)owner;
                     if (
                         _hasValue is false
                         || EqualityComparer<TValue>.Default.Equals(_lastValue!, value!) is false
@@ -521,13 +590,13 @@ public static class WhenAnyExtensions
                 {
                     error = exception.InnerException ?? exception;
                     _disposed = true;
-                    DetachHandlers();
+                    DetachHandlersFrom(0);
                 }
                 catch (Exception exception)
                 {
                     error = exception;
                     _disposed = true;
-                    DetachHandlers();
+                    DetachHandlersFrom(0);
                 }
             }
 
@@ -541,14 +610,19 @@ public static class WhenAnyExtensions
             }
         }
 
-        private void DetachHandlers()
+        private void DetachHandlersFrom(int startIndex)
         {
-            foreach (var (owner, handler) in _handlers)
+            for (var index = startIndex; index < _path.Length; index++)
             {
-                owner.PropertyChanged -= handler;
-            }
+                var notifier = _notifiers[index];
+                if (notifier is not null)
+                {
+                    notifier.PropertyChanged -= _handlers[index];
+                    _notifiers[index] = null;
+                }
 
-            _handlers.Clear();
+                _owners[index] = null;
+            }
         }
     }
 

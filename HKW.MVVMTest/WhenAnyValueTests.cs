@@ -146,6 +146,33 @@ public sealed class WhenAnyValueTests
     }
 
     [TestMethod]
+    public void ThreeLevelNestedProperty_RebindsOnlyAffectedPathAndStopsListeningToOldObjects()
+    {
+        var oldCountry = new Country { Name = "United Kingdom" };
+        var replacementCountry = new Country { Name = "Japan" };
+        var oldAddress = new Address { Country = oldCountry };
+        var replacementAddress = new Address { Country = replacementCountry };
+        var person = new Person { Address = oldAddress };
+        var names = new List<string>();
+        using var subscription = person
+            .WhenAnyValue(x => x.Address!.Country!.Name)
+            .Subscribe(names.Add);
+
+        oldCountry.Name = "France";
+        oldAddress.Country = replacementCountry;
+        oldCountry.Name = "Ignored country";
+        replacementCountry.Name = "Japan updated";
+        person.Address = replacementAddress;
+        oldAddress.Country = oldCountry;
+        replacementCountry.Name = "Japan final";
+
+        CollectionAssert.AreEqual(
+            new[] { "United Kingdom", "France", "Japan", "Japan updated", "Japan final" },
+            names
+        );
+    }
+
+    [TestMethod]
     public void TwoProperties_EmitsCombinedInitialAndUpdates()
     {
         var person = new Person { FirstName = "Ada", LastName = "Lovelace" };

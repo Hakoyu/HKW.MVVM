@@ -43,6 +43,21 @@ internal sealed class Address : ObservableObjectEx
         get => field;
         set => SetProperty(ref field, value);
     } = string.Empty;
+
+    public Country? Country
+    {
+        get => field;
+        set => SetProperty(ref field, value);
+    }
+}
+
+internal sealed class Country : ObservableObjectEx
+{
+    public string Name
+    {
+        get => field;
+        set => SetProperty(ref field, value);
+    } = string.Empty;
 }
 
 internal sealed class PlainNotifyModel : INotifyPropertyChanged
