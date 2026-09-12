@@ -159,58 +159,48 @@ public class ToPropertyBenchmarks
         );
     }
 
-    /// <summary>Measures a changed value through a hand-written IPropertyNotifier-backed property.</summary>
-    [Benchmark(Baseline = true)]
-    [BenchmarkCategory("FastOwnerUpdate")]
-    public void DirectFastOwnerUpdate() => _directFastUpdateSource.Emit(++_value);
+    ///// <summary>Measures a changed value through a hand-written IPropertyNotifier-backed property.</summary>
+    //[Benchmark(Baseline = true)]
+    //[BenchmarkCategory("FastOwnerUpdate")]
+    //public void DirectFastOwnerUpdate() => _directFastUpdateSource.Emit(++_value);
+
+    ///// <summary>Measures a changed value through a hand-written plain ObservableObject property.</summary>
+    //[Benchmark(Baseline = true)]
+    //[BenchmarkCategory("PlainOwnerUpdate")]
+    //public void DirectPlainOwnerUpdate() => _directPlainUpdateSource.Emit(++_value);
+
+    ///// <summary>Measures duplicate-value suppression in a hand-written property.</summary>
+    //[Benchmark(Baseline = true)]
+    //[BenchmarkCategory("EqualValue")]
+    //public void DirectEqualValue() => _directEqualSource.Emit(0);
+
+    ///// <summary>Measures first access to an equivalent deferred hand-written property.</summary>
+    //[Benchmark(Baseline = true)]
+    //[BenchmarkCategory("DeferredFirstRead")]
+    //public int DirectDeferredFirstRead()
+    //{
+    //    using var property = new DirectStoredProperty(
+    //        _directDeferredSource,
+    //        _directFastOwner.SetResult,
+    //        deferSubscription: true
+    //    );
+    //    return property.Value;
+    //}
 
     /// <summary>Measures a changed value through ToProperty's IPropertyNotifier path.</summary>
     [Benchmark]
     [BenchmarkCategory("FastOwnerUpdate")]
     public void ToPropertyFastOwnerUpdate() => _toPropertyFastUpdateSource.Emit(++_value);
 
-    /// <summary>Measures a changed value through a hand-written plain ObservableObject property.</summary>
-    [Benchmark(Baseline = true)]
-    [BenchmarkCategory("PlainOwnerUpdate")]
-    public void DirectPlainOwnerUpdate() => _directPlainUpdateSource.Emit(++_value);
-
     /// <summary>Measures a changed value through ToProperty's plain ObservableObject path.</summary>
     [Benchmark]
     [BenchmarkCategory("PlainOwnerUpdate")]
     public void ToPropertyPlainOwnerUpdate() => _toPropertyPlainUpdateSource.Emit(++_value);
 
-    /// <summary>Measures a changed value through ReactiveUI ToProperty.</summary>
-    [Benchmark]
-    [BenchmarkCategory("PlainOwnerUpdate")]
-    public void ReactiveUIUpdate() => _reactiveUIUpdateSource.Emit(++_value);
-
-    /// <summary>Measures duplicate-value suppression in a hand-written property.</summary>
-    [Benchmark(Baseline = true)]
-    [BenchmarkCategory("EqualValue")]
-    public void DirectEqualValue() => _directEqualSource.Emit(0);
-
     /// <summary>Measures duplicate-value suppression in ToProperty.</summary>
     [Benchmark]
     [BenchmarkCategory("EqualValue")]
     public void ToPropertyEqualValue() => _toPropertyEqualSource.Emit(0);
-
-    /// <summary>Measures duplicate-value suppression in ReactiveUI ToProperty.</summary>
-    [Benchmark]
-    [BenchmarkCategory("EqualValue")]
-    public void ReactiveUIEqualValue() => _reactiveUIEqualSource.Emit(0);
-
-    /// <summary>Measures first access to an equivalent deferred hand-written property.</summary>
-    [Benchmark(Baseline = true)]
-    [BenchmarkCategory("DeferredFirstRead")]
-    public int DirectDeferredFirstRead()
-    {
-        using var property = new DirectStoredProperty(
-            _directDeferredSource,
-            _directFastOwner.SetResult,
-            deferSubscription: true
-        );
-        return property.Value;
-    }
 
     /// <summary>Measures ToProperty creation followed by its deferred first subscription and read.</summary>
     [Benchmark]
@@ -225,19 +215,29 @@ public class ToPropertyBenchmarks
         return property.Value;
     }
 
-    /// <summary>Measures ReactiveUI ToProperty creation followed by deferred first subscription and read.</summary>
-    [Benchmark]
-    [BenchmarkCategory("DeferredFirstRead")]
-    public int ReactiveUIDeferredFirstRead()
-    {
-        using var property = ReactiveUI.OAPHCreationHelperMixins.ToProperty(
-            _reactiveUIDeferredSource,
-            _reactiveUIOwner,
-            owner => owner.Result,
-            deferSubscription: true
-        );
-        return property.Value;
-    }
+    ///// <summary>Measures duplicate-value suppression in ReactiveUI ToProperty.</summary>
+    //[Benchmark]
+    //[BenchmarkCategory("EqualValue")]
+    //public void ReactiveUIEqualValue() => _reactiveUIEqualSource.Emit(0);
+
+    ///// <summary>Measures a changed value through ReactiveUI ToProperty.</summary>
+    //[Benchmark]
+    //[BenchmarkCategory("PlainOwnerUpdate")]
+    //public void ReactiveUIUpdate() => _reactiveUIUpdateSource.Emit(++_value);
+
+    ///// <summary>Measures ReactiveUI ToProperty creation followed by deferred first subscription and read.</summary>
+    //[Benchmark]
+    //[BenchmarkCategory("DeferredFirstRead")]
+    //public int ReactiveUIDeferredFirstRead()
+    //{
+    //    using var property = ReactiveUI.OAPHCreationHelperMixins.ToProperty(
+    //        _reactiveUIDeferredSource,
+    //        _reactiveUIOwner,
+    //        owner => owner.Result,
+    //        deferSubscription: true
+    //    );
+    //    return property.Value;
+    //}
 
     private sealed class FastOwner : ObservableObjectEx
     {

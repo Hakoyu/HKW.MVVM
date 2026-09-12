@@ -13,11 +13,20 @@ public sealed class ObservableAsPropertyHelper<T>
         INotifyPropertyChanged,
         INotifyPropertyChanging
 {
+    private static readonly SendOrPostCallback SetValueCallback = static state =>
+    {
+        var dispatchState = (SetValueDispatchState)state!;
+        dispatchState.Helper.SetValueCore(dispatchState.Value);
+    };
+    private static readonly Action<SetValueDispatchState> SetValueThreadPoolCallback = static state =>
+        state.Helper.SetValueCore(state.Value);
+
     private readonly Lock _gate = new();
     private readonly IObservable<T> _source;
     private readonly ObservableObject _owner;
     private readonly string _propertyName;
     private readonly SynchronizationContext? _synchronizationContext;
+    private readonly bool _scheduleOnThreadPool;
     private readonly ExceptionSubject _exceptions = new();
     private IDisposable? _subscription;
     private T _value;
@@ -38,6 +47,37 @@ public sealed class ObservableAsPropertyHelper<T>
         _propertyName = propertyName;
         _value = initialValue;
         _synchronizationContext = synchronizationContext;
+
+        if (deferSubscription is false)
+        {
+            EnsureSubscribed();
+        }
+    }
+
+    internal ObservableAsPropertyHelper(
+        IObservable<T> source,
+        ObservableObject owner,
+        string propertyName,
+        T initialValue,
+        bool deferSubscription,
+        ObservableSchedulers scheduler
+    )
+    {
+        _source = source;
+        _owner = owner;
+        _propertyName = propertyName;
+        _value = initialValue;
+        (_synchronizationContext, _scheduleOnThreadPool) = scheduler switch
+        {
+            ObservableSchedulers.Current =>
+                (SynchronizationContext.Current, SynchronizationContext.Current is null),
+            ObservableSchedulers.ThreadPool => (null, true),
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(scheduler),
+                scheduler,
+                "Unknown observable scheduler."
+            ),
+        };
 
         if (deferSubscription is false)
         {
@@ -102,45 +142,101 @@ public sealed class ObservableAsPropertyHelper<T>
         }
     }
 
-    private void SetValue(T value) =>
-        Dispatch(() =>
-        {
-            lock (_gate)
-            {
-                if (_disposed || EqualityComparer<T>.Default.Equals(_value, value))
-                {
-                    return;
-                }
-
-                var changingArgs = new PropertyChangingEventArgs(nameof(Value));
-                PropertyChanging?.Invoke(this, changingArgs);
-                PropertyNotificationDispatcher.NotifyPropertyChanging(_owner, _propertyName);
-                _value = value;
-                var changedArgs = new PropertyChangedEventArgs(nameof(Value));
-                PropertyChanged?.Invoke(this, changedArgs);
-                PropertyNotificationDispatcher.NotifyPropertyChanged(_owner, _propertyName);
-            }
-        });
-
-    private void Dispatch(Action action)
+    private void SetValue(T value)
     {
         if (
-            _synchronizationContext is null
-            || SynchronizationContext.Current == _synchronizationContext
+            _scheduleOnThreadPool is false
+            && (
+                _synchronizationContext is null
+                || SynchronizationContext.Current == _synchronizationContext
+            )
         )
         {
-            action();
+            SetValueCore(value);
+            return;
         }
-        else
+
+        var state = new SetValueDispatchState(this, value);
+        if (_synchronizationContext is not null)
         {
-            _synchronizationContext.Post(static state => ((Action)state!).Invoke(), action);
+            _synchronizationContext.Post(SetValueCallback, state);
+            return;
         }
+
+        ThreadPool.QueueUserWorkItem(SetValueThreadPoolCallback, state, preferLocal: false);
+    }
+
+    private void SetValueCore(T value)
+    {
+        lock (_gate)
+        {
+            if (_disposed || EqualityComparer<T>.Default.Equals(_value, value))
+            {
+                return;
+            }
+
+            var propertyChanging = PropertyChanging;
+            propertyChanging?.Invoke(this, new PropertyChangingEventArgs(nameof(Value)));
+            PropertyNotificationDispatcher.NotifyPropertyChanging(_owner, _propertyName);
+            _value = value;
+            var propertyChanged = PropertyChanged;
+            propertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Value)));
+            PropertyNotificationDispatcher.NotifyPropertyChanged(_owner, _propertyName);
+        }
+    }
+
+    private sealed class SetValueDispatchState(
+        ObservableAsPropertyHelper<T> helper,
+        T value
+    )
+    {
+        public ObservableAsPropertyHelper<T> Helper { get; } = helper;
+
+        public T Value { get; } = value;
     }
 }
 
 /// <summary>Provides extensions for exposing observable values as read-only properties.</summary>
 public static class ObservableAsPropertyHelperExtensions
 {
+    /// <summary>
+    /// Converts an observable sequence into a scheduled helper for a read-only owner property selected by an expression.
+    /// </summary>
+    /// <typeparam name="TOwner">The CommunityToolkit observable owner type.</typeparam>
+    /// <typeparam name="TValue">The property value type.</typeparam>
+    /// <param name="source">The sequence that supplies property values.</param>
+    /// <param name="owner">The object that owns the read-only property.</param>
+    /// <param name="property">An expression selecting a direct property on <paramref name="owner"/>.</param>
+    /// <param name="scheduler">The scheduler used to dispatch value changes and notifications.</param>
+    /// <param name="initialValue">The value exposed before the source produces its first distinct value.</param>
+    /// <param name="deferSubscription">Whether source subscription should be delayed until the helper value is first read.</param>
+    /// <returns>An observable property helper that stores the latest value and notifies the owner.</returns>
+    /// <remarks>
+    /// <see cref="ObservableSchedulers.Current"/> captures <see cref="SynchronizationContext.Current"/> when the
+    /// helper is created and falls back to the thread pool when no context exists.
+    /// <see cref="ObservableSchedulers.ThreadPool"/> always queues changes to the thread pool.
+    /// </remarks>
+    public static ObservableAsPropertyHelper<TValue> ToProperty<TOwner, TValue>(
+        this IObservable<TValue> source,
+        TOwner owner,
+        Expression<Func<TOwner, TValue>> property,
+        ObservableSchedulers scheduler,
+        TValue initialValue = default!,
+        bool deferSubscription = false
+    )
+        where TOwner : ObservableObject
+    {
+        ArgumentNullException.ThrowIfNull(property);
+        return ToProperty(
+            source,
+            owner,
+            property.GetPropertyName(),
+            scheduler,
+            initialValue,
+            deferSubscription
+        );
+    }
+
     /// <summary>
     /// Converts an observable sequence into a helper for a read-only owner property selected by an expression.
     /// </summary>
@@ -177,6 +273,46 @@ public static class ObservableAsPropertyHelperExtensions
             initialValue,
             deferSubscription,
             synchronizationContext
+        );
+    }
+
+    /// <summary>
+    /// Converts an observable sequence into a scheduled helper for a read-only owner property identified by name.
+    /// </summary>
+    /// <typeparam name="TOwner">The CommunityToolkit observable owner type.</typeparam>
+    /// <typeparam name="TValue">The property value type.</typeparam>
+    /// <param name="source">The sequence that supplies property values.</param>
+    /// <param name="owner">The object that owns the read-only property.</param>
+    /// <param name="propertyName">The owner property name used in change notifications.</param>
+    /// <param name="scheduler">The scheduler used to dispatch value changes and notifications.</param>
+    /// <param name="initialValue">The value exposed before the source produces its first distinct value.</param>
+    /// <param name="deferSubscription">Whether source subscription should be delayed until the helper value is first read.</param>
+    /// <returns>An observable property helper that stores the latest value and notifies the owner.</returns>
+    /// <remarks>
+    /// <see cref="ObservableSchedulers.Current"/> captures <see cref="SynchronizationContext.Current"/> when the
+    /// helper is created and falls back to the thread pool when no context exists.
+    /// <see cref="ObservableSchedulers.ThreadPool"/> always queues changes to the thread pool.
+    /// </remarks>
+    public static ObservableAsPropertyHelper<TValue> ToProperty<TOwner, TValue>(
+        this IObservable<TValue> source,
+        TOwner owner,
+        string propertyName,
+        ObservableSchedulers scheduler,
+        TValue initialValue = default!,
+        bool deferSubscription = false
+    )
+        where TOwner : ObservableObject
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(owner);
+        ArgumentException.ThrowIfNullOrEmpty(propertyName);
+        return new ObservableAsPropertyHelper<TValue>(
+            source,
+            owner,
+            propertyName,
+            initialValue,
+            deferSubscription,
+            scheduler
         );
     }
 

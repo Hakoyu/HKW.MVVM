@@ -507,6 +507,25 @@ public static class ObservableExtensions
         });
     }
 
+    /// <summary>Schedules subscription to the source on a synchronization context.</summary>
+    /// <typeparam name="TSource">The source value type.</typeparam>
+    /// <param name="source">The observable sequence to subscribe to.</param>
+    /// <param name="synchronizationContext">The synchronization context used for the subscription action.</param>
+    /// <returns>An observable sequence whose source subscription is posted to the context.</returns>
+    /// <remarks>
+    /// The source is always subscribed asynchronously through <see cref="SynchronizationContext.Post"/>.
+    /// Disposing before the posted action runs prevents the source from being subscribed.
+    /// </remarks>
+    public static IObservable<TSource> SubscribeOn<TSource>(
+        this IObservable<TSource> source,
+        SynchronizationContext synchronizationContext
+    )
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(synchronizationContext);
+        return SubscribeOnCore(source, synchronizationContext);
+    }
+
     /// <summary>Schedules subscription to the source on the selected scheduler.</summary>
     /// <typeparam name="TSource">The source value type.</typeparam>
     /// <param name="source">The observable sequence to subscribe to.</param>
@@ -525,25 +544,7 @@ public static class ObservableExtensions
     {
         ArgumentNullException.ThrowIfNull(source);
         var synchronizationContext = GetSynchronizationContext(scheduler);
-
-        return Create<TSource>(observer =>
-        {
-            var scheduledSubscription = new ScheduledSubscription();
-            Schedule(
-                synchronizationContext,
-                () =>
-                {
-                    if (scheduledSubscription.IsDisposed)
-                    {
-                        return;
-                    }
-
-                    var subscription = source.Subscribe(observer);
-                    scheduledSubscription.SetSubscription(subscription);
-                }
-            );
-            return scheduledSubscription;
-        });
+        return SubscribeOnCore(source, synchronizationContext);
     }
 
     /// <summary>
@@ -673,6 +674,29 @@ public static class ObservableExtensions
 
     private static IObservable<T> Create<T>(Func<IObserver<T>, IDisposable> subscribe) =>
         new AnonymousObservable<T>(subscribe);
+
+    private static IObservable<TSource> SubscribeOnCore<TSource>(
+        IObservable<TSource> source,
+        SynchronizationContext? synchronizationContext
+    ) =>
+        Create<TSource>(observer =>
+        {
+            var scheduledSubscription = new ScheduledSubscription();
+            Schedule(
+                synchronizationContext,
+                () =>
+                {
+                    if (scheduledSubscription.IsDisposed)
+                    {
+                        return;
+                    }
+
+                    var subscription = source.Subscribe(observer);
+                    scheduledSubscription.SetSubscription(subscription);
+                }
+            );
+            return scheduledSubscription;
+        });
 
     private static void Post(SynchronizationContext context, Action action) =>
         context.Post(static state => ((Action)state!).Invoke(), action);

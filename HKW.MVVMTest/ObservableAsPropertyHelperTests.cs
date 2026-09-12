@@ -62,6 +62,84 @@ public sealed class ObservableAsPropertyHelperTests
     }
 
     [TestMethod]
+    public void SchedulerOverload_CurrentUsesCapturedSynchronizationContext()
+    {
+        var source = new ManualObservable<string>();
+        var owner = new PropertyOwner();
+        var context = new QueuedSynchronizationContext();
+        var previousContext = SynchronizationContext.Current;
+        SynchronizationContext.SetSynchronizationContext(context);
+        ObservableAsPropertyHelper<string> helper;
+        try
+        {
+            helper = source.ToProperty(
+                owner,
+                owner => owner.Result,
+                ObservableSchedulers.Current,
+                initialValue: "Initial"
+            );
+        }
+        finally
+        {
+            SynchronizationContext.SetSynchronizationContext(previousContext);
+        }
+
+        using (helper)
+        {
+            source.Emit("Updated");
+
+            Assert.AreEqual("Initial", helper.Value);
+            Assert.AreEqual(1, context.PendingCount);
+            context.RunAll();
+            Assert.AreEqual("Updated", helper.Value);
+        }
+    }
+
+    [TestMethod]
+    public async Task SchedulerOverload_ThreadPoolDispatchesPropertyChange()
+    {
+        var source = new ManualObservable<string>();
+        var owner = new PropertyOwner();
+        using var helper = source.ToProperty(
+            owner,
+            nameof(PropertyOwner.Result),
+            ObservableSchedulers.ThreadPool,
+            initialValue: "Initial"
+        );
+        var notification = new TaskCompletionSource<string>(
+            TaskCreationOptions.RunContinuationsAsynchronously
+        );
+        owner.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(PropertyOwner.Result))
+            {
+                notification.TrySetResult(helper.Value);
+            }
+        };
+
+        source.Emit("Updated");
+
+        Assert.AreEqual(
+            "Updated",
+            await notification.Task.WaitAsync(TimeSpan.FromSeconds(5))
+        );
+    }
+
+    [TestMethod]
+    public void SchedulerOverload_RejectsUnknownScheduler()
+    {
+        var source = new ManualObservable<string>();
+        var owner = new PropertyOwner();
+
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() =>
+            source.ToProperty(owner, owner => owner.Result, (ObservableSchedulers)999)
+        );
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() =>
+            source.ToProperty(owner, nameof(PropertyOwner.Result), (ObservableSchedulers)999)
+        );
+    }
+
+    [TestMethod]
     public void DeferredSubscription_StartsOnFirstValueRead()
     {
         var person = new Person { FirstName = "Before read" };

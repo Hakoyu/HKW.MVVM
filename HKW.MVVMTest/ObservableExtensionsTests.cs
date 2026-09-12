@@ -273,6 +273,33 @@ public sealed class ObservableExtensionsTests
     }
 
     [TestMethod]
+    public void SubscribeOn_SynchronizationContextDelaysSubscription()
+    {
+        var source = new ManualObservable<int>();
+        var context = new QueuedSynchronizationContext();
+
+        using var subscription = source.SubscribeOn(context).Subscribe(_ => Assert.Fail());
+
+        Assert.AreEqual(0, source.SubscriptionCount);
+        Assert.AreEqual(1, context.PendingCount);
+        context.RunAll();
+        Assert.AreEqual(1, source.SubscriptionCount);
+    }
+
+    [TestMethod]
+    public void SubscribeOn_SynchronizationContextCanBeDisposedBeforeSubscriptionRuns()
+    {
+        var source = new ManualObservable<int>();
+        var context = new QueuedSynchronizationContext();
+        var subscription = source.SubscribeOn(context).Subscribe(_ => Assert.Fail());
+
+        subscription.Dispose();
+        context.RunAll();
+
+        Assert.AreEqual(0, source.SubscriptionCount);
+    }
+
+    [TestMethod]
     public async Task Throttle_EmitsOnlyLatestValueAfterQuietPeriod()
     {
         var source = new ManualObservable<int>();
@@ -448,6 +475,7 @@ public sealed class ObservableExtensionsTests
         Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => source.Take(-1));
         Assert.ThrowsExactly<ArgumentNullException>(() => source.Do(null!));
         Assert.ThrowsExactly<ArgumentNullException>(() => source.ObserveOn(null!));
+        Assert.ThrowsExactly<ArgumentNullException>(() => source.SubscribeOn((SynchronizationContext)null!));
         Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => source.ObserveOn((ObservableSchedulers)999));
         Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => source.SubscribeOn((ObservableSchedulers)999));
         Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => source.Throttle(TimeSpan.FromMilliseconds(-1)));
