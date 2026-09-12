@@ -8,7 +8,7 @@
 
 - 基于 `INotifyPropertyChanged` 的 `WhenAnyValue` 属性观察。
 - 支持嵌套属性路径变化后的自动重新绑定，例如 `x => x.Address.City`。
-- 提供 `BindTo` 单向绑定和 `Bind` 双向绑定，并支持双向值转换。
+- 提供 `BindTo` 单向绑定和 `TwoWayBind` 双向绑定，并支持双向值转换及自定义赋值。
 - 支持 `ObservableAsPropertyHelper<T>`，将 Observable 的最新值暴露为只读属性。
 - 提供常用的轻量 Observable 操作符：
   - `Select`
@@ -78,6 +78,39 @@ using var binding = person
     .WhenAnyValue(x => x.Name)
     .BindTo(view, (value, target) => target.Text = value);
 ```
+
+使用 `TwoWayBind` 建立双向绑定。建立绑定时，source 的当前值会先初始化 target：
+
+```csharp
+using var binding = view.TwoWayBind(
+    viewModel,
+    source => source.Name,
+    target => target.Text);
+```
+
+属性类型不同时，可以提供两个方向的转换函数：
+
+```csharp
+using var binding = view.TwoWayBind(
+    viewModel,
+    source => source.Age,
+    target => target.Text,
+    age => age.ToString(),
+    text => int.Parse(text));
+```
+
+也可以显式提供两个方向的赋值委托。该重载使用表达式观察属性，但不会解析或编译 Setter：
+
+```csharp
+using var binding = view.TwoWayBind(
+    viewModel,
+    source => source.Age,
+    target => target.Text,
+    (value, target) => target.Text = value.ToString(),
+    (value, source) => source.Age = int.Parse(value));
+```
+
+双向绑定两端都需要实现 `INotifyPropertyChanged`，释放返回的 `IDisposable` 后会停止两个方向的更新。
 
 ### 创建派生属性
 

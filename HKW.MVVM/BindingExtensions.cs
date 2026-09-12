@@ -76,6 +76,215 @@ public static class BindingExtensions
         return source.Subscribe(value => setter(target, converter(value)));
     }
 
+    /// <summary>
+    /// Creates a two-way binding between source and target properties of the same type.
+    /// </summary>
+    /// <typeparam name="TSource">The source object type.</typeparam>
+    /// <typeparam name="TTarget">The target object type.</typeparam>
+    /// <typeparam name="TValue">The bound property value type.</typeparam>
+    /// <param name="target">The target object on which this extension is invoked.</param>
+    /// <param name="source">The source object that supplies the initial value.</param>
+    /// <param name="sourceProperty">The observed, writable source property path.</param>
+    /// <param name="targetProperty">The observed, writable target property path.</param>
+    /// <returns>A disposable object that stops updates in both directions.</returns>
+    public static IDisposable TwoWayBind<TSource, TTarget, TValue>(
+        this TTarget target,
+        TSource source,
+        Expression<Func<TSource, TValue>> sourceProperty,
+        Expression<Func<TTarget, TValue>> targetProperty
+    )
+        where TSource : class, INotifyPropertyChanged
+        where TTarget : class, INotifyPropertyChanged =>
+        TwoWayBind(
+            target,
+            source,
+            sourceProperty,
+            targetProperty,
+            static value => value,
+            static value => value
+        );
+
+    /// <summary>
+    /// Creates a converted two-way binding between source and target properties.
+    /// </summary>
+    /// <typeparam name="TSource">The source object type.</typeparam>
+    /// <typeparam name="TTarget">The target object type.</typeparam>
+    /// <typeparam name="TSourceValue">The source property value type.</typeparam>
+    /// <typeparam name="TTargetValue">The target property value type.</typeparam>
+    /// <param name="target">The target object on which this extension is invoked.</param>
+    /// <param name="source">The source object that supplies the initial value.</param>
+    /// <param name="sourceProperty">The observed, writable source property path.</param>
+    /// <param name="targetProperty">The observed, writable target property path.</param>
+    /// <param name="sourceToTarget">Converts a source value before assigning it to the target.</param>
+    /// <param name="targetToSource">Converts a target value before assigning it to the source.</param>
+    /// <returns>A disposable object that stops updates in both directions.</returns>
+    public static IDisposable TwoWayBind<TSource, TTarget, TSourceValue, TTargetValue>(
+        this TTarget target,
+        TSource source,
+        Expression<Func<TSource, TSourceValue>> sourceProperty,
+        Expression<Func<TTarget, TTargetValue>> targetProperty,
+        Func<TSourceValue, TTargetValue> sourceToTarget,
+        Func<TTargetValue, TSourceValue> targetToSource
+    )
+        where TSource : class, INotifyPropertyChanged
+        where TTarget : class, INotifyPropertyChanged
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(sourceProperty);
+        ArgumentNullException.ThrowIfNull(targetProperty);
+        ArgumentNullException.ThrowIfNull(sourceToTarget);
+        ArgumentNullException.ThrowIfNull(targetToSource);
+
+        var sourceSetter = PropertySetter.Create(sourceProperty);
+        var targetSetter = PropertySetter.Create(targetProperty);
+        return TwoWayBind(
+            target,
+            source,
+            sourceProperty,
+            targetProperty,
+            (value, currentTarget) => targetSetter(currentTarget, sourceToTarget(value)),
+            (value, currentSource) => sourceSetter(currentSource, targetToSource(value))
+        );
+    }
+
+    /// <summary>
+    /// Creates a two-way binding using caller-provided assignment actions for both directions.
+    /// </summary>
+    /// <typeparam name="TSource">The source object type.</typeparam>
+    /// <typeparam name="TTarget">The target object type.</typeparam>
+    /// <typeparam name="TSourceValue">The observed source value type.</typeparam>
+    /// <typeparam name="TTargetValue">The observed target value type.</typeparam>
+    /// <param name="target">The target object on which this extension is invoked.</param>
+    /// <param name="source">The source object that supplies the initial value.</param>
+    /// <param name="sourceProperty">The source property path to observe.</param>
+    /// <param name="targetProperty">The target property path to observe.</param>
+    /// <param name="assignTarget">Assigns a source value to the target.</param>
+    /// <param name="assignSource">Assigns a target value to the source.</param>
+    /// <returns>A disposable object that stops updates in both directions.</returns>
+    /// <remarks>
+    /// The source value initializes the target. The assignment actions are called directly and are not parsed,
+    /// compiled, or invoked through reflection. Property observation follows
+    /// <see cref="WhenAnyExtensions.WhenAnyValue{TSource,TValue}"/>.
+    /// </remarks>
+    public static IDisposable TwoWayBind<TSource, TTarget, TSourceValue, TTargetValue>(
+        this TTarget target,
+        TSource source,
+        Expression<Func<TSource, TSourceValue>> sourceProperty,
+        Expression<Func<TTarget, TTargetValue>> targetProperty,
+        Action<TSourceValue, TTarget> assignTarget,
+        Action<TTargetValue, TSource> assignSource
+    )
+        where TSource : class, INotifyPropertyChanged
+        where TTarget : class, INotifyPropertyChanged
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(sourceProperty);
+        ArgumentNullException.ThrowIfNull(targetProperty);
+        ArgumentNullException.ThrowIfNull(assignTarget);
+        ArgumentNullException.ThrowIfNull(assignSource);
+
+        var state = new TwoWayBindingState<TSource, TTarget, TSourceValue, TTargetValue>(
+            source,
+            target,
+            assignTarget,
+            assignSource
+        );
+        var subscriptions = new MultipleDisposable { state };
+
+        try
+        {
+            source
+                .WhenAnyValue(sourceProperty)
+                .Subscribe(state.UpdateTarget)
+                .DisposeWith(subscriptions);
+            target
+                .WhenAnyValue(targetProperty)
+                .Subscribe(state.UpdateSource)
+                .DisposeWith(subscriptions);
+            return subscriptions;
+        }
+        catch
+        {
+            subscriptions.Dispose();
+            throw;
+        }
+    }
+
+    private sealed class TwoWayBindingState<TSource, TTarget, TSourceValue, TTargetValue>(
+        TSource source,
+        TTarget target,
+        Action<TSourceValue, TTarget> assignTarget,
+        Action<TTargetValue, TSource> assignSource
+    ) : IDisposable
+        where TSource : class
+        where TTarget : class
+    {
+        private readonly Lock _gate = new();
+        private bool _updatingTarget;
+        private bool _updatingSource;
+        private bool _disposed;
+
+        public void UpdateTarget(TSourceValue value)
+        {
+            lock (_gate)
+            {
+                if (_disposed || _updatingSource)
+                {
+                    return;
+                }
+
+                _updatingTarget = true;
+            }
+
+            try
+            {
+                assignTarget(value, target);
+            }
+            finally
+            {
+                lock (_gate)
+                {
+                    _updatingTarget = false;
+                }
+            }
+        }
+
+        public void UpdateSource(TTargetValue value)
+        {
+            lock (_gate)
+            {
+                if (_disposed || _updatingTarget)
+                {
+                    return;
+                }
+
+                _updatingSource = true;
+            }
+
+            try
+            {
+                assignSource(value, source);
+            }
+            finally
+            {
+                lock (_gate)
+                {
+                    _updatingSource = false;
+                }
+            }
+        }
+
+        public void Dispose()
+        {
+            lock (_gate)
+            {
+                _disposed = true;
+            }
+        }
+    }
+
     private static class PropertySetter
     {
         public static Action<TTarget, TValue> Create<TTarget, TValue>(
@@ -152,9 +361,9 @@ public static class BindingExtensions
         private static Expression GetPropertyBody(LambdaExpression expression) =>
             expression.Body
                 is UnaryExpression
-                {
-                    NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked
-                } conversion
+            {
+                NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked
+            } conversion
                 ? conversion.Operand
                 : expression.Body;
     }
