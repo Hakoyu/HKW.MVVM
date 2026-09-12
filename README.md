@@ -8,6 +8,7 @@
 
 - 基于 `INotifyPropertyChanged` 的 `WhenAnyValue` 属性观察。
 - 支持嵌套属性路径变化后的自动重新绑定，例如 `x => x.Address.City`。
+- 提供 `BindTo` 单向绑定和 `Bind` 双向绑定，并支持双向值转换。
 - 支持 `ObservableAsPropertyHelper<T>`，将 Observable 的最新值暴露为只读属性。
 - 提供常用的轻量 Observable 操作符：
   - `Select`
@@ -59,6 +60,24 @@ person.Name = "Grace";
 ```
 
 订阅建立时会先发出当前值，之后只发出发生变化的值。订阅被 Dispose 后，将停止接收属性通知。
+
+### 属性绑定
+
+使用 `BindTo` 将 Observable 的值单向写入目标属性：
+
+```csharp
+using var binding = person
+    .WhenAnyValue(x => x.Name)
+    .BindTo(view, x => x.Text);
+```
+
+也可以直接提供赋值委托。这种形式不解析或编译属性表达式，也不使用反射，适合自定义赋值等场景：
+
+```csharp
+using var binding = person
+    .WhenAnyValue(x => x.Name)
+    .BindTo(view, (value, target) => target.Text = value);
+```
 
 ### 创建派生属性
 
