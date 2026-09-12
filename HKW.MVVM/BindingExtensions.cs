@@ -40,7 +40,7 @@ public static class BindingExtensions
     /// <remarks>
     /// Every source value is assigned synchronously. Source errors use the standard
     /// <see cref="NativeObservableSubscriptionExtensions.Subscribe{T}(IObservable{T}, Action{T})"/>
-    /// error behavior. <b>REFLECTION: NO.</b> The target setter is compiled once from the expression.
+    /// error behavior. <b>REFLECTION: NO.</b> The target setter is compiled once per property path and cached.
     /// </remarks>
     public static IDisposable BindTo<TTarget, TValue>(
         this IObservable<TValue> source,
@@ -58,7 +58,7 @@ public static class BindingExtensions
     /// <param name="targetProperty">A writable property path rooted at <paramref name="target"/>.</param>
     /// <param name="converter">The function that converts source values to target values.</param>
     /// <returns>A disposable object that stops the binding.</returns>
-    /// <remarks><b>REFLECTION: NO.</b> The target setter is compiled once from the expression.</remarks>
+    /// <remarks><b>REFLECTION: NO.</b> The target setter is compiled once per property path and cached.</remarks>
     public static IDisposable BindTo<TSourceValue, TTarget, TTargetValue>(
         this IObservable<TSourceValue> source,
         TTarget target,
@@ -291,15 +291,16 @@ public static class BindingExtensions
             Expression<Func<TTarget, TValue>> propertyExpression
         )
         {
-            var property = GetTargetProperty(propertyExpression);
-            if (property.SetMethod is null)
-            {
-                throw new ArgumentException(
-                    "The final property in the expression must be writable.",
-                    nameof(propertyExpression)
-                );
-            }
+            var key = PropertyPathCacheKey<TTarget, TValue>.Create(propertyExpression);
+            return PropertySetterCache<TTarget, TValue>.Setters.Get(key);
+        }
 
+        private static Action<TTarget, TValue> Compile<TTarget, TValue>(
+            PropertyPathCacheKey<TTarget, TValue> key
+        )
+        {
+            var propertyExpression = key.Expression;
+            var property = key.FinalProperty;
             var value = Expression.Parameter(typeof(TValue), "value");
             Expression assignedValue = value;
             if (assignedValue.Type != property.PropertyType)
@@ -366,5 +367,89 @@ public static class BindingExtensions
             } conversion
                 ? conversion.Operand
                 : expression.Body;
+
+        private static class PropertySetterCache<TTarget, TValue>
+        {
+            public static readonly MemoizingMRUCache<
+                PropertyPathCacheKey<TTarget, TValue>,
+                Action<TTarget, TValue>
+            > Setters = new(Compile, 64);
+        }
+
+        private readonly struct PropertyPathCacheKey<TTarget, TValue>
+            : IEquatable<PropertyPathCacheKey<TTarget, TValue>>
+        {
+            private readonly int _hashCode;
+
+            private PropertyPathCacheKey(
+                Expression<Func<TTarget, TValue>> expression,
+                PropertyInfo finalProperty,
+                int hashCode
+            )
+            {
+                Expression = expression;
+                FinalProperty = finalProperty;
+                _hashCode = hashCode;
+            }
+
+            public Expression<Func<TTarget, TValue>> Expression { get; }
+
+            public PropertyInfo FinalProperty { get; }
+
+            public static PropertyPathCacheKey<TTarget, TValue> Create(
+                Expression<Func<TTarget, TValue>> expression
+            )
+            {
+                var finalProperty = GetTargetProperty(expression);
+                if (finalProperty.SetMethod is null)
+                {
+                    throw new ArgumentException(
+                        "The final property in the expression must be writable.",
+                        nameof(expression)
+                    );
+                }
+
+                var hash = new HashCode();
+                Expression current = GetPropertyBody(expression);
+                while (current is MemberExpression member)
+                {
+                    hash.Add(member.Member);
+                    current = member.Expression!;
+                }
+
+                return new PropertyPathCacheKey<TTarget, TValue>(
+                    expression,
+                    finalProperty,
+                    hash.ToHashCode()
+                );
+            }
+
+            public bool Equals(PropertyPathCacheKey<TTarget, TValue> other)
+            {
+                Expression current = GetPropertyBody(Expression);
+                Expression otherCurrent = GetPropertyBody(other.Expression);
+
+                while (
+                    current is MemberExpression member
+                    && otherCurrent is MemberExpression otherMember
+                )
+                {
+                    if (member.Member != otherMember.Member)
+                    {
+                        return false;
+                    }
+
+                    current = member.Expression!;
+                    otherCurrent = otherMember.Expression!;
+                }
+
+                return current is ParameterExpression && otherCurrent is ParameterExpression;
+            }
+
+            public override bool Equals(object? obj) =>
+                obj is PropertyPathCacheKey<TTarget, TValue> other && Equals(other);
+
+            public override int GetHashCode() => _hashCode;
+        }
     }
 }

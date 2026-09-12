@@ -74,6 +74,26 @@ public sealed class BindingExtensionsTests
     }
 
     [TestMethod]
+    public void BindTo_EquivalentExpressionsReuseSetterWithoutCapturingTarget()
+    {
+        var firstSource = new ManualObservable<string>();
+        var secondSource = new ManualObservable<string>();
+        var firstTarget = new Person();
+        var secondTarget = new Person();
+        Expression<Func<Person, string>> firstExpression = person => person.FirstName;
+        Expression<Func<Person, string>> equivalentExpression = current => current.FirstName;
+
+        using var firstBinding = firstSource.BindTo(firstTarget, firstExpression);
+        using var secondBinding = secondSource.BindTo(secondTarget, equivalentExpression);
+
+        firstSource.Emit("First");
+        secondSource.Emit("Second");
+
+        Assert.AreEqual("First", firstTarget.FirstName);
+        Assert.AreEqual("Second", secondTarget.FirstName);
+    }
+
+    [TestMethod]
     public void TwoWayBind_InitializesTargetFromSourceAndUpdatesBothDirections()
     {
         var source = new Person { FirstName = "Source" };
