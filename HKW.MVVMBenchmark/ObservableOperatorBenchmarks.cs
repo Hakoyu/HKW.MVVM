@@ -13,12 +13,16 @@ public class ObservableOperatorBenchmarks
 {
     private readonly BenchmarkObservable<int> _directCreateSource = new();
     private readonly BenchmarkObservable<int> _operatorCreateSource = new();
+    private readonly BenchmarkObservable<int> _reactiveUICreateSource = new();
     private readonly BenchmarkObservable<int> _directUpdateSource = new();
     private readonly BenchmarkObservable<int> _operatorUpdateSource = new();
+    private readonly BenchmarkObservable<int> _reactiveUIUpdateSource = new();
     private IDisposable? _directSubscription;
     private IDisposable? _operatorSubscription;
+    private IDisposable? _reactiveUISubscription;
     private int _directResult;
     private int _operatorResult;
+    private int _reactiveUIResult;
     private int _value;
 
     /// <summary>Gets the pipeline shape used by the current benchmark case.</summary>
@@ -29,6 +33,9 @@ public class ObservableOperatorBenchmarks
     [GlobalSetup]
     public void SetupUpdateSubscriptions()
     {
+        ReactiveUI.Builder.BuilderMixins.BuildApp(
+            ReactiveUI.Builder.RxAppBuilder.CreateReactiveUIBuilder().WithCoreServices()
+        );
         _directSubscription = SubscribeDirect(
             _directUpdateSource,
             Pipeline,
@@ -39,6 +46,11 @@ public class ObservableOperatorBenchmarks
             Pipeline,
             value => _operatorResult = value
         );
+        _reactiveUISubscription = SubscribeReactiveUIOperators(
+            _reactiveUIUpdateSource,
+            Pipeline,
+            value => _reactiveUIResult = value
+        );
     }
 
     /// <summary>Disposes subscriptions used by message-delivery benchmarks.</summary>
@@ -47,6 +59,7 @@ public class ObservableOperatorBenchmarks
     {
         _directSubscription?.Dispose();
         _operatorSubscription?.Dispose();
+        _reactiveUISubscription?.Dispose();
     }
 
     /// <summary>Measures direct observer creation, subscription, and disposal.</summary>
@@ -73,6 +86,18 @@ public class ObservableOperatorBenchmarks
         );
     }
 
+    /// <summary>Measures ReactiveUI operator pipeline creation, subscription, and disposal.</summary>
+    [Benchmark]
+    [BenchmarkCategory("CreateAndDispose")]
+    public void ReactiveUIOperatorCreateAndDispose()
+    {
+        using var subscription = SubscribeReactiveUIOperators(
+            _reactiveUICreateSource,
+            Pipeline,
+            value => _reactiveUIResult = value
+        );
+    }
+
     /// <summary>Measures two messages through equivalent direct observer logic.</summary>
     [Benchmark(Baseline = true)]
     [BenchmarkCategory("Update")]
@@ -91,6 +116,16 @@ public class ObservableOperatorBenchmarks
         var value = _value += 2;
         _operatorUpdateSource.Emit(value - 1);
         _operatorUpdateSource.Emit(value);
+    }
+
+    /// <summary>Measures two messages through the equivalent ReactiveUI operator pipeline.</summary>
+    [Benchmark]
+    [BenchmarkCategory("Update")]
+    public void ReactiveUIOperatorUpdate()
+    {
+        var value = _value += 2;
+        _reactiveUIUpdateSource.Emit(value - 1);
+        _reactiveUIUpdateSource.Emit(value);
     }
 
     private static IDisposable SubscribeDirect(
@@ -113,6 +148,36 @@ public class ObservableOperatorBenchmarks
                 .Select(Transform)
                 .DistinctUntilChanged()
                 .Subscribe(onNext),
+            _ => throw new ArgumentOutOfRangeException(nameof(pipeline)),
+        };
+
+    private static IDisposable SubscribeReactiveUIOperators(
+        BenchmarkObservable<int> source,
+        PipelineKind pipeline,
+        Action<int> onNext
+    ) =>
+        pipeline switch
+        {
+            PipelineKind.Select => ReactiveUI.Primitives.SubscribeExtensions.Subscribe(
+                ReactiveUI.Primitives.LinqExtensions.Select(source, Transform),
+                onNext
+            ),
+            PipelineKind.WhereSelect => ReactiveUI.Primitives.SubscribeExtensions.Subscribe(
+                ReactiveUI.Primitives.LinqExtensions.Where(
+                    ReactiveUI.Primitives.LinqExtensions.Select(source, Transform),
+                    IsEven
+                ),
+                onNext
+            ),
+            PipelineKind.WhereSelectDistinct => ReactiveUI.Primitives.SubscribeExtensions.Subscribe(
+                ReactiveUI.Primitives.LinqExtensions.Where(
+                    ReactiveUI.Primitives.LinqExtensions.DistinctUntilChanged(
+                        ReactiveUI.Primitives.LinqExtensions.Select(source, Transform)
+                    ),
+                    IsEven
+                ),
+                onNext
+            ),
             _ => throw new ArgumentOutOfRangeException(nameof(pipeline)),
         };
 
