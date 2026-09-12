@@ -221,22 +221,27 @@ public static class BindingExtensions
         where TSource : class
         where TTarget : class
     {
-        private readonly Lock _gate = new();
-        private bool _updatingTarget;
-        private bool _updatingSource;
-        private bool _disposed;
+        private const int Idle = 0;
+        private const int UpdatingTarget = 1;
+        private const int UpdatingSource = 2;
+        private const int Disposed = 3;
+
+        private int _state;
 
         public void UpdateTarget(TSourceValue value)
         {
-            lock (_gate)
+            // Source-to-target has priority: it may replace UpdatingSource, while
+            // UpdateSource is only allowed to enter from Idle.
+            int state;
+            do
             {
-                if (_disposed || _updatingSource)
+                state = Volatile.Read(ref _state);
+                if (state is UpdatingTarget or Disposed)
                 {
                     return;
                 }
-
-                _updatingTarget = true;
             }
+            while (Interlocked.CompareExchange(ref _state, UpdatingTarget, state) != state);
 
             try
             {
@@ -244,23 +249,15 @@ public static class BindingExtensions
             }
             finally
             {
-                lock (_gate)
-                {
-                    _updatingTarget = false;
-                }
+                Interlocked.CompareExchange(ref _state, Idle, UpdatingTarget);
             }
         }
 
         public void UpdateSource(TTargetValue value)
         {
-            lock (_gate)
+            if (Interlocked.CompareExchange(ref _state, UpdatingSource, Idle) != Idle)
             {
-                if (_disposed || _updatingTarget)
-                {
-                    return;
-                }
-
-                _updatingSource = true;
+                return;
             }
 
             try
@@ -269,20 +266,11 @@ public static class BindingExtensions
             }
             finally
             {
-                lock (_gate)
-                {
-                    _updatingSource = false;
-                }
+                Interlocked.CompareExchange(ref _state, Idle, UpdatingSource);
             }
         }
 
-        public void Dispose()
-        {
-            lock (_gate)
-            {
-                _disposed = true;
-            }
-        }
+        public void Dispose() => Interlocked.Exchange(ref _state, Disposed);
     }
 
     private static class PropertySetter

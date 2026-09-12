@@ -177,6 +177,26 @@ public sealed class BindingExtensionsTests
     }
 
     [TestMethod]
+    public void TwoWayBind_SourceToTargetTakesPriorityDuringTargetToSourceUpdate()
+    {
+        var source = new Person { Age = 36 };
+        var target = new Person();
+        using var binding = target.TwoWayBind(
+            source,
+            currentSource => currentSource.Age,
+            currentTarget => currentTarget.FirstName,
+            static (value, currentTarget) => currentTarget.FirstName = $"Age: {value}",
+            static (value, currentSource) =>
+                currentSource.Age = int.Parse(value.AsSpan("Age: ".Length))
+        );
+
+        target.FirstName = "Age: 37";
+
+        Assert.AreEqual(37, source.Age);
+        Assert.AreEqual("Age: 37", target.FirstName);
+    }
+
+    [TestMethod]
     public void TwoWayBind_DisposeStopsUpdatesInBothDirections()
     {
         var source = new Person { FirstName = "Initial" };
