@@ -108,7 +108,7 @@ internal sealed class GetterFailureModel : ObservableObject
 
 internal sealed class TestException(string message) : Exception(message);
 
-internal sealed class TrackingPropertyOwner : ObservableObject, IPropertyNotifier
+internal sealed class TrackingPropertyOwner : ObservableObject, IPropertyChangeNotifier
 {
     public int ChangingNotificationCount { get; private set; }
 

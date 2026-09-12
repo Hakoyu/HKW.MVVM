@@ -28,8 +28,8 @@ public static class WhenAnyExtensions
     /// <param name="property">A property path rooted at <paramref name="source"/>, such as <c>x =&gt; x.Address.City</c>.</param>
     /// <returns>A cold observable sequence of final property values.</returns>
     /// <remarks>
-    /// <b>REFLECTION: CONDITIONAL.</b> A direct property on an <see cref="IPropertyNotifier"/> is read through
-    /// a compiled getter. Other sources and nested paths fall back to reflection-based path observation.
+    /// <b>REFLECTION: CONDITIONAL.</b> A direct property is read through a compiled getter.
+    /// Nested paths fall back to reflection-based path observation and rebinding.
     /// </remarks>
     public static IObservable<TValue> WhenAnyValue<TSource, TValue>(
         this TSource source,
@@ -40,12 +40,15 @@ public static class WhenAnyExtensions
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(property);
 
-        if (source is IPropertyNotifier && PropertyPath.IsDirectProperty(property))
+        // A direct property only needs INotifyPropertyChanged. Keep nested paths on the
+        // rebinding implementation, but avoid reflection and handler reconstruction for
+        // the overwhelmingly common single-property case.
+        if (PropertyPath.TryGetDirectProperty(property, out var directProperty))
         {
             return new DirectPropertyObservable<TSource, TValue>(
                 source,
-                property.Compile(),
-                property.GetPropertyName()
+                DirectPropertyGetterCache<TSource, TValue>.Getters.Get(directProperty),
+                directProperty.Name
             );
         }
 
@@ -67,7 +70,7 @@ public static class WhenAnyExtensions
     /// <remarks>
     /// <b>REFLECTION: CONDITIONAL.</b> Each property delegates to the single-property
     /// <see cref="WhenAnyValue{TSource,TValue}(TSource, Expression{Func{TSource,TValue}})"/> implementation,
-    /// which prefers <see cref="IPropertyNotifier"/> and falls back to reflection when necessary.
+    /// which uses a compiled getter for direct properties and falls back to reflection for nested paths.
     /// </remarks>
     public static IObservable<TResult> WhenAnyValue<TSource, T1, T2, TResult>(
         this TSource source,
@@ -98,7 +101,7 @@ public static class WhenAnyExtensions
     /// <remarks>
     /// <b>REFLECTION: CONDITIONAL.</b> All properties delegate to the single-property
     /// <see cref="WhenAnyValue{TSource,TValue}(TSource, Expression{Func{TSource,TValue}})"/> implementation,
-    /// which prefers <see cref="IPropertyNotifier"/> and falls back to reflection when necessary.
+    /// which uses a compiled getter for direct properties and falls back to reflection for nested paths.
     /// </remarks>
     public static IObservable<TResult> WhenAnyValue<TSource, T1, T2, T3, TResult>(
         this TSource source,
@@ -136,7 +139,7 @@ public static class WhenAnyExtensions
     /// <remarks>
     /// <b>REFLECTION: CONDITIONAL.</b> All properties delegate to the single-property
     /// <see cref="WhenAnyValue{TSource,TValue}(TSource, Expression{Func{TSource,TValue}})"/> implementation,
-    /// which prefers <see cref="IPropertyNotifier"/> and falls back to reflection when necessary.
+    /// which uses a compiled getter for direct properties and falls back to reflection for nested paths.
     /// </remarks>
     public static IObservable<TResult> WhenAnyValue<TSource, T1, T2, T3, T4, TResult>(
         this TSource source,
@@ -170,7 +173,7 @@ public static class WhenAnyExtensions
     /// <remarks>
     /// <b>REFLECTION: CONDITIONAL.</b> This method delegates value observation to
     /// <see cref="WhenAnyValue{TSource,TValue}(TSource, Expression{Func{TSource,TValue}})"/>, which prefers
-    /// <see cref="IPropertyNotifier"/> and falls back to reflection when necessary.
+    /// a compiled getter for direct properties and falls back to reflection for nested paths.
     /// </remarks>
     public static IObservable<TResult> WhenAny<TSource, TValue, TResult>(
         this TSource source,
@@ -284,6 +287,26 @@ public static class WhenAnyExtensions
     private static IObservable<object?> Box<T>(this IObservable<T> source) =>
         Select(source, value => (object?)value);
 
+    private static class DirectPropertyGetterCache<TSource, TValue>
+    {
+        public static readonly MemoizingLRUCache<
+            PropertyInfo,
+            Func<TSource, TValue>
+        > Getters = new(Compile, 64);
+
+        private static Func<TSource, TValue> Compile(PropertyInfo property)
+        {
+            var source = Expression.Parameter(typeof(TSource), "source");
+            Expression body = Expression.Property(source, property);
+            if (body.Type != typeof(TValue))
+            {
+                body = Expression.Convert(body, typeof(TValue));
+            }
+
+            return Expression.Lambda<Func<TSource, TValue>>(body, source).Compile();
+        }
+    }
+
     private sealed class DirectPropertyObservable<TSource, TValue>(
         TSource source,
         Func<TSource, TValue> getter,
@@ -306,14 +329,13 @@ public static class WhenAnyExtensions
     private sealed class DirectPropertySubscription<TSource, TValue> : IDisposable
         where TSource : class, INotifyPropertyChanged
     {
-        private readonly Lock _gate = new();
         private readonly TSource _source;
         private readonly Func<TSource, TValue> _getter;
         private readonly string _propertyName;
         private readonly IObserver<TValue> _observer;
         private bool _hasValue;
         private TValue? _lastValue;
-        private bool _disposed;
+        private int _disposed;
 
         public DirectPropertySubscription(
             TSource source,
@@ -332,14 +354,8 @@ public static class WhenAnyExtensions
 
         public void Dispose()
         {
-            lock (_gate)
+            if (Interlocked.Exchange(ref _disposed, 1) == 0)
             {
-                if (_disposed)
-                {
-                    return;
-                }
-
-                _disposed = true;
                 _source.PropertyChanged -= OnPropertyChanged;
             }
         }
@@ -357,46 +373,35 @@ public static class WhenAnyExtensions
 
         private void PublishCurrentValue()
         {
-            TValue? value = default;
-            Exception? error = null;
-            var publish = false;
-
-            lock (_gate)
+            if (Volatile.Read(ref _disposed) != 0)
             {
-                if (_disposed)
-                {
-                    return;
-                }
+                return;
+            }
 
-                try
+            TValue value;
+            try
+            {
+                value = _getter(_source);
+            }
+            catch (Exception exception)
+            {
+                if (Interlocked.Exchange(ref _disposed, 1) == 0)
                 {
-                    value = _getter(_source);
-                    if (
-                        _hasValue is false
-                        || EqualityComparer<TValue>.Default.Equals(_lastValue!, value!) is false
-                    )
-                    {
-                        _hasValue = true;
-                        _lastValue = value;
-                        publish = true;
-                    }
-                }
-                catch (Exception exception)
-                {
-                    error = exception;
-                    _disposed = true;
                     _source.PropertyChanged -= OnPropertyChanged;
+                    _observer.OnError(exception);
                 }
+
+                return;
             }
 
-            if (error is not null)
+            if (_hasValue && EqualityComparer<TValue>.Default.Equals(_lastValue!, value))
             {
-                _observer.OnError(error);
+                return;
             }
-            else if (publish)
-            {
-                _observer.OnNext(value!);
-            }
+
+            _hasValue = true;
+            _lastValue = value;
+            _observer.OnNext(value);
         }
     }
 
@@ -549,20 +554,37 @@ public static class WhenAnyExtensions
 
     private static class PropertyPath
     {
-        public static bool IsDirectProperty(LambdaExpression expression)
+        public static bool TryGetDirectProperty(
+            LambdaExpression expression,
+            out PropertyInfo property
+        )
         {
             Expression body = expression.Body;
-            if (body is UnaryExpression unary)
+            if (
+                body is UnaryExpression
+                {
+                    NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked
+                } unary
+            )
             {
                 body = unary.Operand;
             }
 
-            return body is MemberExpression
+            if (
+                body is MemberExpression
+                {
+                    Member: PropertyInfo { GetMethod: not null } directProperty,
+                    Expression: ParameterExpression parameter,
+                }
+                && parameter == expression.Parameters[0]
+            )
             {
-                Member: PropertyInfo { GetMethod: not null },
-                Expression: ParameterExpression parameter,
+                property = directProperty;
+                return true;
             }
-                && parameter == expression.Parameters[0];
+
+            property = null!;
+            return false;
         }
 
         public static PropertyInfo[] Parse<TSource, TValue>(

@@ -48,7 +48,7 @@ public sealed class ObservableObjectTests
         model.NotifyPropertyChanged("Result");
 
         CollectionAssert.AreEqual(new[] { "Changing:Result", "Changed:Result" }, events);
-        Assert.IsInstanceOfType<IPropertyNotifier>(model);
+        Assert.IsInstanceOfType<IPropertyChangeNotifier>(model);
     }
 
 }

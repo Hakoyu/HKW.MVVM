@@ -5,7 +5,7 @@ namespace HKW.MVVM;
 /// </summary>
 /// <typeparam name="TKey">The cache key type.</typeparam>
 /// <typeparam name="TValue">The cached value type.</typeparam>
-internal sealed class MemoizingMRUCache<TKey, TValue>
+internal sealed class MemoizingLRUCache<TKey, TValue>
     where TKey : notnull
 {
     private readonly Lock _gate = new();
@@ -19,7 +19,7 @@ internal sealed class MemoizingMRUCache<TKey, TValue>
     /// </summary>
     /// <param name="valueFactory">Creates a value for a missing key.</param>
     /// <param name="maximumSize">The maximum number of values retained by the cache.</param>
-    public MemoizingMRUCache(Func<TKey, TValue> valueFactory, int maximumSize)
+    public MemoizingLRUCache(Func<TKey, TValue> valueFactory, int maximumSize)
     {
         ArgumentNullException.ThrowIfNull(valueFactory);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maximumSize);

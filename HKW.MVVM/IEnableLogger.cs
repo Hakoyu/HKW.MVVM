@@ -110,12 +110,12 @@ public static class LogHost
 
     private sealed class LoggerCache
     {
-        private readonly MemoizingMRUCache<Type, ILogger> _loggers;
+        private readonly MemoizingLRUCache<Type, ILogger> _loggers;
 
         public LoggerCache(ILoggerFactory loggerFactory)
         {
             CacheLoggerFactory = loggerFactory;
-            _loggers = new MemoizingMRUCache<Type, ILogger>(CreateLogger, LoggerCacheSize);
+            _loggers = new MemoizingLRUCache<Type, ILogger>(CreateLogger, LoggerCacheSize);
         }
 
         public ILoggerFactory CacheLoggerFactory { get; }

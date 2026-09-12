@@ -370,7 +370,7 @@ public static class BindingExtensions
 
         private static class PropertySetterCache<TTarget, TValue>
         {
-            public static readonly MemoizingMRUCache<
+            public static readonly MemoizingLRUCache<
                 PropertyPathCacheKey<TTarget, TValue>,
                 Action<TTarget, TValue>
             > Setters = new(Compile, 64);

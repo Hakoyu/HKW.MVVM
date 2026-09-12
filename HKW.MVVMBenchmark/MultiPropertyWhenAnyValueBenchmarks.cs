@@ -212,7 +212,7 @@ public class MultiPropertyWhenAnyValueBenchmarks
     [BenchmarkCategory("FourPropertiesUpdate")]
     public void WhenAnyValueFourPropertiesUpdate() => _whenAnyFourUpdateSource.Value1 = ++_value;
 
-    private sealed class Values : IPropertyNotifier
+    private sealed class Values : IPropertyChangeNotifier
     {
         private static readonly PropertyChangedEventArgs Value1Changed = new(nameof(Value1));
         private static readonly PropertyChangedEventArgs Value2Changed = new(nameof(Value2));

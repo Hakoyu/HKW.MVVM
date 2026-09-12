@@ -155,7 +155,7 @@ public static class ObservableAsPropertyHelperExtensions
     /// <returns>An observable property helper that stores the latest value and notifies the owner.</returns>
     /// <remarks>
     /// <b>REFLECTION: CONDITIONAL.</b> The property name is extracted from the expression. Owner notification
-    /// prefers <see cref="IPropertyNotifier"/> and otherwise invokes CommunityToolkit's protected methods
+    /// prefers <see cref="IPropertyChangeNotifier"/> and otherwise invokes CommunityToolkit's protected methods
     /// through cached delegates created from <see cref="MethodInfo"/> instances.
     /// </remarks>
     public static ObservableAsPropertyHelper<TValue> ToProperty<TOwner, TValue>(
@@ -193,7 +193,7 @@ public static class ObservableAsPropertyHelperExtensions
     /// <param name="synchronizationContext">An optional context used to dispatch value changes and notifications.</param>
     /// <returns>An observable property helper that stores the latest value and notifies the owner.</returns>
     /// <remarks>
-    /// <b>REFLECTION: CONDITIONAL.</b> Owner notification prefers <see cref="IPropertyNotifier"/> and otherwise
+    /// <b>REFLECTION: CONDITIONAL.</b> Owner notification prefers <see cref="IPropertyChangeNotifier"/> and otherwise
     /// invokes CommunityToolkit's protected methods through cached delegates created once with reflection.
     /// </remarks>
     public static ObservableAsPropertyHelper<TValue> ToProperty<TOwner, TValue>(
@@ -234,7 +234,7 @@ internal static class PropertyNotificationDispatcher
 
     public static void NotifyPropertyChanging(ObservableObject owner, string propertyName)
     {
-        if (owner is IPropertyNotifier notifier)
+        if (owner is IPropertyChangeNotifier notifier)
         {
             notifier.NotifyPropertyChanging(propertyName);
             return;
@@ -245,7 +245,7 @@ internal static class PropertyNotificationDispatcher
 
     public static void NotifyPropertyChanged(ObservableObject owner, string propertyName)
     {
-        if (owner is IPropertyNotifier notifier)
+        if (owner is IPropertyChangeNotifier notifier)
         {
             notifier.NotifyPropertyChanged(propertyName);
             return;

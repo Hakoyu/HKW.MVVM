@@ -146,7 +146,7 @@ public class WhenAnyValueBenchmarks
     [BenchmarkCategory("PlainUpdate")]
     public void WhenAnyValuePlainUpdate() => _whenAnyPlainUpdateSource.Value = ++_value;
 
-    private sealed class FastPropertySource : IPropertyNotifier
+    private sealed class FastPropertySource : IPropertyChangeNotifier
     {
         private int _value;
 
