@@ -152,9 +152,6 @@ public class ToPropertyBenchmarks
     [BenchmarkCategory("PlainOwnerCreateAndDispose")]
     public void ReactiveUICreateAndDispose()
     {
-        ReactiveUI.Builder.BuilderMixins.BuildApp(
-            ReactiveUI.Builder.RxAppBuilder.CreateReactiveUIBuilder().WithCoreServices()
-        );
         using var property = ReactiveUI.OAPHCreationHelperMixins.ToProperty(
             _reactiveUICreateSource,
             _reactiveUIOwner,
