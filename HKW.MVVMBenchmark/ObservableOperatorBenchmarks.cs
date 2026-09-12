@@ -61,27 +61,29 @@ public class ObservableOperatorBenchmarks
         _operatorSubscription?.Dispose();
         _reactiveUISubscription?.Dispose();
     }
+
     #region Core
-    ///// <summary>Measures direct observer creation, subscription, and disposal.</summary>
-    //[Benchmark(Baseline = true)]
-    //[BenchmarkCategory("CreateAndDispose")]
-    //public void DirectCreateAndDispose()
-    //{
-    //    using var subscription = SubscribeDirect(
-    //        _directCreateSource,
-    //        Pipeline,
-    //        value => _directResult = value
-    //    );
-    //}
-    ///// <summary>Measures two messages through equivalent direct observer logic.</summary>
-    //[Benchmark(Baseline = true)]
-    //[BenchmarkCategory("Update")]
-    //public void DirectUpdate()
-    //{
-    //    var value = _value += 2;
-    //    _directUpdateSource.Emit(value - 1);
-    //    _directUpdateSource.Emit(value);
-    //}
+    /// <summary>Measures direct observer creation, subscription, and disposal.</summary>
+    [Benchmark(Baseline = true)]
+    [BenchmarkCategory("CreateAndDispose")]
+    public void DirectCreateAndDispose()
+    {
+        using var subscription = SubscribeDirect(
+            _directCreateSource,
+            Pipeline,
+            value => _directResult = value
+        );
+    }
+
+    /// <summary>Measures two messages through equivalent direct observer logic.</summary>
+    [Benchmark(Baseline = true)]
+    [BenchmarkCategory("Update")]
+    public void DirectUpdate()
+    {
+        var value = _value += 2;
+        _directUpdateSource.Emit(value - 1);
+        _directUpdateSource.Emit(value);
+    }
     #endregion
 
     #region HKW
@@ -109,27 +111,27 @@ public class ObservableOperatorBenchmarks
     #endregion
 
     #region ReactiveUI
-    ///// <summary>Measures ReactiveUI operator pipeline creation, subscription, and disposal.</summary>
-    //[Benchmark]
-    //[BenchmarkCategory("CreateAndDispose")]
-    //public void ReactiveUIOperatorCreateAndDispose()
-    //{
-    //    using var subscription = SubscribeReactiveUIOperators(
-    //        _reactiveUICreateSource,
-    //        Pipeline,
-    //        value => _reactiveUIResult = value
-    //    );
-    //}
+    /// <summary>Measures ReactiveUI operator pipeline creation, subscription, and disposal.</summary>
+    [Benchmark]
+    [BenchmarkCategory("CreateAndDispose")]
+    public void ReactiveUIOperatorCreateAndDispose()
+    {
+        using var subscription = SubscribeReactiveUIOperators(
+            _reactiveUICreateSource,
+            Pipeline,
+            value => _reactiveUIResult = value
+        );
+    }
 
-    ///// <summary>Measures two messages through the equivalent ReactiveUI operator pipeline.</summary>
-    //[Benchmark]
-    //[BenchmarkCategory("Update")]
-    //public void ReactiveUIOperatorUpdate()
-    //{
-    //    var value = _value += 2;
-    //    _reactiveUIUpdateSource.Emit(value - 1);
-    //    _reactiveUIUpdateSource.Emit(value);
-    //}
+    /// <summary>Measures two messages through the equivalent ReactiveUI operator pipeline.</summary>
+    [Benchmark]
+    [BenchmarkCategory("Update")]
+    public void ReactiveUIOperatorUpdate()
+    {
+        var value = _value += 2;
+        _reactiveUIUpdateSource.Emit(value - 1);
+        _reactiveUIUpdateSource.Emit(value);
+    }
     #endregion
 
 

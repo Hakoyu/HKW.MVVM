@@ -92,7 +92,7 @@ public class WhenAnyValueBenchmarks
     public void WhenAnyValueUpdate() => _whenAnyUpdateSource.Value = ++_value;
     #endregion
 
-    #region
+    #region ReactiveUI
     /// <summary>Measures ReactiveUI WhenAnyValue creation, initial publication, and disposal.</summary>
     [Benchmark]
     [BenchmarkCategory("CreateAndDispose")]
