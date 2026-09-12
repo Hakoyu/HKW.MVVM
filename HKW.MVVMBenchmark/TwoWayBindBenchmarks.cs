@@ -72,6 +72,7 @@ public class TwoWayBindBenchmarks
         _reactiveUIBinding?.Dispose();
     }
 
+    #region Core
     /// <summary>Measures direct event-handler binding creation, initial synchronization, and disposal.</summary>
     [Benchmark(Baseline = true)]
     [BenchmarkCategory("CreateAndDispose")]
@@ -80,6 +81,17 @@ public class TwoWayBindBenchmarks
         using var binding = new DirectTwoWayBinding(_directCreateSource, _directCreateTarget);
     }
 
+    /// <summary>Measures one source-to-target update through direct event handlers.</summary>
+    [Benchmark(Baseline = true)]
+    [BenchmarkCategory("SourceToTargetUpdate")]
+    public void DirectSourceToTargetUpdate() => _directUpdateSource.Value = ++_value;
+
+    /// <summary>Measures one target-to-source update through direct event handlers.</summary>
+    [Benchmark(Baseline = true)]
+    [BenchmarkCategory("TargetToSourceUpdate")]
+    public void DirectTargetToSourceUpdate() => _directUpdateTarget.Value = ++_value;
+    #endregion
+    #region HKW
     /// <summary>Measures binding creation, two setter compilations, subscriptions, and disposal.</summary>
     [Benchmark]
     [BenchmarkCategory("CreateAndDispose")]
@@ -106,6 +118,28 @@ public class TwoWayBindBenchmarks
         );
     }
 
+    /// <summary>Measures one source-to-target update through an existing expression binding.</summary>
+    [Benchmark]
+    [BenchmarkCategory("SourceToTargetUpdate")]
+    public void ExpressionSourceToTargetUpdate() => _expressionUpdateSource.Value = ++_value;
+
+    /// <summary>Measures one source-to-target update through an existing assignment binding.</summary>
+    [Benchmark]
+    [BenchmarkCategory("SourceToTargetUpdate")]
+    public void AssignmentSourceToTargetUpdate() => _assignmentUpdateSource.Value = ++_value;
+
+    /// <summary>Measures one target-to-source update through an existing expression binding.</summary>
+    [Benchmark]
+    [BenchmarkCategory("TargetToSourceUpdate")]
+    public void ExpressionTargetToSourceUpdate() => _expressionUpdateTarget.Value = ++_value;
+
+    /// <summary>Measures one target-to-source update through an existing assignment binding.</summary>
+    [Benchmark]
+    [BenchmarkCategory("TargetToSourceUpdate")]
+    public void AssignmentTargetToSourceUpdate() => _assignmentUpdateTarget.Value = ++_value;
+    #endregion
+
+    #region ReactiveUI
     /// <summary>Measures ReactiveUI two-way binding creation and disposal.</summary>
     [Benchmark]
     [BenchmarkCategory("CreateAndDispose")]
@@ -119,45 +153,17 @@ public class TwoWayBindBenchmarks
         );
     }
 
-    /// <summary>Measures one source-to-target update through direct event handlers.</summary>
-    [Benchmark(Baseline = true)]
-    [BenchmarkCategory("SourceToTargetUpdate")]
-    public void DirectSourceToTargetUpdate() => _directUpdateSource.Value = ++_value;
-
-    /// <summary>Measures one source-to-target update through an existing expression binding.</summary>
-    [Benchmark]
-    [BenchmarkCategory("SourceToTargetUpdate")]
-    public void ExpressionSourceToTargetUpdate() => _expressionUpdateSource.Value = ++_value;
-
-    /// <summary>Measures one source-to-target update through an existing assignment binding.</summary>
-    [Benchmark]
-    [BenchmarkCategory("SourceToTargetUpdate")]
-    public void AssignmentSourceToTargetUpdate() => _assignmentUpdateSource.Value = ++_value;
-
     /// <summary>Measures one source-to-target update through an existing ReactiveUI binding.</summary>
     [Benchmark]
     [BenchmarkCategory("SourceToTargetUpdate")]
     public void ReactiveUISourceToTargetUpdate() => _reactiveUIUpdateSource.Value = ++_value;
 
-    /// <summary>Measures one target-to-source update through direct event handlers.</summary>
-    [Benchmark(Baseline = true)]
-    [BenchmarkCategory("TargetToSourceUpdate")]
-    public void DirectTargetToSourceUpdate() => _directUpdateTarget.Value = ++_value;
-
-    /// <summary>Measures one target-to-source update through an existing expression binding.</summary>
-    [Benchmark]
-    [BenchmarkCategory("TargetToSourceUpdate")]
-    public void ExpressionTargetToSourceUpdate() => _expressionUpdateTarget.Value = ++_value;
-
-    /// <summary>Measures one target-to-source update through an existing assignment binding.</summary>
-    [Benchmark]
-    [BenchmarkCategory("TargetToSourceUpdate")]
-    public void AssignmentTargetToSourceUpdate() => _assignmentUpdateTarget.Value = ++_value;
-
     /// <summary>Measures one target-to-source update through an existing ReactiveUI binding.</summary>
     [Benchmark]
     [BenchmarkCategory("TargetToSourceUpdate")]
     public void ReactiveUITargetToSourceUpdate() => _reactiveUIUpdateTarget.Value = ++_value;
+    #endregion
+
 
     private sealed class BindingObject : INotifyPropertyChanged
     {

@@ -68,6 +68,25 @@ public class BindToBenchmarks
         _propertyChangedBinding?.Dispose();
     }
 
+    #region Core
+    /// <summary>Measures traditional PropertyChanged handler registration and removal.</summary>
+    [Benchmark]
+    [BenchmarkCategory("CreateAndDispose")]
+    public void PropertyChangedCreateAndDispose()
+    {
+        using var binding = new PropertyChangedBinding(
+            _propertyChangedCreateSource,
+            _propertyChangedCreateTarget
+        );
+    }
+
+    /// <summary>Measures one value delivery through a traditional PropertyChanged handler.</summary>
+    [Benchmark]
+    [BenchmarkCategory("Update")]
+    public void PropertyChangedUpdate() => _propertyChangedUpdateSource.Value = ++_value;
+    #endregion
+
+    #region HKW
     /// <summary>Measures direct observer creation, subscription, and disposal.</summary>
     [Benchmark(Baseline = true)]
     [BenchmarkCategory("CreateAndDispose")]
@@ -76,6 +95,11 @@ public class BindToBenchmarks
         using var binding = _directSource.Subscribe(new AssignmentObserver(_directTarget));
     }
 
+    /// <summary>Measures one value delivery through an existing direct observer subscription.</summary>
+    [Benchmark(Baseline = true)]
+    [BenchmarkCategory("Update")]
+    public void DirectUpdate() => _directSource.Emit(++_value);
+
     /// <summary>Measures expression parsing, setter compilation, subscription, and disposal.</summary>
     [Benchmark]
     [BenchmarkCategory("CreateAndDispose")]
@@ -83,6 +107,11 @@ public class BindToBenchmarks
     {
         using var binding = _expressionSource.BindTo(_expressionTarget, target => target.Value);
     }
+
+    /// <summary>Measures one value delivery through an existing expression binding.</summary>
+    [Benchmark]
+    [BenchmarkCategory("Update")]
+    public void ExpressionUpdate() => _expressionSource.Emit(++_value);
 
     /// <summary>Measures assignment-action subscription and disposal.</summary>
     [Benchmark]
@@ -95,6 +124,13 @@ public class BindToBenchmarks
         );
     }
 
+    /// <summary>Measures one value delivery through an existing assignment-action binding.</summary>
+    [Benchmark]
+    [BenchmarkCategory("Update")]
+    public void AssignmentUpdate() => _assignmentSource.Emit(++_value);
+    #endregion
+
+    #region ReactiveUI
     /// <summary>Measures ReactiveUI expression binding creation and disposal.</summary>
     [Benchmark]
     [BenchmarkCategory("CreateAndDispose")]
@@ -107,41 +143,12 @@ public class BindToBenchmarks
         );
     }
 
-    /// <summary>Measures traditional PropertyChanged handler registration and removal.</summary>
-    [Benchmark]
-    [BenchmarkCategory("CreateAndDispose")]
-    public void PropertyChangedCreateAndDispose()
-    {
-        using var binding = new PropertyChangedBinding(
-            _propertyChangedCreateSource,
-            _propertyChangedCreateTarget
-        );
-    }
-
-    /// <summary>Measures one value delivery through an existing direct observer subscription.</summary>
-    [Benchmark(Baseline = true)]
-    [BenchmarkCategory("Update")]
-    public void DirectUpdate() => _directSource.Emit(++_value);
-
-    /// <summary>Measures one value delivery through an existing expression binding.</summary>
-    [Benchmark]
-    [BenchmarkCategory("Update")]
-    public void ExpressionUpdate() => _expressionSource.Emit(++_value);
-
-    /// <summary>Measures one value delivery through an existing assignment-action binding.</summary>
-    [Benchmark]
-    [BenchmarkCategory("Update")]
-    public void AssignmentUpdate() => _assignmentSource.Emit(++_value);
-
     /// <summary>Measures one value delivery through an existing ReactiveUI binding.</summary>
     [Benchmark]
     [BenchmarkCategory("Update")]
     public void ReactiveUIUpdate() => _reactiveUISource.Emit(++_value);
+    #endregion
 
-    /// <summary>Measures one value delivery through a traditional PropertyChanged handler.</summary>
-    [Benchmark]
-    [BenchmarkCategory("Update")]
-    public void PropertyChangedUpdate() => _propertyChangedUpdateSource.Value = ++_value;
 
     private sealed class BindingTarget
     {

@@ -123,6 +123,7 @@ public class MultiPropertyWhenAnyValueBenchmarks
         _reactiveUIFourSubscription?.Dispose();
     }
 
+    #region Core
     /// <summary>Measures a direct one-property subscription.</summary>
     [Benchmark(Baseline = true)]
     [BenchmarkCategory("OnePropertyCreateAndDispose")]
@@ -135,26 +136,6 @@ public class MultiPropertyWhenAnyValueBenchmarks
         );
     }
 
-    /// <summary>Measures one-property WhenAnyValue creation and disposal.</summary>
-    [Benchmark]
-    [BenchmarkCategory("OnePropertyCreateAndDispose")]
-    public void WhenAnyValueOnePropertyCreateAndDispose()
-    {
-        using var subscription = _whenAnyOneCreateSource
-            .WhenAnyValue(source => source.Value1)
-            .Subscribe(value => _whenAnyResult = value);
-    }
-
-    /// <summary>Measures ReactiveUI one-property WhenAnyValue creation and disposal.</summary>
-    [Benchmark]
-    [BenchmarkCategory("OnePropertyCreateAndDispose")]
-    public void ReactiveUIOnePropertyCreateAndDispose()
-    {
-        using var subscription = ReactiveUI
-            .WhenAnyMixins.WhenAnyValue(_reactiveUIOneCreateSource, source => source.Value1)
-            .Subscribe(value => _reactiveUIResult = value);
-    }
-
     /// <summary>Measures a direct two-property combined subscription.</summary>
     [Benchmark(Baseline = true)]
     [BenchmarkCategory("TwoPropertiesCreateAndDispose")]
@@ -165,6 +146,45 @@ public class MultiPropertyWhenAnyValueBenchmarks
             2,
             value => _directResult = value
         );
+    }
+
+    /// <summary>Measures a direct four-property combined subscription.</summary>
+    [Benchmark(Baseline = true)]
+    [BenchmarkCategory("FourPropertiesCreateAndDispose")]
+    public void DirectFourPropertiesCreateAndDispose()
+    {
+        using var subscription = new DirectCombinedSubscription(
+            _directFourCreateSource,
+            4,
+            value => _directResult = value
+        );
+    }
+
+    /// <summary>Measures a direct one-property update.</summary>
+    [Benchmark(Baseline = true)]
+    [BenchmarkCategory("OnePropertyUpdate")]
+    public void DirectOnePropertyUpdate() => _directOneUpdateSource.Value1 = ++_value;
+
+    /// <summary>Measures an update observed by a direct two-property subscription.</summary>
+    [Benchmark(Baseline = true)]
+    [BenchmarkCategory("TwoPropertiesUpdate")]
+    public void DirectTwoPropertiesUpdate() => _directTwoUpdateSource.Value1 = ++_value;
+
+    /// <summary>Measures an update observed by a direct four-property subscription.</summary>
+    [Benchmark(Baseline = true)]
+    [BenchmarkCategory("FourPropertiesUpdate")]
+    public void DirectFourPropertiesUpdate() => _directFourUpdateSource.Value1 = ++_value;
+    #endregion
+
+    #region HKW
+    /// <summary>Measures one-property WhenAnyValue creation and disposal.</summary>
+    [Benchmark]
+    [BenchmarkCategory("OnePropertyCreateAndDispose")]
+    public void WhenAnyValueOnePropertyCreateAndDispose()
+    {
+        using var subscription = _whenAnyOneCreateSource
+            .WhenAnyValue(source => source.Value1)
+            .Subscribe(value => _whenAnyResult = value);
     }
 
     /// <summary>Measures two-property WhenAnyValue creation and disposal.</summary>
@@ -181,33 +201,6 @@ public class MultiPropertyWhenAnyValueBenchmarks
             .Subscribe(value => _whenAnyResult = value);
     }
 
-    /// <summary>Measures ReactiveUI two-property WhenAnyValue creation and disposal.</summary>
-    [Benchmark]
-    [BenchmarkCategory("TwoPropertiesCreateAndDispose")]
-    public void ReactiveUITwoPropertiesCreateAndDispose()
-    {
-        using var subscription = ReactiveUI
-            .WhenAnyMixins.WhenAnyValue(
-                _reactiveUITwoCreateSource,
-                source => source.Value1,
-                source => source.Value2,
-                static (value1, value2) => value1 + value2
-            )
-            .Subscribe(value => _reactiveUIResult = value);
-    }
-
-    /// <summary>Measures a direct four-property combined subscription.</summary>
-    [Benchmark(Baseline = true)]
-    [BenchmarkCategory("FourPropertiesCreateAndDispose")]
-    public void DirectFourPropertiesCreateAndDispose()
-    {
-        using var subscription = new DirectCombinedSubscription(
-            _directFourCreateSource,
-            4,
-            value => _directResult = value
-        );
-    }
-
     /// <summary>Measures four-property WhenAnyValue creation and disposal.</summary>
     [Benchmark]
     [BenchmarkCategory("FourPropertiesCreateAndDispose")]
@@ -222,6 +215,48 @@ public class MultiPropertyWhenAnyValueBenchmarks
                 static (value1, value2, value3, value4) => value1 + value2 + value3 + value4
             )
             .Subscribe(value => _whenAnyResult = value);
+    }
+
+    /// <summary>Measures a one-property WhenAnyValue update.</summary>
+    [Benchmark]
+    [BenchmarkCategory("OnePropertyUpdate")]
+    public void WhenAnyValueOnePropertyUpdate() => _whenAnyOneUpdateSource.Value1 = ++_value;
+
+    /// <summary>Measures an update observed by two-property WhenAnyValue.</summary>
+    [Benchmark]
+    [BenchmarkCategory("TwoPropertiesUpdate")]
+    public void WhenAnyValueTwoPropertiesUpdate() => _whenAnyTwoUpdateSource.Value1 = ++_value;
+
+    /// <summary>Measures an update observed by four-property WhenAnyValue.</summary>
+    [Benchmark]
+    [BenchmarkCategory("FourPropertiesUpdate")]
+    public void WhenAnyValueFourPropertiesUpdate() => _whenAnyFourUpdateSource.Value1 = ++_value;
+    #endregion
+    #region ReactiveUI
+
+    /// <summary>Measures ReactiveUI one-property WhenAnyValue creation and disposal.</summary>
+    [Benchmark]
+    [BenchmarkCategory("OnePropertyCreateAndDispose")]
+    public void ReactiveUIOnePropertyCreateAndDispose()
+    {
+        using var subscription = ReactiveUI
+            .WhenAnyMixins.WhenAnyValue(_reactiveUIOneCreateSource, source => source.Value1)
+            .Subscribe(value => _reactiveUIResult = value);
+    }
+
+    /// <summary>Measures ReactiveUI two-property WhenAnyValue creation and disposal.</summary>
+    [Benchmark]
+    [BenchmarkCategory("TwoPropertiesCreateAndDispose")]
+    public void ReactiveUITwoPropertiesCreateAndDispose()
+    {
+        using var subscription = ReactiveUI
+            .WhenAnyMixins.WhenAnyValue(
+                _reactiveUITwoCreateSource,
+                source => source.Value1,
+                source => source.Value2,
+                static (value1, value2) => value1 + value2
+            )
+            .Subscribe(value => _reactiveUIResult = value);
     }
 
     /// <summary>Measures ReactiveUI four-property WhenAnyValue creation and disposal.</summary>
@@ -241,50 +276,23 @@ public class MultiPropertyWhenAnyValueBenchmarks
             .Subscribe(value => _reactiveUIResult = value);
     }
 
-    /// <summary>Measures a direct one-property update.</summary>
-    [Benchmark(Baseline = true)]
-    [BenchmarkCategory("OnePropertyUpdate")]
-    public void DirectOnePropertyUpdate() => _directOneUpdateSource.Value1 = ++_value;
-
-    /// <summary>Measures a one-property WhenAnyValue update.</summary>
-    [Benchmark]
-    [BenchmarkCategory("OnePropertyUpdate")]
-    public void WhenAnyValueOnePropertyUpdate() => _whenAnyOneUpdateSource.Value1 = ++_value;
-
     /// <summary>Measures a ReactiveUI one-property WhenAnyValue update.</summary>
     [Benchmark]
     [BenchmarkCategory("OnePropertyUpdate")]
     public void ReactiveUIOnePropertyUpdate() => _reactiveUIOneUpdateSource.Value1 = ++_value;
-
-    /// <summary>Measures an update observed by a direct two-property subscription.</summary>
-    [Benchmark(Baseline = true)]
-    [BenchmarkCategory("TwoPropertiesUpdate")]
-    public void DirectTwoPropertiesUpdate() => _directTwoUpdateSource.Value1 = ++_value;
-
-    /// <summary>Measures an update observed by two-property WhenAnyValue.</summary>
-    [Benchmark]
-    [BenchmarkCategory("TwoPropertiesUpdate")]
-    public void WhenAnyValueTwoPropertiesUpdate() => _whenAnyTwoUpdateSource.Value1 = ++_value;
 
     /// <summary>Measures an update observed by ReactiveUI two-property WhenAnyValue.</summary>
     [Benchmark]
     [BenchmarkCategory("TwoPropertiesUpdate")]
     public void ReactiveUITwoPropertiesUpdate() => _reactiveUITwoUpdateSource.Value1 = ++_value;
 
-    /// <summary>Measures an update observed by a direct four-property subscription.</summary>
-    [Benchmark(Baseline = true)]
-    [BenchmarkCategory("FourPropertiesUpdate")]
-    public void DirectFourPropertiesUpdate() => _directFourUpdateSource.Value1 = ++_value;
-
-    /// <summary>Measures an update observed by four-property WhenAnyValue.</summary>
-    [Benchmark]
-    [BenchmarkCategory("FourPropertiesUpdate")]
-    public void WhenAnyValueFourPropertiesUpdate() => _whenAnyFourUpdateSource.Value1 = ++_value;
-
     /// <summary>Measures an update observed by ReactiveUI four-property WhenAnyValue.</summary>
     [Benchmark]
     [BenchmarkCategory("FourPropertiesUpdate")]
     public void ReactiveUIFourPropertiesUpdate() => _reactiveUIFourUpdateSource.Value1 = ++_value;
+
+    #endregion
+
 
     private sealed class Values : IPropertyChangeNotifier
     {

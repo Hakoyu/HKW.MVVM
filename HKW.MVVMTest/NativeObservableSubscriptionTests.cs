@@ -43,6 +43,18 @@ public sealed class NativeObservableSubscriptionTests
     }
 
     [TestMethod]
+    public void Subscribe_WithOnNextOnly_WrapsSourceError()
+    {
+        var source = new ManualObservable<int>();
+        using var subscription = source.Subscribe(_ => { });
+        var error = new TestException("Failed.");
+
+        var exception = Assert.ThrowsExactly<InvalidOperationException>(() => source.Fail(error));
+
+        Assert.AreSame(error, exception.InnerException);
+    }
+
+    [TestMethod]
     public void Subscribe_InvalidArgumentsThrow()
     {
         var source = new ManualObservable<int>();

@@ -111,6 +111,43 @@ public sealed class ObservableExtensionsTests
     }
 
     [TestMethod]
+    public void CoreOperatorPipeline_WhenSourceCompletesSynchronously_DisposesSourceSubscription()
+    {
+        var values = new List<int>();
+        var completed = false;
+        var source = new SynchronousObservable<int>(observer =>
+        {
+            observer.OnNext(2);
+            observer.OnNext(2);
+            observer.OnCompleted();
+        });
+
+        using var subscription = source
+            .Where(value => value % 2 == 0)
+            .Select(value => value * 2)
+            .DistinctUntilChanged()
+            .Subscribe(values.Add, _ => Assert.Fail(), () => completed = true);
+
+        CollectionAssert.AreEqual(new[] { 4 }, values);
+        Assert.IsTrue(completed);
+        Assert.AreEqual(1, source.DisposalCount);
+    }
+
+    [TestMethod]
+    public void Select_WhenSelectorThrowsSynchronously_DisposesSourceSubscription()
+    {
+        Exception? received = null;
+        var source = new SynchronousObservable<int>(observer => observer.OnNext(1));
+
+        using var subscription = source
+            .Select<int, int>(_ => throw new TestException("Selector failed."))
+            .Subscribe(_ => Assert.Fail(), error => received = error);
+
+        Assert.IsInstanceOfType<TestException>(received);
+        Assert.AreEqual(1, source.DisposalCount);
+    }
+
+    [TestMethod]
     public void StartWith_EmitsInitialValueBeforeSourceValues()
     {
         var source = new ManualObservable<int>();

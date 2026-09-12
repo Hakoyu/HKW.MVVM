@@ -56,6 +56,7 @@ public class WhenAnyValueBenchmarks
         _reactiveUISubscription?.Dispose();
     }
 
+    #region Core
     /// <summary>Measures an equivalent direct PropertyChanged subscription.</summary>
     [Benchmark(Baseline = true)]
     [BenchmarkCategory("CreateAndDispose")]
@@ -69,6 +70,12 @@ public class WhenAnyValueBenchmarks
         );
     }
 
+    /// <summary>Measures direct PropertyChanged delivery.</summary>
+    [Benchmark(Baseline = true)]
+    [BenchmarkCategory("Update")]
+    public void DirectUpdate() => _directUpdateSource.Value = ++_value;
+    #endregion
+    #region HKW
     /// <summary>Measures WhenAnyValue subscription, initial value publication, and disposal.</summary>
     [Benchmark]
     [BenchmarkCategory("CreateAndDispose")]
@@ -79,6 +86,13 @@ public class WhenAnyValueBenchmarks
             .Subscribe(value => _whenAnyValue = value);
     }
 
+    /// <summary>Measures WhenAnyValue delivery for a direct property.</summary>
+    [Benchmark]
+    [BenchmarkCategory("Update")]
+    public void WhenAnyValueUpdate() => _whenAnyUpdateSource.Value = ++_value;
+    #endregion
+
+    #region
     /// <summary>Measures ReactiveUI WhenAnyValue creation, initial publication, and disposal.</summary>
     [Benchmark]
     [BenchmarkCategory("CreateAndDispose")]
@@ -89,20 +103,12 @@ public class WhenAnyValueBenchmarks
             .Subscribe(value => _reactiveUIValue = value);
     }
 
-    /// <summary>Measures direct PropertyChanged delivery.</summary>
-    [Benchmark(Baseline = true)]
-    [BenchmarkCategory("Update")]
-    public void DirectUpdate() => _directUpdateSource.Value = ++_value;
-
-    /// <summary>Measures WhenAnyValue delivery for a direct property.</summary>
-    [Benchmark]
-    [BenchmarkCategory("Update")]
-    public void WhenAnyValueUpdate() => _whenAnyUpdateSource.Value = ++_value;
-
     /// <summary>Measures ReactiveUI WhenAnyValue delivery for a direct property.</summary>
     [Benchmark]
     [BenchmarkCategory("Update")]
     public void ReactiveUIWhenAnyValueUpdate() => _reactiveUIUpdateSource.Value = ++_value;
+
+    #endregion
 
     private sealed class PropertySource : INotifyPropertyChanged
     {

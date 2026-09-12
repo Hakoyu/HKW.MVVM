@@ -66,6 +66,7 @@ public class NestedWhenAnyValueBenchmarks
         _reactiveUISubscription?.Dispose();
     }
 
+    #region Core
     /// <summary>Measures direct nested subscription creation, initial publication, and disposal.</summary>
     [Benchmark(Baseline = true)]
     [BenchmarkCategory("CreateAndDispose")]
@@ -77,40 +78,10 @@ public class NestedWhenAnyValueBenchmarks
         );
     }
 
-    /// <summary>Measures nested path parsing, reflection subscriptions, initial publication, and disposal.</summary>
-    [Benchmark]
-    [BenchmarkCategory("CreateAndDispose")]
-    public void WhenAnyValueCreateAndDispose()
-    {
-        using var subscription = _whenAnyCreateRoot
-            .WhenAnyValue(root => root.Child.Value)
-            .Subscribe(value => _whenAnyResult = value);
-    }
-
-    /// <summary>Measures ReactiveUI nested WhenAnyValue creation and disposal.</summary>
-    [Benchmark]
-    [BenchmarkCategory("CreateAndDispose")]
-    public void ReactiveUIWhenAnyValueCreateAndDispose()
-    {
-        using var subscription = ReactiveUI
-            .WhenAnyMixins.WhenAnyValue(_reactiveUICreateRoot, root => root.Child.Value)
-            .Subscribe(value => _reactiveUIResult = value);
-    }
-
     /// <summary>Measures a leaf update through direct nested subscriptions.</summary>
     [Benchmark(Baseline = true)]
     [BenchmarkCategory("LeafUpdate")]
     public void DirectLeafUpdate() => _directUpdateRoot.Child.Value = ++_value;
-
-    /// <summary>Measures a leaf update through nested WhenAnyValue.</summary>
-    [Benchmark]
-    [BenchmarkCategory("LeafUpdate")]
-    public void WhenAnyValueLeafUpdate() => _whenAnyUpdateRoot.Child.Value = ++_value;
-
-    /// <summary>Measures a leaf update through ReactiveUI nested WhenAnyValue.</summary>
-    [Benchmark]
-    [BenchmarkCategory("LeafUpdate")]
-    public void ReactiveUIWhenAnyValueLeafUpdate() => _reactiveUIUpdateRoot.Child.Value = ++_value;
 
     /// <summary>Measures direct detachment and reattachment after replacing an intermediate object.</summary>
     [Benchmark(Baseline = true)]
@@ -122,6 +93,23 @@ public class NestedWhenAnyValueBenchmarks
         child.Value = ++_value;
         _directUpdateRoot.Child = child;
     }
+    #endregion
+
+    #region HKW
+    /// <summary>Measures nested path parsing, reflection subscriptions, initial publication, and disposal.</summary>
+    [Benchmark]
+    [BenchmarkCategory("CreateAndDispose")]
+    public void WhenAnyValueCreateAndDispose()
+    {
+        using var subscription = _whenAnyCreateRoot
+            .WhenAnyValue(root => root.Child.Value)
+            .Subscribe(value => _whenAnyResult = value);
+    }
+
+    /// <summary>Measures a leaf update through nested WhenAnyValue.</summary>
+    [Benchmark]
+    [BenchmarkCategory("LeafUpdate")]
+    public void WhenAnyValueLeafUpdate() => _whenAnyUpdateRoot.Child.Value = ++_value;
 
     /// <summary>Measures WhenAnyValue detachment and reattachment after replacing an intermediate object.</summary>
     [Benchmark]
@@ -133,6 +121,23 @@ public class NestedWhenAnyValueBenchmarks
         child.Value = ++_value;
         _whenAnyUpdateRoot.Child = child;
     }
+    #endregion
+
+    #region ReactiveUI
+    /// <summary>Measures ReactiveUI nested WhenAnyValue creation and disposal.</summary>
+    [Benchmark]
+    [BenchmarkCategory("CreateAndDispose")]
+    public void ReactiveUIWhenAnyValueCreateAndDispose()
+    {
+        using var subscription = ReactiveUI
+            .WhenAnyMixins.WhenAnyValue(_reactiveUICreateRoot, root => root.Child.Value)
+            .Subscribe(value => _reactiveUIResult = value);
+    }
+
+    /// <summary>Measures a leaf update through ReactiveUI nested WhenAnyValue.</summary>
+    [Benchmark]
+    [BenchmarkCategory("LeafUpdate")]
+    public void ReactiveUIWhenAnyValueLeafUpdate() => _reactiveUIUpdateRoot.Child.Value = ++_value;
 
     /// <summary>Measures ReactiveUI re-subscription after replacing an intermediate object.</summary>
     [Benchmark]
@@ -146,6 +151,8 @@ public class NestedWhenAnyValueBenchmarks
         child.Value = ++_value;
         _reactiveUIUpdateRoot.Child = child;
     }
+    #endregion
+
 
     private sealed class Root : INotifyPropertyChanged
     {

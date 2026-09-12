@@ -160,39 +160,7 @@ public static class ObservableExtensions
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(selector);
-
-        return Create<TResult>(observer =>
-        {
-            var stopped = false;
-            var subscription = new SingleAssignmentDisposable();
-            subscription.Disposable = source.Subscribe(
-                value =>
-                {
-                    if (stopped)
-                    {
-                        return;
-                    }
-
-                    TResult result;
-                    try
-                    {
-                        result = selector(value);
-                    }
-                    catch (Exception exception)
-                    {
-                        stopped = true;
-                        observer.OnError(exception);
-                        subscription.Dispose();
-                        return;
-                    }
-
-                    observer.OnNext(result);
-                },
-                error => ForwardError(observer, subscription, ref stopped, error),
-                () => ForwardCompletion(observer, subscription, ref stopped)
-            );
-            return subscription;
-        });
+        return new SelectObservable<TSource, TResult>(source, selector);
     }
 
     /// <summary>Filters an observable sequence using a predicate.</summary>
@@ -208,42 +176,7 @@ public static class ObservableExtensions
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(predicate);
-
-        return Create<TSource>(observer =>
-        {
-            var stopped = false;
-            var subscription = new SingleAssignmentDisposable();
-            subscription.Disposable = source.Subscribe(
-                value =>
-                {
-                    if (stopped)
-                    {
-                        return;
-                    }
-
-                    bool shouldEmit;
-                    try
-                    {
-                        shouldEmit = predicate(value);
-                    }
-                    catch (Exception exception)
-                    {
-                        stopped = true;
-                        observer.OnError(exception);
-                        subscription.Dispose();
-                        return;
-                    }
-
-                    if (shouldEmit)
-                    {
-                        observer.OnNext(value);
-                    }
-                },
-                error => ForwardError(observer, subscription, ref stopped, error),
-                () => ForwardCompletion(observer, subscription, ref stopped)
-            );
-            return subscription;
-        });
+        return new WhereObservable<TSource>(source, predicate);
     }
 
     /// <summary>Suppresses consecutive duplicate values using the default equality comparer.</summary>
@@ -268,48 +201,7 @@ public static class ObservableExtensions
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(comparer);
-
-        return Create<TSource>(observer =>
-        {
-            var hasValue = false;
-            TSource? lastValue = default;
-            var stopped = false;
-            var subscription = new SingleAssignmentDisposable();
-            subscription.Disposable = source.Subscribe(
-                value =>
-                {
-                    if (stopped)
-                    {
-                        return;
-                    }
-
-                    bool equals;
-                    try
-                    {
-                        equals = hasValue && comparer.Equals(lastValue!, value);
-                    }
-                    catch (Exception exception)
-                    {
-                        stopped = true;
-                        observer.OnError(exception);
-                        subscription.Dispose();
-                        return;
-                    }
-
-                    if (equals)
-                    {
-                        return;
-                    }
-
-                    hasValue = true;
-                    lastValue = value;
-                    observer.OnNext(value);
-                },
-                error => ForwardError(observer, subscription, ref stopped, error),
-                () => ForwardCompletion(observer, subscription, ref stopped)
-            );
-            return subscription;
-        });
+        return new DistinctUntilChangedObservable<TSource>(source, comparer);
     }
 
     /// <summary>Prepends one value to an observable sequence.</summary>

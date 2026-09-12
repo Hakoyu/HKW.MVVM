@@ -23,6 +23,16 @@ internal sealed class AnonymousObserver<T>(
     public void OnCompleted() => onCompleted?.Invoke();
 }
 
+internal sealed class OnNextObserver<T>(Action<T> onNext) : IObserver<T>
+{
+    public void OnNext(T value) => onNext(value);
+
+    public void OnError(Exception error) =>
+        throw new InvalidOperationException("Observable terminated with an error.", error);
+
+    public void OnCompleted() { }
+}
+
 internal sealed class ActionDisposable(Action dispose) : IDisposable
 {
     private Action? _dispose = dispose;
@@ -154,13 +164,12 @@ public static class NativeObservableSubscriptionExtensions
     /// <param name="onNext">The action invoked for each value.</param>
     /// <returns>A disposable object that cancels the subscription.</returns>
     /// <remarks><b>REFLECTION: NO.</b> The method creates an <see cref="IObserver{T}"/> wrapper directly.</remarks>
-    public static IDisposable Subscribe<T>(this IObservable<T> source, Action<T> onNext) =>
-        Subscribe(
-            source,
-            onNext,
-            error =>
-                throw new InvalidOperationException("Observable terminated with an error.", error)
-        );
+    public static IDisposable Subscribe<T>(this IObservable<T> source, Action<T> onNext)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(onNext);
+        return source.Subscribe(new OnNextObserver<T>(onNext));
+    }
 
     /// <summary>
     /// Subscribes to an observable sequence with callbacks for values, errors, and completion.

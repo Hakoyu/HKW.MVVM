@@ -61,19 +61,30 @@ public class ObservableOperatorBenchmarks
         _operatorSubscription?.Dispose();
         _reactiveUISubscription?.Dispose();
     }
+    #region Core
+    ///// <summary>Measures direct observer creation, subscription, and disposal.</summary>
+    //[Benchmark(Baseline = true)]
+    //[BenchmarkCategory("CreateAndDispose")]
+    //public void DirectCreateAndDispose()
+    //{
+    //    using var subscription = SubscribeDirect(
+    //        _directCreateSource,
+    //        Pipeline,
+    //        value => _directResult = value
+    //    );
+    //}
+    ///// <summary>Measures two messages through equivalent direct observer logic.</summary>
+    //[Benchmark(Baseline = true)]
+    //[BenchmarkCategory("Update")]
+    //public void DirectUpdate()
+    //{
+    //    var value = _value += 2;
+    //    _directUpdateSource.Emit(value - 1);
+    //    _directUpdateSource.Emit(value);
+    //}
+    #endregion
 
-    /// <summary>Measures direct observer creation, subscription, and disposal.</summary>
-    [Benchmark(Baseline = true)]
-    [BenchmarkCategory("CreateAndDispose")]
-    public void DirectCreateAndDispose()
-    {
-        using var subscription = SubscribeDirect(
-            _directCreateSource,
-            Pipeline,
-            value => _directResult = value
-        );
-    }
-
+    #region HKW
     /// <summary>Measures operator pipeline creation, subscription, and disposal.</summary>
     [Benchmark]
     [BenchmarkCategory("CreateAndDispose")]
@@ -86,28 +97,6 @@ public class ObservableOperatorBenchmarks
         );
     }
 
-    /// <summary>Measures ReactiveUI operator pipeline creation, subscription, and disposal.</summary>
-    [Benchmark]
-    [BenchmarkCategory("CreateAndDispose")]
-    public void ReactiveUIOperatorCreateAndDispose()
-    {
-        using var subscription = SubscribeReactiveUIOperators(
-            _reactiveUICreateSource,
-            Pipeline,
-            value => _reactiveUIResult = value
-        );
-    }
-
-    /// <summary>Measures two messages through equivalent direct observer logic.</summary>
-    [Benchmark(Baseline = true)]
-    [BenchmarkCategory("Update")]
-    public void DirectUpdate()
-    {
-        var value = _value += 2;
-        _directUpdateSource.Emit(value - 1);
-        _directUpdateSource.Emit(value);
-    }
-
     /// <summary>Measures two messages through the selected observable operator pipeline.</summary>
     [Benchmark]
     [BenchmarkCategory("Update")]
@@ -117,16 +106,32 @@ public class ObservableOperatorBenchmarks
         _operatorUpdateSource.Emit(value - 1);
         _operatorUpdateSource.Emit(value);
     }
+    #endregion
 
-    /// <summary>Measures two messages through the equivalent ReactiveUI operator pipeline.</summary>
-    [Benchmark]
-    [BenchmarkCategory("Update")]
-    public void ReactiveUIOperatorUpdate()
-    {
-        var value = _value += 2;
-        _reactiveUIUpdateSource.Emit(value - 1);
-        _reactiveUIUpdateSource.Emit(value);
-    }
+    #region ReactiveUI
+    ///// <summary>Measures ReactiveUI operator pipeline creation, subscription, and disposal.</summary>
+    //[Benchmark]
+    //[BenchmarkCategory("CreateAndDispose")]
+    //public void ReactiveUIOperatorCreateAndDispose()
+    //{
+    //    using var subscription = SubscribeReactiveUIOperators(
+    //        _reactiveUICreateSource,
+    //        Pipeline,
+    //        value => _reactiveUIResult = value
+    //    );
+    //}
+
+    ///// <summary>Measures two messages through the equivalent ReactiveUI operator pipeline.</summary>
+    //[Benchmark]
+    //[BenchmarkCategory("Update")]
+    //public void ReactiveUIOperatorUpdate()
+    //{
+    //    var value = _value += 2;
+    //    _reactiveUIUpdateSource.Emit(value - 1);
+    //    _reactiveUIUpdateSource.Emit(value);
+    //}
+    #endregion
+
 
     private static IDisposable SubscribeDirect(
         BenchmarkObservable<int> source,
@@ -163,9 +168,9 @@ public class ObservableOperatorBenchmarks
                 onNext
             ),
             PipelineKind.WhereSelect => ReactiveUI.Primitives.SubscribeExtensions.Subscribe(
-                ReactiveUI.Primitives.LinqExtensions.Where(
-                    ReactiveUI.Primitives.LinqExtensions.Select(source, Transform),
-                    IsEven
+                ReactiveUI.Primitives.LinqExtensions.Select(
+                    ReactiveUI.Primitives.LinqExtensions.Where(source, IsEven),
+                    Transform
                 ),
                 onNext
             ),
