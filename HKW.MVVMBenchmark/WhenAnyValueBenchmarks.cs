@@ -12,172 +12,85 @@ namespace HKW.MVVMBenchmark;
 [CategoriesColumn]
 public class WhenAnyValueBenchmarks
 {
-    private readonly FastPropertySource _manualFastCreateSource = new();
-    private readonly FastPropertySource _whenAnyFastCreateSource = new();
-    private readonly PlainPropertySource _manualPlainCreateSource = new();
-    private readonly PlainPropertySource _whenAnyPlainCreateSource = new();
-    private readonly FastPropertySource _manualFastUpdateSource = new();
-    private readonly FastPropertySource _whenAnyFastUpdateSource = new();
-    private readonly PlainPropertySource _manualPlainUpdateSource = new();
-    private readonly PlainPropertySource _whenAnyPlainUpdateSource = new();
-    private IDisposable? _manualFastSubscription;
-    private IDisposable? _whenAnyFastSubscription;
-    private IDisposable? _manualPlainSubscription;
-    private IDisposable? _whenAnyPlainSubscription;
-    private int _manualFastValue;
-    private int _whenAnyFastValue;
-    private int _manualPlainValue;
-    private int _whenAnyPlainValue;
+    private readonly PropertySource _directCreateSource = new();
+    private readonly PropertySource _whenAnyCreateSource = new();
+    private readonly PropertySource _directUpdateSource = new();
+    private readonly PropertySource _whenAnyUpdateSource = new();
+    private IDisposable? _directSubscription;
+    private IDisposable? _whenAnySubscription;
+    private int _directValue;
+    private int _whenAnyValue;
     private int _value;
 
     /// <summary>Creates the long-lived subscriptions used by update benchmarks.</summary>
     [GlobalSetup(
         Targets =
         [
-            nameof(DirectFastPathUpdate),
-            nameof(WhenAnyValueFastPathUpdate),
-            nameof(DirectPlainUpdate),
-            nameof(WhenAnyValuePlainUpdate),
+            nameof(DirectUpdate),
+            nameof(WhenAnyValueUpdate),
         ]
     )]
     public void SetupUpdateSubscriptions()
     {
-        _manualFastSubscription = new DirectPropertyChangedSubscription<FastPropertySource, int>(
-            _manualFastUpdateSource,
+        _directSubscription = new DirectPropertyChangedSubscription<PropertySource, int>(
+            _directUpdateSource,
             static source => source.Value,
-            nameof(FastPropertySource.Value),
-            value => _manualFastValue = value
+            nameof(PropertySource.Value),
+            value => _directValue = value
         );
-        _whenAnyFastSubscription = _whenAnyFastUpdateSource
+        _whenAnySubscription = _whenAnyUpdateSource
             .WhenAnyValue(source => source.Value)
-            .Subscribe(value => _whenAnyFastValue = value);
-        _manualPlainSubscription = new DirectPropertyChangedSubscription<PlainPropertySource, int>(
-            _manualPlainUpdateSource,
-            static source => source.Value,
-            nameof(PlainPropertySource.Value),
-            value => _manualPlainValue = value
-        );
-        _whenAnyPlainSubscription = _whenAnyPlainUpdateSource
-            .WhenAnyValue(source => source.Value)
-            .Subscribe(value => _whenAnyPlainValue = value);
+            .Subscribe(value => _whenAnyValue = value);
     }
 
     /// <summary>Disposes the long-lived subscriptions used by update benchmarks.</summary>
     [GlobalCleanup(
         Targets =
         [
-            nameof(DirectFastPathUpdate),
-            nameof(WhenAnyValueFastPathUpdate),
-            nameof(DirectPlainUpdate),
-            nameof(WhenAnyValuePlainUpdate),
+            nameof(DirectUpdate),
+            nameof(WhenAnyValueUpdate),
         ]
     )]
     public void CleanupUpdateSubscriptions()
     {
-        _manualFastSubscription?.Dispose();
-        _whenAnyFastSubscription?.Dispose();
-        _manualPlainSubscription?.Dispose();
-        _whenAnyPlainSubscription?.Dispose();
+        _directSubscription?.Dispose();
+        _whenAnySubscription?.Dispose();
     }
 
-    /// <summary>Measures an equivalent direct PropertyChanged subscription on IPropertyNotifier.</summary>
+    /// <summary>Measures an equivalent direct PropertyChanged subscription.</summary>
     [Benchmark(Baseline = true)]
-    [BenchmarkCategory("FastPathCreateAndDispose")]
-    public void DirectFastPathCreateAndDispose()
+    [BenchmarkCategory("CreateAndDispose")]
+    public void DirectCreateAndDispose()
     {
-        using var subscription = new DirectPropertyChangedSubscription<FastPropertySource, int>(
-            _manualFastCreateSource,
+        using var subscription = new DirectPropertyChangedSubscription<PropertySource, int>(
+            _directCreateSource,
             static source => source.Value,
-            nameof(FastPropertySource.Value),
-            value => _manualFastValue = value
+            nameof(PropertySource.Value),
+            value => _directValue = value
         );
     }
 
-    /// <summary>Measures WhenAnyValue expression compilation, subscription, initial value, and disposal.</summary>
+    /// <summary>Measures WhenAnyValue subscription, initial value publication, and disposal.</summary>
     [Benchmark]
-    [BenchmarkCategory("FastPathCreateAndDispose")]
-    public void WhenAnyValueFastPathCreateAndDispose()
+    [BenchmarkCategory("CreateAndDispose")]
+    public void WhenAnyValueCreateAndDispose()
     {
-        using var subscription = _whenAnyFastCreateSource
+        using var subscription = _whenAnyCreateSource
             .WhenAnyValue(source => source.Value)
-            .Subscribe(value => _whenAnyFastValue = value);
+            .Subscribe(value => _whenAnyValue = value);
     }
 
-    /// <summary>Measures direct PropertyChanged delivery on IPropertyNotifier.</summary>
+    /// <summary>Measures direct PropertyChanged delivery.</summary>
     [Benchmark(Baseline = true)]
-    [BenchmarkCategory("FastPathUpdate")]
-    public void DirectFastPathUpdate() => _manualFastUpdateSource.Value = ++_value;
+    [BenchmarkCategory("Update")]
+    public void DirectUpdate() => _directUpdateSource.Value = ++_value;
 
-    /// <summary>Measures WhenAnyValue delivery through its compiled-getter fast path.</summary>
+    /// <summary>Measures WhenAnyValue delivery for a direct property.</summary>
     [Benchmark]
-    [BenchmarkCategory("FastPathUpdate")]
-    public void WhenAnyValueFastPathUpdate() => _whenAnyFastUpdateSource.Value = ++_value;
+    [BenchmarkCategory("Update")]
+    public void WhenAnyValueUpdate() => _whenAnyUpdateSource.Value = ++_value;
 
-    /// <summary>Measures an equivalent direct subscription on plain INotifyPropertyChanged.</summary>
-    [Benchmark(Baseline = true)]
-    [BenchmarkCategory("PlainCreateAndDispose")]
-    public void DirectPlainCreateAndDispose()
-    {
-        using var subscription = new DirectPropertyChangedSubscription<PlainPropertySource, int>(
-            _manualPlainCreateSource,
-            static source => source.Value,
-            nameof(PlainPropertySource.Value),
-            value => _manualPlainValue = value
-        );
-    }
-
-    /// <summary>Measures WhenAnyValue reflection-path creation, initial value, and disposal.</summary>
-    [Benchmark]
-    [BenchmarkCategory("PlainCreateAndDispose")]
-    public void WhenAnyValuePlainCreateAndDispose()
-    {
-        using var subscription = _whenAnyPlainCreateSource
-            .WhenAnyValue(source => source.Value)
-            .Subscribe(value => _whenAnyPlainValue = value);
-    }
-
-    /// <summary>Measures direct PropertyChanged delivery on plain INotifyPropertyChanged.</summary>
-    [Benchmark(Baseline = true)]
-    [BenchmarkCategory("PlainUpdate")]
-    public void DirectPlainUpdate() => _manualPlainUpdateSource.Value = ++_value;
-
-    /// <summary>Measures WhenAnyValue delivery through its reflection-based path.</summary>
-    [Benchmark]
-    [BenchmarkCategory("PlainUpdate")]
-    public void WhenAnyValuePlainUpdate() => _whenAnyPlainUpdateSource.Value = ++_value;
-
-    private sealed class FastPropertySource : IPropertyChangeNotifier
-    {
-        private int _value;
-
-        public event PropertyChangingEventHandler? PropertyChanging;
-
-        public event PropertyChangedEventHandler? PropertyChanged;
-
-        public int Value
-        {
-            get => _value;
-            set
-            {
-                if (_value == value)
-                {
-                    return;
-                }
-
-                PropertyChanging?.Invoke(this, new PropertyChangingEventArgs(nameof(Value)));
-                _value = value;
-                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Value)));
-            }
-        }
-
-        public void NotifyPropertyChanging(string? propertyName = null) =>
-            PropertyChanging?.Invoke(this, new PropertyChangingEventArgs(propertyName));
-
-        public void NotifyPropertyChanged(string? propertyName = null) =>
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-    }
-
-    private sealed class PlainPropertySource : INotifyPropertyChanged
+    private sealed class PropertySource : INotifyPropertyChanged
     {
         private int _value;
 
