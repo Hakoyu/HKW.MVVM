@@ -18,31 +18,40 @@ public class TwoWayBindBenchmarks
     private readonly BindingObject _expressionCreateTarget = new();
     private readonly BindingObject _assignmentCreateSource = new();
     private readonly BindingObject _assignmentCreateTarget = new();
+    private readonly BindingObject _reactiveUICreateSource = new();
+    private readonly ReactiveUIView _reactiveUICreateTarget = new();
     private readonly BindingObject _directUpdateSource = new();
     private readonly BindingObject _directUpdateTarget = new();
     private readonly BindingObject _expressionUpdateSource = new();
     private readonly BindingObject _expressionUpdateTarget = new();
     private readonly BindingObject _assignmentUpdateSource = new();
     private readonly BindingObject _assignmentUpdateTarget = new();
+    private readonly BindingObject _reactiveUIUpdateSource = new();
+    private readonly ReactiveUIView _reactiveUIUpdateTarget = new();
     private IDisposable? _directBinding;
     private IDisposable? _expressionBinding;
     private IDisposable? _assignmentBinding;
+    private IDisposable? _reactiveUIBinding;
     private int _value;
 
     /// <summary>Creates the long-lived bindings used by the update benchmarks.</summary>
     [GlobalSetup(
-        Targets =
-        [
+        Targets = [
             nameof(DirectSourceToTargetUpdate),
             nameof(ExpressionSourceToTargetUpdate),
             nameof(AssignmentSourceToTargetUpdate),
+            nameof(ReactiveUISourceToTargetUpdate),
             nameof(DirectTargetToSourceUpdate),
             nameof(ExpressionTargetToSourceUpdate),
             nameof(AssignmentTargetToSourceUpdate),
+            nameof(ReactiveUITargetToSourceUpdate),
         ]
     )]
     public void SetupUpdateBindings()
     {
+        ReactiveUI.Builder.BuilderMixins.BuildApp(
+            ReactiveUI.Builder.RxAppBuilder.CreateReactiveUIBuilder().WithCoreServices()
+        );
         _directBinding = new DirectTwoWayBinding(_directUpdateSource, _directUpdateTarget);
         _expressionBinding = _expressionUpdateTarget.TwoWayBind(
             _expressionUpdateSource,
@@ -56,18 +65,25 @@ public class TwoWayBindBenchmarks
             static (value, target) => target.Value = value,
             static (value, source) => source.Value = value
         );
+        _reactiveUIBinding = ReactiveUI.PropertyBindingMixins.Bind(
+            _reactiveUIUpdateTarget,
+            _reactiveUIUpdateSource,
+            source => source.Value,
+            target => target.Value
+        );
     }
 
     /// <summary>Disposes the long-lived bindings used by the update benchmarks.</summary>
     [GlobalCleanup(
-        Targets =
-        [
+        Targets = [
             nameof(DirectSourceToTargetUpdate),
             nameof(ExpressionSourceToTargetUpdate),
             nameof(AssignmentSourceToTargetUpdate),
+            nameof(ReactiveUISourceToTargetUpdate),
             nameof(DirectTargetToSourceUpdate),
             nameof(ExpressionTargetToSourceUpdate),
             nameof(AssignmentTargetToSourceUpdate),
+            nameof(ReactiveUITargetToSourceUpdate),
         ]
     )]
     public void CleanupUpdateBindings()
@@ -75,6 +91,7 @@ public class TwoWayBindBenchmarks
         _directBinding?.Dispose();
         _expressionBinding?.Dispose();
         _assignmentBinding?.Dispose();
+        _reactiveUIBinding?.Dispose();
     }
 
     /// <summary>Measures direct event-handler binding creation, initial synchronization, and disposal.</summary>
@@ -111,6 +128,22 @@ public class TwoWayBindBenchmarks
         );
     }
 
+    /// <summary>Measures ReactiveUI two-way binding creation and disposal.</summary>
+    [Benchmark]
+    [BenchmarkCategory("CreateAndDispose")]
+    public void ReactiveUICreateAndDispose()
+    {
+        ReactiveUI.Builder.BuilderMixins.BuildApp(
+            ReactiveUI.Builder.RxAppBuilder.CreateReactiveUIBuilder().WithCoreServices()
+        );
+        using var binding = ReactiveUI.PropertyBindingMixins.Bind(
+            _reactiveUICreateTarget,
+            _reactiveUICreateSource,
+            source => source.Value,
+            target => target.Value
+        );
+    }
+
     /// <summary>Measures one source-to-target update through direct event handlers.</summary>
     [Benchmark(Baseline = true)]
     [BenchmarkCategory("SourceToTargetUpdate")]
@@ -126,6 +159,11 @@ public class TwoWayBindBenchmarks
     [BenchmarkCategory("SourceToTargetUpdate")]
     public void AssignmentSourceToTargetUpdate() => _assignmentUpdateSource.Value = ++_value;
 
+    /// <summary>Measures one source-to-target update through an existing ReactiveUI binding.</summary>
+    [Benchmark]
+    [BenchmarkCategory("SourceToTargetUpdate")]
+    public void ReactiveUISourceToTargetUpdate() => _reactiveUIUpdateSource.Value = ++_value;
+
     /// <summary>Measures one target-to-source update through direct event handlers.</summary>
     [Benchmark(Baseline = true)]
     [BenchmarkCategory("TargetToSourceUpdate")]
@@ -140,6 +178,11 @@ public class TwoWayBindBenchmarks
     [Benchmark]
     [BenchmarkCategory("TargetToSourceUpdate")]
     public void AssignmentTargetToSourceUpdate() => _assignmentUpdateTarget.Value = ++_value;
+
+    /// <summary>Measures one target-to-source update through an existing ReactiveUI binding.</summary>
+    [Benchmark]
+    [BenchmarkCategory("TargetToSourceUpdate")]
+    public void ReactiveUITargetToSourceUpdate() => _reactiveUIUpdateTarget.Value = ++_value;
 
     private sealed class BindingObject : INotifyPropertyChanged
     {
@@ -160,6 +203,38 @@ public class TwoWayBindBenchmarks
                 _value = value;
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Value)));
             }
+        }
+    }
+
+    private sealed class ReactiveUIView
+        : ReactiveUI.ReactiveObject,
+            ReactiveUI.IViewFor<BindingObject>
+    {
+        private BindingObject? _viewModel;
+        private int _value;
+
+        public BindingObject? ViewModel
+        {
+            get => _viewModel;
+            set =>
+                ReactiveUI.IReactiveObjectExtensions.RaiseAndSetIfChanged(
+                    this,
+                    ref _viewModel,
+                    value
+                );
+        }
+
+        object? ReactiveUI.IViewFor.ViewModel
+        {
+            get => ViewModel;
+            set => ViewModel = (BindingObject?)value;
+        }
+
+        public int Value
+        {
+            get => _value;
+            set =>
+                ReactiveUI.IReactiveObjectExtensions.RaiseAndSetIfChanged(this, ref _value, value);
         }
     }
 

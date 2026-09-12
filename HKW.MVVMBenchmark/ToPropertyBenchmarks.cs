@@ -3,6 +3,9 @@ using BenchmarkDotNet.Columns;
 using BenchmarkDotNet.Configs;
 using CommunityToolkit.Mvvm.ComponentModel;
 using HKW.MVVM;
+using ReactiveUI;
+using HkwObservableAsPropertyHelper = HKW.MVVM.ObservableAsPropertyHelper<int>;
+using ReactiveObservableAsPropertyHelper = ReactiveUI.ObservableAsPropertyHelper<int>;
 
 namespace HKW.MVVMBenchmark;
 
@@ -16,40 +19,51 @@ public class ToPropertyBenchmarks
     private readonly BenchmarkObservable<int> _toPropertyFastCreateSource = new();
     private readonly BenchmarkObservable<int> _directPlainCreateSource = new();
     private readonly BenchmarkObservable<int> _toPropertyPlainCreateSource = new();
+    private readonly BenchmarkObservable<int> _reactiveUICreateSource = new();
     private readonly BenchmarkObservable<int> _directFastUpdateSource = new();
     private readonly BenchmarkObservable<int> _toPropertyFastUpdateSource = new();
     private readonly BenchmarkObservable<int> _directPlainUpdateSource = new();
     private readonly BenchmarkObservable<int> _toPropertyPlainUpdateSource = new();
+    private readonly BenchmarkObservable<int> _reactiveUIUpdateSource = new();
     private readonly BenchmarkObservable<int> _directEqualSource = new();
     private readonly BenchmarkObservable<int> _toPropertyEqualSource = new();
+    private readonly BenchmarkObservable<int> _reactiveUIEqualSource = new();
     private readonly BenchmarkObservable<int> _directDeferredSource = new();
     private readonly BenchmarkObservable<int> _toPropertyDeferredSource = new();
+    private readonly BenchmarkObservable<int> _reactiveUIDeferredSource = new();
     private readonly FastOwner _directFastOwner = new();
     private readonly FastOwner _toPropertyFastOwner = new();
     private readonly PlainOwner _directPlainOwner = new();
     private readonly PlainOwner _toPropertyPlainOwner = new();
+    private readonly ReactiveUIOwner _reactiveUIOwner = new();
     private DirectStoredProperty? _directFastProperty;
-    private ObservableAsPropertyHelper<int>? _toPropertyFastProperty;
+    private HkwObservableAsPropertyHelper? _toPropertyFastProperty;
     private DirectStoredProperty? _directPlainProperty;
-    private ObservableAsPropertyHelper<int>? _toPropertyPlainProperty;
+    private HkwObservableAsPropertyHelper? _toPropertyPlainProperty;
     private DirectStoredProperty? _directEqualProperty;
-    private ObservableAsPropertyHelper<int>? _toPropertyEqualProperty;
+    private HkwObservableAsPropertyHelper? _toPropertyEqualProperty;
+    private ReactiveObservableAsPropertyHelper? _reactiveUIProperty;
+    private ReactiveObservableAsPropertyHelper? _reactiveUIEqualProperty;
     private int _value;
 
     /// <summary>Creates long-lived properties used by update benchmarks.</summary>
     [GlobalSetup(
-        Targets =
-        [
+        Targets = [
             nameof(DirectFastOwnerUpdate),
             nameof(ToPropertyFastOwnerUpdate),
             nameof(DirectPlainOwnerUpdate),
             nameof(ToPropertyPlainOwnerUpdate),
+            nameof(ReactiveUIUpdate),
             nameof(DirectEqualValue),
             nameof(ToPropertyEqualValue),
+            nameof(ReactiveUIEqualValue),
         ]
     )]
     public void SetupUpdateProperties()
     {
+        ReactiveUI.Builder.BuilderMixins.BuildApp(
+            ReactiveUI.Builder.RxAppBuilder.CreateReactiveUIBuilder().WithCoreServices()
+        );
         _directFastProperty = new DirectStoredProperty(
             _directFastUpdateSource,
             _directFastOwner.SetResult
@@ -66,6 +80,11 @@ public class ToPropertyBenchmarks
             _toPropertyPlainOwner,
             owner => owner.Result
         );
+        _reactiveUIProperty = ReactiveUI.OAPHCreationHelperMixins.ToProperty(
+            _reactiveUIUpdateSource,
+            _reactiveUIOwner,
+            owner => owner.Result
+        );
         _directEqualProperty = new DirectStoredProperty(
             _directEqualSource,
             _directFastOwner.SetResult
@@ -74,18 +93,24 @@ public class ToPropertyBenchmarks
             _toPropertyFastOwner,
             owner => owner.Result
         );
+        _reactiveUIEqualProperty = ReactiveUI.OAPHCreationHelperMixins.ToProperty(
+            _reactiveUIEqualSource,
+            _reactiveUIOwner,
+            owner => owner.Result
+        );
     }
 
     /// <summary>Disposes long-lived properties used by update benchmarks.</summary>
     [GlobalCleanup(
-        Targets =
-        [
+        Targets = [
             nameof(DirectFastOwnerUpdate),
             nameof(ToPropertyFastOwnerUpdate),
             nameof(DirectPlainOwnerUpdate),
             nameof(ToPropertyPlainOwnerUpdate),
+            nameof(ReactiveUIUpdate),
             nameof(DirectEqualValue),
             nameof(ToPropertyEqualValue),
+            nameof(ReactiveUIEqualValue),
         ]
     )]
     public void CleanupUpdateProperties()
@@ -96,6 +121,8 @@ public class ToPropertyBenchmarks
         _toPropertyPlainProperty?.Dispose();
         _directEqualProperty?.Dispose();
         _toPropertyEqualProperty?.Dispose();
+        _reactiveUIProperty?.Dispose();
+        _reactiveUIEqualProperty?.Dispose();
     }
 
     /// <summary>Measures a hand-written property using direct IPropertyNotifier notifications.</summary>
@@ -142,6 +169,21 @@ public class ToPropertyBenchmarks
         );
     }
 
+    /// <summary>Measures ReactiveUI ToProperty creation and disposal.</summary>
+    [Benchmark]
+    [BenchmarkCategory("PlainOwnerCreateAndDispose")]
+    public void ReactiveUICreateAndDispose()
+    {
+        ReactiveUI.Builder.BuilderMixins.BuildApp(
+            ReactiveUI.Builder.RxAppBuilder.CreateReactiveUIBuilder().WithCoreServices()
+        );
+        using var property = ReactiveUI.OAPHCreationHelperMixins.ToProperty(
+            _reactiveUICreateSource,
+            _reactiveUIOwner,
+            owner => owner.Result
+        );
+    }
+
     /// <summary>Measures a changed value through a hand-written IPropertyNotifier-backed property.</summary>
     [Benchmark(Baseline = true)]
     [BenchmarkCategory("FastOwnerUpdate")]
@@ -162,6 +204,11 @@ public class ToPropertyBenchmarks
     [BenchmarkCategory("PlainOwnerUpdate")]
     public void ToPropertyPlainOwnerUpdate() => _toPropertyPlainUpdateSource.Emit(++_value);
 
+    /// <summary>Measures a changed value through ReactiveUI ToProperty.</summary>
+    [Benchmark]
+    [BenchmarkCategory("PlainOwnerUpdate")]
+    public void ReactiveUIUpdate() => _reactiveUIUpdateSource.Emit(++_value);
+
     /// <summary>Measures duplicate-value suppression in a hand-written property.</summary>
     [Benchmark(Baseline = true)]
     [BenchmarkCategory("EqualValue")]
@@ -171,6 +218,11 @@ public class ToPropertyBenchmarks
     [Benchmark]
     [BenchmarkCategory("EqualValue")]
     public void ToPropertyEqualValue() => _toPropertyEqualSource.Emit(0);
+
+    /// <summary>Measures duplicate-value suppression in ReactiveUI ToProperty.</summary>
+    [Benchmark]
+    [BenchmarkCategory("EqualValue")]
+    public void ReactiveUIEqualValue() => _reactiveUIEqualSource.Emit(0);
 
     /// <summary>Measures first access to an equivalent deferred hand-written property.</summary>
     [Benchmark(Baseline = true)]
@@ -192,6 +244,20 @@ public class ToPropertyBenchmarks
     {
         using var property = _toPropertyDeferredSource.ToProperty(
             _toPropertyFastOwner,
+            owner => owner.Result,
+            deferSubscription: true
+        );
+        return property.Value;
+    }
+
+    /// <summary>Measures ReactiveUI ToProperty creation followed by deferred first subscription and read.</summary>
+    [Benchmark]
+    [BenchmarkCategory("DeferredFirstRead")]
+    public int ReactiveUIDeferredFirstRead()
+    {
+        using var property = ReactiveUI.OAPHCreationHelperMixins.ToProperty(
+            _reactiveUIDeferredSource,
+            _reactiveUIOwner,
             owner => owner.Result,
             deferSubscription: true
         );
@@ -234,6 +300,11 @@ public class ToPropertyBenchmarks
             _result = value;
             OnPropertyChanged(nameof(Result));
         }
+    }
+
+    private sealed class ReactiveUIOwner : ReactiveObject
+    {
+        public int Result => 0;
     }
 
     private sealed class DirectStoredProperty : IDisposable, IObserver<int>
@@ -319,10 +390,8 @@ public class ToPropertyBenchmarks
 
         public void Emit(T value) => _observer?.OnNext(value);
 
-        private sealed class Subscription(
-            BenchmarkObservable<T> source,
-            IObserver<T> observer
-        ) : IDisposable
+        private sealed class Subscription(BenchmarkObservable<T> source, IObserver<T> observer)
+            : IDisposable
         {
             private BenchmarkObservable<T>? _source = source;
 

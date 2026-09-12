@@ -2,6 +2,7 @@
 using BenchmarkDotNet.Jobs;
 using BenchmarkDotNet.Reports;
 using BenchmarkDotNet.Running;
+using ReactiveUI.Builder;
 
 namespace HKW.MVVMBenchmark;
 
@@ -15,8 +16,8 @@ internal static class Program
 
         //BenchmarkRunner.Run<BindToBenchmarks>(config);
         //BenchmarkRunner.Run<TwoWayBindBenchmarks>(config);
-        //BenchmarkRunner.Run<WhenAnyValueBenchmarks>(config);
-        BenchmarkRunner.Run<NestedWhenAnyValueBenchmarks>(config);
+        BenchmarkRunner.Run<WhenAnyValueBenchmarks>(config);
+        //BenchmarkRunner.Run<NestedWhenAnyValueBenchmarks>(config);
         //BenchmarkRunner.Run<MultiPropertyWhenAnyValueBenchmarks>(config);
         //BenchmarkRunner.Run<ToPropertyBenchmarks>(config);
         //BenchmarkRunner.Run<ObservableOperatorBenchmarks>(config);

@@ -14,24 +14,31 @@ public class WhenAnyValueBenchmarks
 {
     private readonly PropertySource _directCreateSource = new();
     private readonly PropertySource _whenAnyCreateSource = new();
+    private readonly PropertySource _reactiveUICreateSource = new();
     private readonly PropertySource _directUpdateSource = new();
     private readonly PropertySource _whenAnyUpdateSource = new();
+    private readonly PropertySource _reactiveUIUpdateSource = new();
     private IDisposable? _directSubscription;
     private IDisposable? _whenAnySubscription;
+    private IDisposable? _reactiveUISubscription;
     private int _directValue;
     private int _whenAnyValue;
+    private int _reactiveUIValue;
     private int _value;
 
     /// <summary>Creates the long-lived subscriptions used by update benchmarks.</summary>
     [GlobalSetup(
-        Targets =
-        [
+        Targets = [
             nameof(DirectUpdate),
             nameof(WhenAnyValueUpdate),
+            nameof(ReactiveUIWhenAnyValueUpdate),
         ]
     )]
     public void SetupUpdateSubscriptions()
     {
+        ReactiveUI.Builder.BuilderMixins.BuildApp(
+            ReactiveUI.Builder.RxAppBuilder.CreateReactiveUIBuilder().WithCoreServices()
+        );
         _directSubscription = new DirectPropertyChangedSubscription<PropertySource, int>(
             _directUpdateSource,
             static source => source.Value,
@@ -41,20 +48,24 @@ public class WhenAnyValueBenchmarks
         _whenAnySubscription = _whenAnyUpdateSource
             .WhenAnyValue(source => source.Value)
             .Subscribe(value => _whenAnyValue = value);
+        _reactiveUISubscription = ReactiveUI
+            .WhenAnyMixins.WhenAnyValue(_reactiveUIUpdateSource, source => source.Value)
+            .Subscribe(value => _reactiveUIValue = value);
     }
 
     /// <summary>Disposes the long-lived subscriptions used by update benchmarks.</summary>
     [GlobalCleanup(
-        Targets =
-        [
+        Targets = [
             nameof(DirectUpdate),
             nameof(WhenAnyValueUpdate),
+            nameof(ReactiveUIWhenAnyValueUpdate),
         ]
     )]
     public void CleanupUpdateSubscriptions()
     {
         _directSubscription?.Dispose();
         _whenAnySubscription?.Dispose();
+        _reactiveUISubscription?.Dispose();
     }
 
     /// <summary>Measures an equivalent direct PropertyChanged subscription.</summary>
@@ -80,6 +91,19 @@ public class WhenAnyValueBenchmarks
             .Subscribe(value => _whenAnyValue = value);
     }
 
+    /// <summary>Measures ReactiveUI WhenAnyValue creation, initial publication, and disposal.</summary>
+    [Benchmark]
+    [BenchmarkCategory("CreateAndDispose")]
+    public void ReactiveUIWhenAnyValueCreateAndDispose()
+    {
+        ReactiveUI.Builder.BuilderMixins.BuildApp(
+            ReactiveUI.Builder.RxAppBuilder.CreateReactiveUIBuilder().WithCoreServices()
+        );
+        using var subscription = ReactiveUI
+            .WhenAnyMixins.WhenAnyValue(_reactiveUICreateSource, source => source.Value)
+            .Subscribe(value => _reactiveUIValue = value);
+    }
+
     /// <summary>Measures direct PropertyChanged delivery.</summary>
     [Benchmark(Baseline = true)]
     [BenchmarkCategory("Update")]
@@ -89,6 +113,11 @@ public class WhenAnyValueBenchmarks
     [Benchmark]
     [BenchmarkCategory("Update")]
     public void WhenAnyValueUpdate() => _whenAnyUpdateSource.Value = ++_value;
+
+    /// <summary>Measures ReactiveUI WhenAnyValue delivery for a direct property.</summary>
+    [Benchmark]
+    [BenchmarkCategory("Update")]
+    public void ReactiveUIWhenAnyValueUpdate() => _reactiveUIUpdateSource.Value = ++_value;
 
     private sealed class PropertySource : INotifyPropertyChanged
     {

@@ -17,9 +17,11 @@ public class BindToBenchmarks
     private readonly BenchmarkObservable<int> _directSource = new();
     private readonly BenchmarkObservable<int> _expressionSource = new();
     private readonly BenchmarkObservable<int> _assignmentSource = new();
+    private readonly BenchmarkObservable<int> _reactiveUISource = new();
     private readonly BindingTarget _directTarget = new();
     private readonly BindingTarget _expressionTarget = new();
     private readonly BindingTarget _assignmentTarget = new();
+    private readonly BindingTarget _reactiveUITarget = new();
     private readonly BindingObject _propertyChangedCreateSource = new();
     private readonly BindingTarget _propertyChangedCreateTarget = new();
     private readonly BindingObject _propertyChangedUpdateSource = new();
@@ -27,26 +29,35 @@ public class BindToBenchmarks
     private IDisposable? _directBinding;
     private IDisposable? _expressionBinding;
     private IDisposable? _assignmentBinding;
+    private IDisposable? _reactiveUIBinding;
     private IDisposable? _propertyChangedBinding;
     private int _value;
 
     /// <summary>Creates the long-lived bindings used by the update benchmarks.</summary>
     [GlobalSetup(
-        Targets =
-        [
+        Targets = [
             nameof(DirectUpdate),
             nameof(ExpressionUpdate),
             nameof(AssignmentUpdate),
+            nameof(ReactiveUIUpdate),
             nameof(PropertyChangedUpdate),
         ]
     )]
     public void SetupUpdateBindings()
     {
+        ReactiveUI.Builder.BuilderMixins.BuildApp(
+            ReactiveUI.Builder.RxAppBuilder.CreateReactiveUIBuilder().WithCoreServices()
+        );
         _directBinding = _directSource.Subscribe(new AssignmentObserver(_directTarget));
         _expressionBinding = _expressionSource.BindTo(_expressionTarget, target => target.Value);
         _assignmentBinding = _assignmentSource.BindTo(
             _assignmentTarget,
             static (value, target) => target.Value = value
+        );
+        _reactiveUIBinding = ReactiveUI.PropertyBindingMixins.BindTo(
+            _reactiveUISource,
+            _reactiveUITarget,
+            target => target.Value
         );
         _propertyChangedBinding = new PropertyChangedBinding(
             _propertyChangedUpdateSource,
@@ -56,11 +67,11 @@ public class BindToBenchmarks
 
     /// <summary>Disposes the long-lived bindings used by the update benchmarks.</summary>
     [GlobalCleanup(
-        Targets =
-        [
+        Targets = [
             nameof(DirectUpdate),
             nameof(ExpressionUpdate),
             nameof(AssignmentUpdate),
+            nameof(ReactiveUIUpdate),
             nameof(PropertyChangedUpdate),
         ]
     )]
@@ -69,6 +80,7 @@ public class BindToBenchmarks
         _directBinding?.Dispose();
         _expressionBinding?.Dispose();
         _assignmentBinding?.Dispose();
+        _reactiveUIBinding?.Dispose();
         _propertyChangedBinding?.Dispose();
     }
 
@@ -99,6 +111,21 @@ public class BindToBenchmarks
         );
     }
 
+    /// <summary>Measures ReactiveUI expression binding creation and disposal.</summary>
+    [Benchmark]
+    [BenchmarkCategory("CreateAndDispose")]
+    public void ReactiveUICreateAndDispose()
+    {
+        ReactiveUI.Builder.BuilderMixins.BuildApp(
+            ReactiveUI.Builder.RxAppBuilder.CreateReactiveUIBuilder().WithCoreServices()
+        );
+        using var binding = ReactiveUI.PropertyBindingMixins.BindTo(
+            _reactiveUISource,
+            _reactiveUITarget,
+            target => target.Value
+        );
+    }
+
     /// <summary>Measures traditional PropertyChanged handler registration and removal.</summary>
     [Benchmark]
     [BenchmarkCategory("CreateAndDispose")]
@@ -124,6 +151,11 @@ public class BindToBenchmarks
     [Benchmark]
     [BenchmarkCategory("Update")]
     public void AssignmentUpdate() => _assignmentSource.Emit(++_value);
+
+    /// <summary>Measures one value delivery through an existing ReactiveUI binding.</summary>
+    [Benchmark]
+    [BenchmarkCategory("Update")]
+    public void ReactiveUIUpdate() => _reactiveUISource.Emit(++_value);
 
     /// <summary>Measures one value delivery through a traditional PropertyChanged handler.</summary>
     [Benchmark]
@@ -212,10 +244,8 @@ public class BindToBenchmarks
 
         public void Emit(T value) => _observer?.OnNext(value);
 
-        private sealed class Subscription(
-            BenchmarkObservable<T> source,
-            IObserver<T> observer
-        ) : IDisposable
+        private sealed class Subscription(BenchmarkObservable<T> source, IObserver<T> observer)
+            : IDisposable
         {
             private BenchmarkObservable<T>? _source = source;
 

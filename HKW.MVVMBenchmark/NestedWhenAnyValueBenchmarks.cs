@@ -14,34 +14,46 @@ public class NestedWhenAnyValueBenchmarks
 {
     private readonly Root _directCreateRoot = new();
     private readonly Root _whenAnyCreateRoot = new();
+    private readonly Root _reactiveUICreateRoot = new();
     private readonly Root _directUpdateRoot = new();
     private readonly Root _whenAnyUpdateRoot = new();
+    private readonly Root _reactiveUIUpdateRoot = new();
     private readonly Child _directAlternativeChild = new();
     private readonly Child _whenAnyAlternativeChild = new();
+    private readonly Child _reactiveUIAlternativeChild = new();
     private IDisposable? _directSubscription;
     private IDisposable? _whenAnySubscription;
+    private IDisposable? _reactiveUISubscription;
     private Child? _directOriginalChild;
     private Child? _whenAnyOriginalChild;
+    private Child? _reactiveUIOriginalChild;
     private bool _useDirectAlternative;
     private bool _useWhenAnyAlternative;
+    private bool _useReactiveUIAlternative;
     private int _directResult;
     private int _whenAnyResult;
+    private int _reactiveUIResult;
     private int _value;
 
     /// <summary>Creates subscriptions used by leaf-update and rebind benchmarks.</summary>
     [GlobalSetup(
-        Targets =
-        [
+        Targets = [
             nameof(DirectLeafUpdate),
             nameof(WhenAnyValueLeafUpdate),
+            nameof(ReactiveUIWhenAnyValueLeafUpdate),
             nameof(DirectIntermediateRebind),
             nameof(WhenAnyValueIntermediateRebind),
+            nameof(ReactiveUIWhenAnyValueIntermediateRebind),
         ]
     )]
     public void SetupUpdateSubscriptions()
     {
+        ReactiveUI.Builder.BuilderMixins.BuildApp(
+            ReactiveUI.Builder.RxAppBuilder.CreateReactiveUIBuilder().WithCoreServices()
+        );
         _directOriginalChild = _directUpdateRoot.Child;
         _whenAnyOriginalChild = _whenAnyUpdateRoot.Child;
+        _reactiveUIOriginalChild = _reactiveUIUpdateRoot.Child;
         _directSubscription = new DirectNestedSubscription(
             _directUpdateRoot,
             value => _directResult = value
@@ -49,22 +61,27 @@ public class NestedWhenAnyValueBenchmarks
         _whenAnySubscription = _whenAnyUpdateRoot
             .WhenAnyValue(root => root.Child.Value)
             .Subscribe(value => _whenAnyResult = value);
+        _reactiveUISubscription = ReactiveUI
+            .WhenAnyMixins.WhenAnyValue(_reactiveUIUpdateRoot, root => root.Child.Value)
+            .Subscribe(value => _reactiveUIResult = value);
     }
 
     /// <summary>Disposes subscriptions used by update benchmarks.</summary>
     [GlobalCleanup(
-        Targets =
-        [
+        Targets = [
             nameof(DirectLeafUpdate),
             nameof(WhenAnyValueLeafUpdate),
+            nameof(ReactiveUIWhenAnyValueLeafUpdate),
             nameof(DirectIntermediateRebind),
             nameof(WhenAnyValueIntermediateRebind),
+            nameof(ReactiveUIWhenAnyValueIntermediateRebind),
         ]
     )]
     public void CleanupUpdateSubscriptions()
     {
         _directSubscription?.Dispose();
         _whenAnySubscription?.Dispose();
+        _reactiveUISubscription?.Dispose();
     }
 
     /// <summary>Measures direct nested subscription creation, initial publication, and disposal.</summary>
@@ -88,6 +105,19 @@ public class NestedWhenAnyValueBenchmarks
             .Subscribe(value => _whenAnyResult = value);
     }
 
+    /// <summary>Measures ReactiveUI nested WhenAnyValue creation and disposal.</summary>
+    [Benchmark]
+    [BenchmarkCategory("CreateAndDispose")]
+    public void ReactiveUIWhenAnyValueCreateAndDispose()
+    {
+        ReactiveUI.Builder.BuilderMixins.BuildApp(
+            ReactiveUI.Builder.RxAppBuilder.CreateReactiveUIBuilder().WithCoreServices()
+        );
+        using var subscription = ReactiveUI
+            .WhenAnyMixins.WhenAnyValue(_reactiveUICreateRoot, root => root.Child.Value)
+            .Subscribe(value => _reactiveUIResult = value);
+    }
+
     /// <summary>Measures a leaf update through direct nested subscriptions.</summary>
     [Benchmark(Baseline = true)]
     [BenchmarkCategory("LeafUpdate")]
@@ -97,6 +127,11 @@ public class NestedWhenAnyValueBenchmarks
     [Benchmark]
     [BenchmarkCategory("LeafUpdate")]
     public void WhenAnyValueLeafUpdate() => _whenAnyUpdateRoot.Child.Value = ++_value;
+
+    /// <summary>Measures a leaf update through ReactiveUI nested WhenAnyValue.</summary>
+    [Benchmark]
+    [BenchmarkCategory("LeafUpdate")]
+    public void ReactiveUIWhenAnyValueLeafUpdate() => _reactiveUIUpdateRoot.Child.Value = ++_value;
 
     /// <summary>Measures direct detachment and reattachment after replacing an intermediate object.</summary>
     [Benchmark(Baseline = true)]
@@ -118,6 +153,19 @@ public class NestedWhenAnyValueBenchmarks
         var child = _useWhenAnyAlternative ? _whenAnyAlternativeChild : _whenAnyOriginalChild!;
         child.Value = ++_value;
         _whenAnyUpdateRoot.Child = child;
+    }
+
+    /// <summary>Measures ReactiveUI re-subscription after replacing an intermediate object.</summary>
+    [Benchmark]
+    [BenchmarkCategory("IntermediateRebind")]
+    public void ReactiveUIWhenAnyValueIntermediateRebind()
+    {
+        _useReactiveUIAlternative = !_useReactiveUIAlternative;
+        var child = _useReactiveUIAlternative
+            ? _reactiveUIAlternativeChild
+            : _reactiveUIOriginalChild!;
+        child.Value = ++_value;
+        _reactiveUIUpdateRoot.Child = child;
     }
 
     private sealed class Root : INotifyPropertyChanged
