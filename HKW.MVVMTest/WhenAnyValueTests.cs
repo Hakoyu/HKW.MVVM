@@ -191,6 +191,20 @@ public sealed class WhenAnyValueTests
     }
 
     [TestMethod]
+    public void TwoProperties_WithoutSelectorEmitsTuple()
+    {
+        var person = new Person { FirstName = "Ada", Age = 36 };
+        var values = new List<(string, int)>();
+        using var subscription = person
+            .WhenAnyValue(x => x.FirstName, x => x.Age)
+            .Subscribe(values.Add);
+
+        person.Age = 37;
+
+        CollectionAssert.AreEqual(new[] { ("Ada", 36), ("Ada", 37) }, values);
+    }
+
+    [TestMethod]
     public void ThreeProperties_EmitsWhenAnyInputChanges()
     {
         var person = new Person
@@ -212,6 +226,23 @@ public sealed class WhenAnyValueTests
         person.Age = 37;
 
         CollectionAssert.AreEqual(new[] { "Ada Lovelace:36", "Ada Lovelace:37" }, values);
+    }
+
+    [TestMethod]
+    public void ThreeProperties_WithoutSelectorEmitsTuple()
+    {
+        var person = new Person { FirstName = "Ada", LastName = "Lovelace", Age = 36 };
+        var values = new List<(string, string, int)>();
+        using var subscription = person
+            .WhenAnyValue(x => x.FirstName, x => x.LastName, x => x.Age)
+            .Subscribe(values.Add);
+
+        person.FirstName = "Grace";
+
+        CollectionAssert.AreEqual(
+            new[] { ("Ada", "Lovelace", 36), ("Grace", "Lovelace", 36) },
+            values
+        );
     }
 
     [TestMethod]
@@ -239,6 +270,38 @@ public sealed class WhenAnyValueTests
 
         CollectionAssert.AreEqual(
             new[] { "Ada Lovelace:36:London", "Ada Lovelace:36:Paris" },
+            values
+        );
+    }
+
+    [TestMethod]
+    public void FourProperties_WithoutSelectorEmitsTuple()
+    {
+        var person = new Person
+        {
+            FirstName = "Ada",
+            LastName = "Lovelace",
+            Age = 36,
+            Address = new Address { City = "London" },
+        };
+        var values = new List<(string, string, int, string)>();
+        using var subscription = person
+            .WhenAnyValue(
+                x => x.FirstName,
+                x => x.LastName,
+                x => x.Age,
+                x => x.Address!.City
+            )
+            .Subscribe(values.Add);
+
+        person.Address!.City = "Paris";
+
+        CollectionAssert.AreEqual(
+            new[]
+            {
+                ("Ada", "Lovelace", 36, "London"),
+                ("Ada", "Lovelace", 36, "Paris"),
+            },
             values
         );
     }

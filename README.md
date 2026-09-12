@@ -48,6 +48,12 @@ public sealed class Person : ObservableObjectEx
         get => field;
         set => SetProperty(ref field, value);
     } = string.Empty;
+
+    public int Age
+    {
+        get => field;
+        set => SetProperty(ref field, value);
+    }
 }
 
 var person = new Person { Name = "Ada" };
@@ -60,6 +66,17 @@ person.Name = "Grace";
 ```
 
 订阅建立时会先发出当前值，之后只发出发生变化的值。订阅被 Dispose 后，将停止接收属性通知。
+
+观察多个属性时，不提供 selector 会得到强类型元组；也可以提供 selector 直接投影为目标类型：
+
+```csharp
+IObservable<(string, int)> nameAndAge = person.WhenAnyValue(x => x.Name, x => x.Age);
+
+IObservable<string> display = person.WhenAnyValue(
+    x => x.Name,
+    x => x.Age,
+    static (name, age) => $"{name} ({age})");
+```
 
 ### 属性绑定
 

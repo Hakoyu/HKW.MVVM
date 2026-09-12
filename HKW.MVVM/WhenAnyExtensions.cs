@@ -56,6 +56,33 @@ public static class WhenAnyExtensions
     }
 
     /// <summary>
+    /// Observes two properties and emits their latest values as a tuple whenever either final value changes.
+    /// </summary>
+    /// <typeparam name="TSource">The notifying source type.</typeparam>
+    /// <typeparam name="T1">The first property value type.</typeparam>
+    /// <typeparam name="T2">The second property value type.</typeparam>
+    /// <param name="source">The source object whose properties are observed.</param>
+    /// <param name="property1">The first property path.</param>
+    /// <param name="property2">The second property path.</param>
+    /// <returns>A cold observable sequence of tuples containing the latest property values.</returns>
+    /// <remarks>
+    /// <b>REFLECTION: CONDITIONAL.</b> Each property delegates to the single-property
+    /// <see cref="WhenAnyValue{TSource,TValue}(TSource, Expression{Func{TSource,TValue}})"/> implementation,
+    /// which uses a compiled getter for direct properties and falls back to reflection for nested paths.
+    /// </remarks>
+    public static IObservable<(T1, T2)> WhenAnyValue<TSource, T1, T2>(
+        this TSource source,
+        Expression<Func<TSource, T1>> property1,
+        Expression<Func<TSource, T2>> property2
+    )
+        where TSource : class, INotifyPropertyChanged =>
+        Combine(
+            source.WhenAnyValue(property1),
+            source.WhenAnyValue(property2),
+            static (value1, value2) => (value1, value2)
+        );
+
+    /// <summary>
     /// Observes two properties and projects their latest values whenever either final value changes.
     /// </summary>
     /// <typeparam name="TSource">The notifying source type.</typeparam>
@@ -67,21 +94,47 @@ public static class WhenAnyExtensions
     /// <param name="property2">The second property path.</param>
     /// <param name="selector">The function that combines the latest property values.</param>
     /// <returns>A cold observable sequence of projected results.</returns>
-    /// <remarks>
-    /// <b>REFLECTION: CONDITIONAL.</b> Each property delegates to the single-property
-    /// <see cref="WhenAnyValue{TSource,TValue}(TSource, Expression{Func{TSource,TValue}})"/> implementation,
-    /// which uses a compiled getter for direct properties and falls back to reflection for nested paths.
-    /// </remarks>
     public static IObservable<TResult> WhenAnyValue<TSource, T1, T2, TResult>(
         this TSource source,
         Expression<Func<TSource, T1>> property1,
         Expression<Func<TSource, T2>> property2,
         Func<T1, T2, TResult> selector
     )
+        where TSource : class, INotifyPropertyChanged
+    {
+        ArgumentNullException.ThrowIfNull(selector);
+        return Combine(source.WhenAnyValue(property1), source.WhenAnyValue(property2), selector);
+    }
+
+    /// <summary>
+    /// Observes three properties and emits their latest values as a tuple whenever any final value changes.
+    /// </summary>
+    /// <typeparam name="TSource">The notifying source type.</typeparam>
+    /// <typeparam name="T1">The first property value type.</typeparam>
+    /// <typeparam name="T2">The second property value type.</typeparam>
+    /// <typeparam name="T3">The third property value type.</typeparam>
+    /// <param name="source">The source object whose properties are observed.</param>
+    /// <param name="property1">The first property path.</param>
+    /// <param name="property2">The second property path.</param>
+    /// <param name="property3">The third property path.</param>
+    /// <returns>A cold observable sequence of tuples containing the latest property values.</returns>
+    /// <remarks>
+    /// <b>REFLECTION: CONDITIONAL.</b> All properties delegate to the single-property
+    /// <see cref="WhenAnyValue{TSource,TValue}(TSource, Expression{Func{TSource,TValue}})"/> implementation,
+    /// which uses a compiled getter for direct properties and falls back to reflection for nested paths.
+    /// </remarks>
+    public static IObservable<(T1, T2, T3)> WhenAnyValue<TSource, T1, T2, T3>(
+        this TSource source,
+        Expression<Func<TSource, T1>> property1,
+        Expression<Func<TSource, T2>> property2,
+        Expression<Func<TSource, T3>> property3
+    )
         where TSource : class, INotifyPropertyChanged =>
         Combine(
-            [source.WhenAnyValue(property1).Box(), source.WhenAnyValue(property2).Box()],
-            values => selector((T1)values[0]!, (T2)values[1]!)
+            source.WhenAnyValue(property1),
+            source.WhenAnyValue(property2),
+            source.WhenAnyValue(property3),
+            static (value1, value2, value3) => (value1, value2, value3)
         );
 
     /// <summary>
@@ -98,11 +151,6 @@ public static class WhenAnyExtensions
     /// <param name="property3">The third property path.</param>
     /// <param name="selector">The function that combines the latest property values.</param>
     /// <returns>A cold observable sequence of projected results.</returns>
-    /// <remarks>
-    /// <b>REFLECTION: CONDITIONAL.</b> All properties delegate to the single-property
-    /// <see cref="WhenAnyValue{TSource,TValue}(TSource, Expression{Func{TSource,TValue}})"/> implementation,
-    /// which uses a compiled getter for direct properties and falls back to reflection for nested paths.
-    /// </remarks>
     public static IObservable<TResult> WhenAnyValue<TSource, T1, T2, T3, TResult>(
         this TSource source,
         Expression<Func<TSource, T1>> property1,
@@ -110,14 +158,50 @@ public static class WhenAnyExtensions
         Expression<Func<TSource, T3>> property3,
         Func<T1, T2, T3, TResult> selector
     )
+        where TSource : class, INotifyPropertyChanged
+    {
+        ArgumentNullException.ThrowIfNull(selector);
+        return Combine(
+            source.WhenAnyValue(property1),
+            source.WhenAnyValue(property2),
+            source.WhenAnyValue(property3),
+            selector
+        );
+    }
+
+    /// <summary>
+    /// Observes four properties and emits their latest values as a tuple whenever any final value changes.
+    /// </summary>
+    /// <typeparam name="TSource">The notifying source type.</typeparam>
+    /// <typeparam name="T1">The first property value type.</typeparam>
+    /// <typeparam name="T2">The second property value type.</typeparam>
+    /// <typeparam name="T3">The third property value type.</typeparam>
+    /// <typeparam name="T4">The fourth property value type.</typeparam>
+    /// <param name="source">The source object whose properties are observed.</param>
+    /// <param name="property1">The first property path.</param>
+    /// <param name="property2">The second property path.</param>
+    /// <param name="property3">The third property path.</param>
+    /// <param name="property4">The fourth property path.</param>
+    /// <returns>A cold observable sequence of tuples containing the latest property values.</returns>
+    /// <remarks>
+    /// <b>REFLECTION: CONDITIONAL.</b> All properties delegate to the single-property
+    /// <see cref="WhenAnyValue{TSource,TValue}(TSource, Expression{Func{TSource,TValue}})"/> implementation,
+    /// which uses a compiled getter for direct properties and falls back to reflection for nested paths.
+    /// </remarks>
+    public static IObservable<(T1, T2, T3, T4)> WhenAnyValue<TSource, T1, T2, T3, T4>(
+        this TSource source,
+        Expression<Func<TSource, T1>> property1,
+        Expression<Func<TSource, T2>> property2,
+        Expression<Func<TSource, T3>> property3,
+        Expression<Func<TSource, T4>> property4
+    )
         where TSource : class, INotifyPropertyChanged =>
         Combine(
-            [
-                source.WhenAnyValue(property1).Box(),
-                source.WhenAnyValue(property2).Box(),
-                source.WhenAnyValue(property3).Box(),
-            ],
-            values => selector((T1)values[0]!, (T2)values[1]!, (T3)values[2]!)
+            source.WhenAnyValue(property1),
+            source.WhenAnyValue(property2),
+            source.WhenAnyValue(property3),
+            source.WhenAnyValue(property4),
+            static (value1, value2, value3, value4) => (value1, value2, value3, value4)
         );
 
     /// <summary>
@@ -136,11 +220,6 @@ public static class WhenAnyExtensions
     /// <param name="property4">The fourth property path.</param>
     /// <param name="selector">The function that combines the latest property values.</param>
     /// <returns>A cold observable sequence of projected results.</returns>
-    /// <remarks>
-    /// <b>REFLECTION: CONDITIONAL.</b> All properties delegate to the single-property
-    /// <see cref="WhenAnyValue{TSource,TValue}(TSource, Expression{Func{TSource,TValue}})"/> implementation,
-    /// which uses a compiled getter for direct properties and falls back to reflection for nested paths.
-    /// </remarks>
     public static IObservable<TResult> WhenAnyValue<TSource, T1, T2, T3, T4, TResult>(
         this TSource source,
         Expression<Func<TSource, T1>> property1,
@@ -149,16 +228,17 @@ public static class WhenAnyExtensions
         Expression<Func<TSource, T4>> property4,
         Func<T1, T2, T3, T4, TResult> selector
     )
-        where TSource : class, INotifyPropertyChanged =>
-        Combine(
-            [
-                source.WhenAnyValue(property1).Box(),
-                source.WhenAnyValue(property2).Box(),
-                source.WhenAnyValue(property3).Box(),
-                source.WhenAnyValue(property4).Box(),
-            ],
-            values => selector((T1)values[0]!, (T2)values[1]!, (T3)values[2]!, (T4)values[3]!)
+        where TSource : class, INotifyPropertyChanged
+    {
+        ArgumentNullException.ThrowIfNull(selector);
+        return Combine(
+            source.WhenAnyValue(property1),
+            source.WhenAnyValue(property2),
+            source.WhenAnyValue(property3),
+            source.WhenAnyValue(property4),
+            selector
         );
+    }
 
     /// <summary>
     /// Observes a property path and projects an observation containing the sender, final property name, and value.
@@ -212,87 +292,345 @@ public static class WhenAnyExtensions
             )
         );
 
-    private static IObservable<TResult> Combine<TResult>(
-        IReadOnlyList<IObservable<object?>> sources,
-        Func<object?[], TResult> selector
+    private static IObservable<TResult> Combine<T1, T2, TResult>(
+        IObservable<T1> source1,
+        IObservable<T2> source2,
+        Func<T1, T2, TResult> selector
     ) =>
         new AnonymousObservable<TResult>(observer =>
         {
-            var gate = new object();
-            var values = new object?[sources.Count];
-            var hasValue = new bool[sources.Count];
+            var gate = new Lock();
+            var value1 = default(T1)!;
+            var value2 = default(T2)!;
+            var hasValue1 = false;
+            var hasValue2 = false;
             var stopped = false;
             var subscriptions = new MultipleDisposable();
 
-            for (var index = 0; index < sources.Count; index++)
+            void Publish()
             {
-                var capturedIndex = index;
-                subscriptions.Add(
-                    sources[index]
-                        .Subscribe(
-                            value =>
-                            {
-                                TResult result;
-                                lock (gate)
-                                {
-                                    if (stopped)
-                                    {
-                                        return;
-                                    }
+                TResult result;
+                lock (gate)
+                {
+                    if (stopped || hasValue1 is false || hasValue2 is false)
+                    {
+                        return;
+                    }
 
-                                    values[capturedIndex] = value;
-                                    hasValue[capturedIndex] = true;
-                                    if (Array.IndexOf(hasValue, false) >= 0)
-                                    {
-                                        return;
-                                    }
+                    try
+                    {
+                        result = selector(value1, value2);
+                    }
+                    catch (Exception exception)
+                    {
+                        stopped = true;
+                        observer.OnError(exception);
+                        subscriptions.Dispose();
+                        return;
+                    }
+                }
 
-                                    try
-                                    {
-                                        result = selector((object?[])values.Clone());
-                                    }
-                                    catch (Exception exception)
-                                    {
-                                        stopped = true;
-                                        observer.OnError(exception);
-                                        subscriptions.Dispose();
-                                        return;
-                                    }
-                                }
-
-                                observer.OnNext(result);
-                            },
-                            error =>
-                            {
-                                lock (gate)
-                                {
-                                    if (stopped)
-                                    {
-                                        return;
-                                    }
-
-                                    stopped = true;
-                                }
-
-                                observer.OnError(error);
-                                subscriptions.Dispose();
-                            }
-                        )
-                );
+                observer.OnNext(result);
             }
+
+            void Fail(Exception error)
+            {
+                lock (gate)
+                {
+                    if (stopped)
+                    {
+                        return;
+                    }
+
+                    stopped = true;
+                }
+
+                observer.OnError(error);
+                subscriptions.Dispose();
+            }
+
+            subscriptions.Add(
+                source1.Subscribe(
+                    value =>
+                    {
+                        lock (gate)
+                        {
+                            value1 = value;
+                            hasValue1 = true;
+                        }
+
+                        Publish();
+                    },
+                    Fail
+                )
+            );
+            subscriptions.Add(
+                source2.Subscribe(
+                    value =>
+                    {
+                        lock (gate)
+                        {
+                            value2 = value;
+                            hasValue2 = true;
+                        }
+
+                        Publish();
+                    },
+                    Fail
+                )
+            );
 
             return subscriptions;
         });
 
-    private static IObservable<object?> Box<T>(this IObservable<T> source) =>
-        Select(source, value => (object?)value);
+    private static IObservable<TResult> Combine<T1, T2, T3, TResult>(
+        IObservable<T1> source1,
+        IObservable<T2> source2,
+        IObservable<T3> source3,
+        Func<T1, T2, T3, TResult> selector
+    ) =>
+        new AnonymousObservable<TResult>(observer =>
+        {
+            var gate = new Lock();
+            var value1 = default(T1)!;
+            var value2 = default(T2)!;
+            var value3 = default(T3)!;
+            var hasValue1 = false;
+            var hasValue2 = false;
+            var hasValue3 = false;
+            var stopped = false;
+            var subscriptions = new MultipleDisposable();
+
+            void Publish()
+            {
+                TResult result;
+                lock (gate)
+                {
+                    if (stopped || hasValue1 is false || hasValue2 is false || hasValue3 is false)
+                    {
+                        return;
+                    }
+
+                    try
+                    {
+                        result = selector(value1, value2, value3);
+                    }
+                    catch (Exception exception)
+                    {
+                        stopped = true;
+                        observer.OnError(exception);
+                        subscriptions.Dispose();
+                        return;
+                    }
+                }
+
+                observer.OnNext(result);
+            }
+
+            void Fail(Exception error)
+            {
+                lock (gate)
+                {
+                    if (stopped)
+                    {
+                        return;
+                    }
+
+                    stopped = true;
+                }
+
+                observer.OnError(error);
+                subscriptions.Dispose();
+            }
+
+            subscriptions.Add(
+                source1.Subscribe(
+                    value =>
+                    {
+                        lock (gate)
+                        {
+                            value1 = value;
+                            hasValue1 = true;
+                        }
+
+                        Publish();
+                    },
+                    Fail
+                )
+            );
+            subscriptions.Add(
+                source2.Subscribe(
+                    value =>
+                    {
+                        lock (gate)
+                        {
+                            value2 = value;
+                            hasValue2 = true;
+                        }
+
+                        Publish();
+                    },
+                    Fail
+                )
+            );
+            subscriptions.Add(
+                source3.Subscribe(
+                    value =>
+                    {
+                        lock (gate)
+                        {
+                            value3 = value;
+                            hasValue3 = true;
+                        }
+
+                        Publish();
+                    },
+                    Fail
+                )
+            );
+
+            return subscriptions;
+        });
+
+    private static IObservable<TResult> Combine<T1, T2, T3, T4, TResult>(
+        IObservable<T1> source1,
+        IObservable<T2> source2,
+        IObservable<T3> source3,
+        IObservable<T4> source4,
+        Func<T1, T2, T3, T4, TResult> selector
+    ) =>
+        new AnonymousObservable<TResult>(observer =>
+        {
+            var gate = new Lock();
+            var value1 = default(T1)!;
+            var value2 = default(T2)!;
+            var value3 = default(T3)!;
+            var value4 = default(T4)!;
+            var hasValue1 = false;
+            var hasValue2 = false;
+            var hasValue3 = false;
+            var hasValue4 = false;
+            var stopped = false;
+            var subscriptions = new MultipleDisposable();
+
+            void Publish()
+            {
+                TResult result;
+                lock (gate)
+                {
+                    if (
+                        stopped
+                        || hasValue1 is false
+                        || hasValue2 is false
+                        || hasValue3 is false
+                        || hasValue4 is false
+                    )
+                    {
+                        return;
+                    }
+
+                    try
+                    {
+                        result = selector(value1, value2, value3, value4);
+                    }
+                    catch (Exception exception)
+                    {
+                        stopped = true;
+                        observer.OnError(exception);
+                        subscriptions.Dispose();
+                        return;
+                    }
+                }
+
+                observer.OnNext(result);
+            }
+
+            void Fail(Exception error)
+            {
+                lock (gate)
+                {
+                    if (stopped)
+                    {
+                        return;
+                    }
+
+                    stopped = true;
+                }
+
+                observer.OnError(error);
+                subscriptions.Dispose();
+            }
+
+            subscriptions.Add(
+                source1.Subscribe(
+                    value =>
+                    {
+                        lock (gate)
+                        {
+                            value1 = value;
+                            hasValue1 = true;
+                        }
+
+                        Publish();
+                    },
+                    Fail
+                )
+            );
+            subscriptions.Add(
+                source2.Subscribe(
+                    value =>
+                    {
+                        lock (gate)
+                        {
+                            value2 = value;
+                            hasValue2 = true;
+                        }
+
+                        Publish();
+                    },
+                    Fail
+                )
+            );
+            subscriptions.Add(
+                source3.Subscribe(
+                    value =>
+                    {
+                        lock (gate)
+                        {
+                            value3 = value;
+                            hasValue3 = true;
+                        }
+
+                        Publish();
+                    },
+                    Fail
+                )
+            );
+            subscriptions.Add(
+                source4.Subscribe(
+                    value =>
+                    {
+                        lock (gate)
+                        {
+                            value4 = value;
+                            hasValue4 = true;
+                        }
+
+                        Publish();
+                    },
+                    Fail
+                )
+            );
+
+            return subscriptions;
+        });
 
     private static class DirectPropertyGetterCache<TSource, TValue>
     {
-        public static readonly MemoizingLRUCache<
-            PropertyInfo,
-            Func<TSource, TValue>
-        > Getters = new(Compile, 64);
+        public static readonly MemoizingLRUCache<PropertyInfo, Func<TSource, TValue>> Getters = new(
+            Compile,
+            64
+        );
 
         private static Func<TSource, TValue> Compile(PropertyInfo property)
         {
@@ -309,8 +647,10 @@ public static class WhenAnyExtensions
 
     private static class PropertyPathLeafGetterCache<TValue>
     {
-        public static readonly MemoizingLRUCache<PropertyInfo, Func<object, TValue>> Getters =
-            new(Compile, 64);
+        public static readonly MemoizingLRUCache<PropertyInfo, Func<object, TValue>> Getters = new(
+            Compile,
+            64
+        );
 
         private static Func<object, TValue> Compile(PropertyInfo property)
         {
@@ -433,10 +773,7 @@ public static class WhenAnyExtensions
         private readonly PropertyInfo[] _path;
         private readonly Func<object, TValue> _leafGetter;
 
-        public PropertyPathObservable(
-            TSource source,
-            Expression<Func<TSource, TValue>> expression
-        )
+        public PropertyPathObservable(TSource source, Expression<Func<TSource, TValue>> expression)
         {
             _source = source;
             _path = PropertyPath.Parse(expression);
@@ -488,7 +825,7 @@ public static class WhenAnyExtensions
             {
                 var capturedIndex = index;
                 _handlers[index] = (sender, eventArgs) =>
-                    OnPropertyChanged(capturedIndex, sender, eventArgs);
+                    OnPropertyChanged(capturedIndex, eventArgs);
             }
 
             RebuildAndPublish(0);
@@ -508,11 +845,7 @@ public static class WhenAnyExtensions
             }
         }
 
-        private void OnPropertyChanged(
-            int pathIndex,
-            object? _,
-            PropertyChangedEventArgs eventArgs
-        )
+        private void OnPropertyChanged(int pathIndex, PropertyChangedEventArgs eventArgs)
         {
             if (
                 string.IsNullOrEmpty(eventArgs.PropertyName)
@@ -645,11 +978,12 @@ public static class WhenAnyExtensions
             }
 
             if (
-                body is MemberExpression
-                {
-                    Member: PropertyInfo { GetMethod: not null } directProperty,
-                    Expression: ParameterExpression parameter,
-                }
+                body
+                    is MemberExpression
+                    {
+                        Member: PropertyInfo { GetMethod: not null } directProperty,
+                        Expression: ParameterExpression parameter,
+                    }
                 && parameter == expression.Parameters[0]
             )
             {
