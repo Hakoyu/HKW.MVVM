@@ -26,24 +26,13 @@ public class WhenAnyValueBenchmarks
     private int _reactiveUIValue;
     private int _value;
 
+    /// <summary>Creates the long-lived subscriptions used by update benchmarks.</summary>
     [GlobalSetup]
-    public void ReactiveUIBuildApp()
+    public void SetupUpdateSubscriptions()
     {
         ReactiveUI.Builder.BuilderMixins.BuildApp(
             ReactiveUI.Builder.RxAppBuilder.CreateReactiveUIBuilder().WithCoreServices()
         );
-    }
-
-    /// <summary>Creates the long-lived subscriptions used by update benchmarks.</summary>
-    [GlobalSetup(
-        Targets = [
-            nameof(DirectUpdate),
-            nameof(WhenAnyValueUpdate),
-            nameof(ReactiveUIWhenAnyValueUpdate),
-        ]
-    )]
-    public void SetupUpdateSubscriptions()
-    {
         _directSubscription = new DirectPropertyChangedSubscription<PropertySource, int>(
             _directUpdateSource,
             static source => source.Value,

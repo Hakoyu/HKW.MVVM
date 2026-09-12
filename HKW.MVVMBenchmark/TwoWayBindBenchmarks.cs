@@ -34,29 +34,13 @@ public class TwoWayBindBenchmarks
     private IDisposable? _reactiveUIBinding;
     private int _value;
 
+    /// <summary>Creates the long-lived bindings used by the update benchmarks.</summary>
     [GlobalSetup]
-    public void ReactiveUIBuildApp()
+    public void SetupUpdateBindings()
     {
         ReactiveUI.Builder.BuilderMixins.BuildApp(
             ReactiveUI.Builder.RxAppBuilder.CreateReactiveUIBuilder().WithCoreServices()
         );
-    }
-
-    /// <summary>Creates the long-lived bindings used by the update benchmarks.</summary>
-    [GlobalSetup(
-        Targets = [
-            nameof(DirectSourceToTargetUpdate),
-            nameof(ExpressionSourceToTargetUpdate),
-            nameof(AssignmentSourceToTargetUpdate),
-            nameof(ReactiveUISourceToTargetUpdate),
-            nameof(DirectTargetToSourceUpdate),
-            nameof(ExpressionTargetToSourceUpdate),
-            nameof(AssignmentTargetToSourceUpdate),
-            nameof(ReactiveUITargetToSourceUpdate),
-        ]
-    )]
-    public void SetupUpdateBindings()
-    {
         _directBinding = new DirectTwoWayBinding(_directUpdateSource, _directUpdateTarget);
         _expressionBinding = _expressionUpdateTarget.TwoWayBind(
             _expressionUpdateSource,

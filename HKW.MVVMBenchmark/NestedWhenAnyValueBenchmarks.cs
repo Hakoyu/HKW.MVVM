@@ -35,25 +35,8 @@ public class NestedWhenAnyValueBenchmarks
     private int _reactiveUIResult;
     private int _value;
 
-    [GlobalSetup]
-    public void ReactiveUIBuildApp()
-    {
-        ReactiveUI.Builder.BuilderMixins.BuildApp(
-            ReactiveUI.Builder.RxAppBuilder.CreateReactiveUIBuilder().WithCoreServices()
-        );
-    }
-
     /// <summary>Creates subscriptions used by leaf-update and rebind benchmarks.</summary>
-    [GlobalSetup(
-        Targets = [
-            nameof(DirectLeafUpdate),
-            nameof(WhenAnyValueLeafUpdate),
-            nameof(ReactiveUIWhenAnyValueLeafUpdate),
-            nameof(DirectIntermediateRebind),
-            nameof(WhenAnyValueIntermediateRebind),
-            nameof(ReactiveUIWhenAnyValueIntermediateRebind),
-        ]
-    )]
+    [GlobalSetup]
     public void SetupUpdateSubscriptions()
     {
         ReactiveUI.Builder.BuilderMixins.BuildApp(

@@ -44,30 +44,13 @@ public class MultiPropertyWhenAnyValueBenchmarks
     private int _reactiveUIResult;
     private int _value;
 
+    /// <summary>Creates long-lived subscriptions used by update benchmarks.</summary>
     [GlobalSetup]
-    public void ReactiveUIBuildApp()
+    public void SetupUpdateSubscriptions()
     {
         ReactiveUI.Builder.BuilderMixins.BuildApp(
             ReactiveUI.Builder.RxAppBuilder.CreateReactiveUIBuilder().WithCoreServices()
         );
-    }
-
-    /// <summary>Creates long-lived subscriptions used by update benchmarks.</summary>
-    [GlobalSetup(
-        Targets = [
-            nameof(DirectOnePropertyUpdate),
-            nameof(WhenAnyValueOnePropertyUpdate),
-            nameof(ReactiveUIOnePropertyUpdate),
-            nameof(DirectTwoPropertiesUpdate),
-            nameof(WhenAnyValueTwoPropertiesUpdate),
-            nameof(ReactiveUITwoPropertiesUpdate),
-            nameof(DirectFourPropertiesUpdate),
-            nameof(WhenAnyValueFourPropertiesUpdate),
-            nameof(ReactiveUIFourPropertiesUpdate),
-        ]
-    )]
-    public void SetupUpdateSubscriptions()
-    {
         _directOneSubscription = new DirectCombinedSubscription(
             _directOneUpdateSource,
             1,
