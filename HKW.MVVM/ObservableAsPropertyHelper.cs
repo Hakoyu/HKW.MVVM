@@ -13,17 +13,30 @@ public sealed class ObservableAsPropertyHelper<T>
         INotifyPropertyChanged,
         INotifyPropertyChanging
 {
+    private enum SubscriptionState : byte
+    {
+        NotSubscribed,
+        Subscribing,
+        Subscribed,
+    }
+
     private readonly Lock _gate = new();
     private readonly IObservable<T> _source;
     private readonly ObservableObject _owner;
-    private readonly string _propertyName;
+
     private readonly SynchronizationContext? _synchronizationContext;
     private readonly bool _scheduleOnThreadPool;
     private readonly SerialActionQueue? _notificationQueue;
     private readonly ExceptionSubject _exceptions = new();
+    private readonly PropertyChangingEventArgs _valueChangingEventArgs = new(nameof(Value));
+    private readonly PropertyChangedEventArgs _valueChangedEventArgs = new(nameof(Value));
+    private readonly PropertyChangingEventArgs _ownerChangingEventArgs;
+    private readonly PropertyChangedEventArgs _ownerChangedEventArgs;
     private IDisposable? _subscription;
     private T _value;
-    private bool _started;
+    private T _lastDistinctValue;
+    private bool _hasLastDistinctValue;
+    private SubscriptionState _subscriptionState;
     private bool _disposed;
 
     internal ObservableAsPropertyHelper(
@@ -37,12 +50,18 @@ public sealed class ObservableAsPropertyHelper<T>
     {
         _source = source;
         _owner = owner;
-        _propertyName = propertyName;
+        PropertyName = propertyName;
         _value = initialValue;
+        _lastDistinctValue = initialValue;
+        _hasLastDistinctValue = true;
+        _ownerChangingEventArgs = new PropertyChangingEventArgs(PropertyName);
+        _ownerChangedEventArgs = new PropertyChangedEventArgs(PropertyName);
         _synchronizationContext = synchronizationContext;
         _notificationQueue = synchronizationContext is null
             ? null
-            : new SerialActionQueue(action => synchronizationContext.Post(static state => ((Action)state!).Invoke(), action));
+            : new SerialActionQueue(action =>
+                synchronizationContext.Post(static state => ((Action)state!).Invoke(), action)
+            );
 
         if (deferSubscription is false)
         {
@@ -61,12 +80,19 @@ public sealed class ObservableAsPropertyHelper<T>
     {
         _source = source;
         _owner = owner;
-        _propertyName = propertyName;
+        PropertyName = propertyName;
         _value = initialValue;
+        _lastDistinctValue = initialValue;
+        _hasLastDistinctValue = true;
+        _ownerChangingEventArgs = new PropertyChangingEventArgs(propertyName);
+        _ownerChangedEventArgs = new PropertyChangedEventArgs(propertyName);
+
         (_synchronizationContext, _scheduleOnThreadPool) = scheduler switch
         {
-            ObservableSchedulers.Current =>
-                (SynchronizationContext.Current, SynchronizationContext.Current is null),
+            ObservableSchedulers.Current => (
+                SynchronizationContext.Current,
+                SynchronizationContext.Current is null
+            ),
             ObservableSchedulers.ThreadPool => (null, true),
             _ => throw new ArgumentOutOfRangeException(
                 nameof(scheduler),
@@ -74,11 +100,16 @@ public sealed class ObservableAsPropertyHelper<T>
                 "Unknown observable scheduler."
             ),
         };
+
         _notificationQueue = new SerialActionQueue(action =>
         {
             if (_scheduleOnThreadPool)
             {
-                ThreadPool.QueueUserWorkItem(static state => ((Action)state!).Invoke(), action, preferLocal: false);
+                ThreadPool.QueueUserWorkItem(
+                    static state => state.Invoke(),
+                    action,
+                    preferLocal: false
+                );
             }
             else
             {
@@ -93,18 +124,18 @@ public sealed class ObservableAsPropertyHelper<T>
     }
 
     /// <summary>
-/// 在 <see cref="Value"/> 变更之前引发.
-/// </summary>
+    /// 在 <see cref="Value"/> 变更之前引发.
+    /// </summary>
     public event PropertyChangingEventHandler? PropertyChanging;
 
     /// <summary>
-/// 在 <see cref="Value"/> 变更之后引发.
-/// </summary>
+    /// 在 <see cref="Value"/> 变更之后引发.
+    /// </summary>
     public event PropertyChangedEventHandler? PropertyChanged;
 
     /// <summary>
-/// 获取从源可观察序列接收的最新值.
-/// </summary>
+    /// 获取从源可观察序列接收的最新值.
+    /// </summary>
     public T Value
     {
         get
@@ -118,13 +149,32 @@ public sealed class ObservableAsPropertyHelper<T>
     }
 
     /// <summary>
-/// 接收源产生的终止性错误.
-/// </summary>
+    /// 目标属性名
+    /// </summary>
+    public string PropertyName { get; }
+
+    /// <summary>
+    /// 接收源产生的终止性错误.
+    /// </summary>
     public IObservable<Exception> ThrownExceptions => _exceptions;
 
     /// <summary>
-/// 停止观察源并释放所有已占用的资源.
-/// </summary>
+    /// 获取一个值,指示是否已开始订阅源序列.
+    /// </summary>
+    public bool IsSubscribed
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _subscriptionState is not SubscriptionState.NotSubscribed;
+            }
+        }
+    }
+
+    /// <summary>
+    /// 停止观察源并释放所有已占用的资源.
+    /// </summary>
     public void Dispose()
     {
         IDisposable? subscription;
@@ -136,6 +186,7 @@ public sealed class ObservableAsPropertyHelper<T>
             }
 
             _disposed = true;
+            _subscriptionState = SubscriptionState.NotSubscribed;
             subscription = _subscription;
             _subscription = null;
         }
@@ -147,21 +198,60 @@ public sealed class ObservableAsPropertyHelper<T>
 
     private void EnsureSubscribed()
     {
+        IDisposable? subscription = null;
+
         lock (_gate)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
-            if (_started)
+            if (_subscriptionState is not SubscriptionState.NotSubscribed)
             {
                 return;
             }
 
-            _started = true;
-            _subscription = _source.Subscribe(SetValue, _exceptions.OnNext);
+            _subscriptionState = SubscriptionState.Subscribing;
         }
+
+        try
+        {
+            subscription = _source.Subscribe(SetValue, _exceptions.OnNext);
+        }
+        catch
+        {
+            lock (_gate)
+            {
+                if (_disposed is false && _subscriptionState == SubscriptionState.Subscribing)
+                {
+                    _subscriptionState = SubscriptionState.NotSubscribed;
+                }
+            }
+
+            throw;
+        }
+
+        lock (_gate)
+        {
+            if (_disposed)
+            {
+                _subscriptionState = SubscriptionState.NotSubscribed;
+            }
+            else
+            {
+                _subscription = subscription;
+                _subscriptionState = SubscriptionState.Subscribed;
+                subscription = null;
+            }
+        }
+
+        subscription?.Dispose();
     }
 
     private void SetValue(T value)
     {
+        if (TryAcceptValue(value) is false)
+        {
+            return;
+        }
+
         if (
             _scheduleOnThreadPool is false
             && (
@@ -177,13 +267,37 @@ public sealed class ObservableAsPropertyHelper<T>
         _notificationQueue!.Enqueue(() => SetValueCore(value));
     }
 
+    private bool TryAcceptValue(T value)
+    {
+        lock (_gate)
+        {
+            if (_disposed)
+            {
+                return false;
+            }
+
+            if (
+                _hasLastDistinctValue
+                && EqualityComparer<T>.Default.Equals(_lastDistinctValue, value)
+            )
+            {
+                return false;
+            }
+
+            _lastDistinctValue = value;
+            _hasLastDistinctValue = true;
+            return true;
+        }
+    }
+
     private void SetValueCore(T value)
     {
         PropertyChangingEventHandler? propertyChanging;
         PropertyChangedEventHandler? propertyChanged;
+
         lock (_gate)
         {
-            if (_disposed || EqualityComparer<T>.Default.Equals(_value, value))
+            if (_disposed)
             {
                 return;
             }
@@ -192,17 +306,22 @@ public sealed class ObservableAsPropertyHelper<T>
             propertyChanged = PropertyChanged;
         }
 
-        propertyChanging?.Invoke(this, new PropertyChangingEventArgs(nameof(Value)));
-        PropertyNotificationDispatcher.NotifyPropertyChanging(_owner, _propertyName);
+        propertyChanging?.Invoke(this, _valueChangingEventArgs);
+        PropertyNotificationDispatcher.NotifyPropertyChanging(_owner, _ownerChangingEventArgs);
+
         lock (_gate)
         {
-            if (_disposed) return;
+            if (_disposed)
+            {
+                return;
+            }
+
             _value = value;
         }
-        propertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Value)));
-        PropertyNotificationDispatcher.NotifyPropertyChanged(_owner, _propertyName);
-    }
 
+        propertyChanged?.Invoke(this, _valueChangedEventArgs);
+        PropertyNotificationDispatcher.NotifyPropertyChanged(_owner, _ownerChangedEventArgs);
+    }
 }
 
 /// <summary>
@@ -379,26 +498,29 @@ internal static class PropertyNotificationDispatcher
         PropertyChangedEventArgs
     > PropertyChangedDelegate = CreateDelegate<PropertyChangedEventArgs>("OnPropertyChanged");
 
-    public static void NotifyPropertyChanging(ObservableObject owner, string propertyName)
+    public static void NotifyPropertyChanging(
+        ObservableObject owner,
+        PropertyChangingEventArgs args
+    )
     {
         if (owner is IPropertyChangeNotifier notifier)
         {
-            notifier.NotifyPropertyChanging(propertyName);
+            notifier.NotifyPropertyChanging(args.PropertyName);
             return;
         }
 
-        PropertyChangingDelegate(owner, new PropertyChangingEventArgs(propertyName));
+        PropertyChangingDelegate(owner, args);
     }
 
-    public static void NotifyPropertyChanged(ObservableObject owner, string propertyName)
+    public static void NotifyPropertyChanged(ObservableObject owner, PropertyChangedEventArgs args)
     {
         if (owner is IPropertyChangeNotifier notifier)
         {
-            notifier.NotifyPropertyChanged(propertyName);
+            notifier.NotifyPropertyChanged(args.PropertyName);
             return;
         }
 
-        PropertyChangedDelegate(owner, new PropertyChangedEventArgs(propertyName));
+        PropertyChangedDelegate(owner, args);
     }
 
     private static Action<ObservableObject, TEventArgs> CreateDelegate<TEventArgs>(

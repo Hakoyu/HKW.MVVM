@@ -26,10 +26,14 @@ public sealed class ObservableAsPropertyHelperTests
         var owner = new PropertyOwner();
         using var helper = source.ToProperty(owner, x => x.Result, initialValue: "Initial");
         var events = new List<string>();
-        helper.PropertyChanging += (_, args) => events.Add($"HelperChanging:{args.PropertyName}:{helper.Value}");
-        owner.PropertyChanging += (_, args) => events.Add($"OwnerChanging:{args.PropertyName}:{helper.Value}");
-        helper.PropertyChanged += (_, args) => events.Add($"HelperChanged:{args.PropertyName}:{helper.Value}");
-        owner.PropertyChanged += (_, args) => events.Add($"OwnerChanged:{args.PropertyName}:{helper.Value}");
+        helper.PropertyChanging += (_, args) =>
+            events.Add($"HelperChanging:{args.PropertyName}:{helper.Value}");
+        owner.PropertyChanging += (_, args) =>
+            events.Add($"OwnerChanging:{args.PropertyName}:{helper.Value}");
+        helper.PropertyChanged += (_, args) =>
+            events.Add($"HelperChanged:{args.PropertyName}:{helper.Value}");
+        owner.PropertyChanged += (_, args) =>
+            events.Add($"OwnerChanged:{args.PropertyName}:{helper.Value}");
 
         source.Emit("Updated");
 
@@ -39,9 +43,10 @@ public sealed class ObservableAsPropertyHelperTests
                 "HelperChanging:Value:Initial",
                 "OwnerChanging:Result:Initial",
                 "HelperChanged:Value:Updated",
-                "OwnerChanged:Result:Updated"
+                "OwnerChanged:Result:Updated",
             },
-            events);
+            events
+        );
     }
 
     [TestMethod]
@@ -49,7 +54,11 @@ public sealed class ObservableAsPropertyHelperTests
     {
         var source = new ManualObservable<string>();
         var owner = new PropertyOwner();
-        using var helper = source.ToProperty(owner, nameof(PropertyOwner.Result), initialValue: "Initial");
+        using var helper = source.ToProperty(
+            owner,
+            nameof(PropertyOwner.Result),
+            initialValue: "Initial"
+        );
         var changedCount = 0;
         owner.PropertyChanged += (_, _) => changedCount++;
 
@@ -119,10 +128,7 @@ public sealed class ObservableAsPropertyHelperTests
 
         source.Emit("Updated");
 
-        Assert.AreEqual(
-            "Updated",
-            await notification.Task.WaitAsync(TimeSpan.FromSeconds(5))
-        );
+        Assert.AreEqual("Updated", await notification.Task.WaitAsync(TimeSpan.FromSeconds(5)));
     }
 
     [TestMethod]
@@ -130,15 +136,22 @@ public sealed class ObservableAsPropertyHelperTests
     {
         var source = new ManualObservable<string>();
         var owner = new PropertyOwner();
-        using var helper = source.ToProperty(owner, nameof(PropertyOwner.Result), ObservableSchedulers.ThreadPool);
-        var notification = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var helper = source.ToProperty(
+            owner,
+            nameof(PropertyOwner.Result),
+            ObservableSchedulers.ThreadPool
+        );
+        var notification = new TaskCompletionSource<bool>(
+            TaskCreationOptions.RunContinuationsAsynchronously
+        );
         owner.PropertyChanged += (_, args) =>
         {
             if (args.PropertyName == nameof(PropertyOwner.Result) && helper.Value == "99")
                 notification.TrySetResult(true);
         };
 
-        for (var value = 0; value < 100; value++) source.Emit(value.ToString());
+        for (var value = 0; value < 100; value++)
+            source.Emit(value.ToString());
 
         await notification.Task.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.AreEqual("99", helper.Value);
@@ -168,7 +181,8 @@ public sealed class ObservableAsPropertyHelperTests
             owner,
             x => x.Result,
             initialValue: "Initial",
-            deferSubscription: true);
+            deferSubscription: true
+        );
 
         person.FirstName = "Still before read";
         Assert.AreEqual("Still before read", helper.Value);
@@ -186,7 +200,8 @@ public sealed class ObservableAsPropertyHelperTests
             owner,
             x => x.Result,
             initialValue: "Initial",
-            deferSubscription: true);
+            deferSubscription: true
+        );
 
         Assert.AreEqual(0, source.SubscriptionCount);
         Assert.AreEqual("Initial", helper.Value);
@@ -205,7 +220,8 @@ public sealed class ObservableAsPropertyHelperTests
             owner,
             x => x.Result,
             initialValue: "Initial",
-            synchronizationContext: context);
+            synchronizationContext: context
+        );
 
         source.Emit("Updated");
 
@@ -237,7 +253,11 @@ public sealed class ObservableAsPropertyHelperTests
         var owner = new PropertyOwner();
         var helper = source.ToProperty(owner, x => x.Result, initialValue: string.Empty);
         var completed = false;
-        using var exceptionSubscription = helper.ThrownExceptions.Subscribe(_ => { }, _ => { }, () => completed = true);
+        using var exceptionSubscription = helper.ThrownExceptions.Subscribe(
+            _ => { },
+            _ => { },
+            () => completed = true
+        );
 
         helper.Dispose();
         helper.Dispose();
@@ -257,7 +277,8 @@ public sealed class ObservableAsPropertyHelperTests
             owner,
             x => x.Result,
             initialValue: string.Empty,
-            deferSubscription: true);
+            deferSubscription: true
+        );
 
         helper.Dispose();
 
@@ -273,7 +294,8 @@ public sealed class ObservableAsPropertyHelperTests
         using var helper = source.ToProperty(
             owner,
             nameof(PropertyOwner.OtherResult),
-            initialValue: string.Empty);
+            initialValue: string.Empty
+        );
         string? changedProperty = null;
         owner.PropertyChanged += (_, args) => changedProperty = args.PropertyName;
 
@@ -318,7 +340,8 @@ public sealed class ObservableAsPropertyHelperTests
         var owner = new PropertyOwner();
 
         Assert.ThrowsExactly<ArgumentException>(() =>
-            source.ToProperty(owner, x => x.Result + x.OtherResult));
+            source.ToProperty(owner, x => x.Result + x.OtherResult)
+        );
     }
 
     [TestMethod]
@@ -329,10 +352,64 @@ public sealed class ObservableAsPropertyHelperTests
 
         Assert.ThrowsExactly<ArgumentNullException>(() =>
             ObservableAsPropertyHelperExtensions.ToProperty<PropertyOwner, string>(
-                null!, owner, nameof(PropertyOwner.Result)));
+                null!,
+                owner,
+                nameof(PropertyOwner.Result)
+            )
+        );
         Assert.ThrowsExactly<ArgumentNullException>(() =>
-            source.ToProperty((PropertyOwner)null!, nameof(PropertyOwner.Result)));
-        Assert.ThrowsExactly<ArgumentException>(() =>
-            source.ToProperty(owner, string.Empty));
+            source.ToProperty((PropertyOwner)null!, nameof(PropertyOwner.Result))
+        );
+        Assert.ThrowsExactly<ArgumentException>(() => source.ToProperty(owner, string.Empty));
+    }
+
+    [TestMethod]
+    public void DeferredSubscription_IsTrackedByIsSubscribed()
+    {
+        var source = new ManualObservable<string>();
+        var owner = new PropertyOwner();
+        using var helper = source.ToProperty(
+            owner,
+            x => x.Result,
+            initialValue: "Initial",
+            deferSubscription: true
+        );
+
+        Assert.IsFalse(helper.IsSubscribed);
+
+        _ = helper.Value;
+
+        Assert.IsTrue(helper.IsSubscribed);
+    }
+
+    [TestMethod]
+    public void SubscriptionFailure_DoesNotPoisonDeferredHelper()
+    {
+        var attempts = 0;
+        var source = new SynchronousObservable<string>(observer =>
+        {
+            attempts++;
+            if (attempts == 1)
+            {
+                throw new TestException("First subscribe failed.");
+            }
+
+            observer.OnNext("Recovered");
+        });
+
+        var owner = new PropertyOwner();
+        using var helper = source.ToProperty(
+            owner,
+            x => x.Result,
+            initialValue: "Initial",
+            deferSubscription: true
+        );
+
+        Assert.ThrowsExactly<TestException>(() => _ = helper.Value);
+        Assert.IsFalse(helper.IsSubscribed);
+
+        Assert.AreEqual("Recovered", helper.Value);
+        Assert.IsTrue(helper.IsSubscribed);
+        Assert.AreEqual(2, attempts);
     }
 }

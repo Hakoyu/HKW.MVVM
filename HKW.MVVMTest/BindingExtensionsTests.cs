@@ -98,8 +98,8 @@ public sealed class BindingExtensionsTests
     {
         var source = new Person { FirstName = "Source" };
         var target = new Person { FirstName = "Target" };
-        using var binding = target.TwoWayBind(
-            source,
+        using var binding = source.TwoWayBind(
+            target,
             currentSource => currentSource.FirstName,
             currentTarget => currentTarget.FirstName
         );
@@ -118,8 +118,8 @@ public sealed class BindingExtensionsTests
     {
         var source = new Person { Age = 36 };
         var target = new Person();
-        using var binding = target.TwoWayBind(
-            source,
+        using var binding = source.TwoWayBind(
+            target,
             currentSource => currentSource.Age,
             currentTarget => currentTarget.FirstName,
             age => age.ToString(),
@@ -140,8 +140,8 @@ public sealed class BindingExtensionsTests
     {
         var source = new Person { Age = 36 };
         var target = new Person();
-        using var binding = target.TwoWayBind(
-            source,
+        using var binding = source.TwoWayBind(
+            target,
             currentSource => currentSource.Age,
             currentTarget => currentTarget.FirstName,
             static (value, currentTarget) => currentTarget.FirstName = value.ToString(),
@@ -162,8 +162,8 @@ public sealed class BindingExtensionsTests
     {
         var source = new Person { FirstName = "Ada" };
         var target = new Person();
-        using var binding = target.TwoWayBind(
-            source,
+        using var binding = source.TwoWayBind(
+            target,
             currentSource => currentSource.FirstName,
             currentTarget => currentTarget.FirstName,
             static (value, currentTarget) => currentTarget.FirstName = value.ToUpperInvariant(),
@@ -181,8 +181,8 @@ public sealed class BindingExtensionsTests
     {
         var source = new Person { Age = 36 };
         var target = new Person();
-        using var binding = target.TwoWayBind(
-            source,
+        using var binding = source.TwoWayBind(
+            target,
             currentSource => currentSource.Age,
             currentTarget => currentTarget.FirstName,
             static (value, currentTarget) => currentTarget.FirstName = $"Age: {value}",
@@ -201,8 +201,8 @@ public sealed class BindingExtensionsTests
     {
         var source = new Person { FirstName = "Initial" };
         var target = new Person();
-        var binding = target.TwoWayBind(
-            source,
+        var binding = source.TwoWayBind(
+            target,
             currentSource => currentSource.FirstName,
             currentTarget => currentTarget.FirstName
         );
@@ -222,8 +222,8 @@ public sealed class BindingExtensionsTests
         var oldTargetAddress = new Address { City = "Old" };
         var source = new Person { Address = new Address { City = "London" } };
         var target = new Person { Address = oldTargetAddress };
-        using var binding = target.TwoWayBind(
-            source,
+        using var binding = source.TwoWayBind(
+            target,
             currentSource => currentSource.Address!.City,
             currentTarget => currentTarget.Address!.City
         );
@@ -264,12 +264,7 @@ public sealed class BindingExtensionsTests
         Action<string, Person> assignment = (value, person) => person.FirstName = value;
 
         Assert.ThrowsExactly<ArgumentNullException>(() =>
-            BindingExtensions.TwoWayBind<Person, Person, string>(
-                null!,
-                source,
-                property,
-                property
-            )
+            BindingExtensions.TwoWayBind<Person, Person, string>(null!, source, property, property)
         );
         Assert.ThrowsExactly<ArgumentNullException>(() =>
             target.TwoWayBind(null!, property, property)

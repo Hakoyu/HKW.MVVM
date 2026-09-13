@@ -15,11 +15,6 @@ namespace HKW.MVVM;
 /// 缓存,并在日志记录器工厂发生变化前重复使用.
 /// </remarks>
 [ComVisible(false)]
-[SuppressMessage(
-    "Design",
-    "CA1040:Avoid empty interfaces",
-    Justification = "The Log() extension method intentionally uses this marker interface to opt types into logging."
-)]
 public interface IEnableLogger;
 
 /// <summary>
@@ -32,8 +27,8 @@ public interface IEnableLogger;
 public interface IEnableLoggerWithLogger : IEnableLogger
 {
     /// <summary>
-/// 获取由此实例拥有的日志记录器.
-/// </summary>
+    /// 获取由此实例拥有的日志记录器.
+    /// </summary>
     ILogger Logger { get; }
 }
 
@@ -53,7 +48,9 @@ public static class LogHost
     /// 该日志记录器由 <see cref="LoggerFactory"/> 创建,并使用
     /// <see cref="LogHost"/> 的完全限定名称作为其类别.
     /// </remarks>
+#pragma warning disable S6669
     public static ILogger Default => GetLogger(typeof(LogHost));
+#pragma warning restore S6669
 
     /// <summary>
     /// 获取或设置显式的进程级日志记录器工厂.
@@ -107,7 +104,7 @@ public static class LogHost
         }
         catch (InvalidOperationException)
         {
-            // 在调用 ConfigureServices 之前,CommunityToolkit 的 Ioc 会抛出异常.
+            // 在调用 ConfigureServices 之前, Ioc 会抛出异常.
             return NullLoggerFactory.Instance;
         }
     }
@@ -160,8 +157,8 @@ public static class LoggerMixins
     }
 
     /// <summary>
-/// 代表启用了日志记录器的实例,使用指定的日志记录器.
-/// </summary>
+    /// 代表启用了日志记录器的实例,使用指定的日志记录器.
+    /// </summary>
     /// <param name="instance">启用了日志记录器的实例.</param>
     /// <param name="logger">要使用的日志记录器.</param>
     /// <returns><paramref name="logger"/>.</returns>

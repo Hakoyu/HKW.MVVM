@@ -4,6 +4,7 @@ using System.Reflection;
 
 namespace HKW.MVVM;
 
+#pragma warning disable S2436
 /// <summary>
 /// 属性观察结果,包含对象,属性名称和当前值.
 /// </summary>
@@ -270,6 +271,137 @@ public static class WhenAnyExtensions
         );
     }
 
+    /// <summary>
+    /// 观察两个属性,并在任一最终值变更时对它们的观察结果进行投影.
+    /// </summary>
+    /// <typeparam name="TSource">发出通知的源类型.</typeparam>
+    /// <typeparam name="T1">第一个属性的值类型.</typeparam>
+    /// <typeparam name="T2">第二个属性的值类型.</typeparam>
+    /// <typeparam name="TResult">投影结果的类型.</typeparam>
+    /// <param name="source">要观察其属性的源对象.</param>
+    /// <param name="property1">第一条属性路径.</param>
+    /// <param name="property2">第二条属性路径.</param>
+    /// <param name="selector">用于组合两个属性观察结果的函数.</param>
+    /// <returns>由投影后的观察结果构成的冷可观察序列.</returns>
+    public static IObservable<TResult> WhenAny<TSource, T1, T2, TResult>(
+        this TSource source,
+        Expression<Func<TSource, T1>> property1,
+        Expression<Func<TSource, T2>> property2,
+        Func<PropertyObservation<TSource, T1>, PropertyObservation<TSource, T2>, TResult> selector
+    )
+        where TSource : class, INotifyPropertyChanged
+    {
+        ArgumentNullException.ThrowIfNull(selector);
+        var propertyName1 = property1.GetPropertyName();
+        var propertyName2 = property2.GetPropertyName();
+        return Combine(
+            source.WhenAnyValue(property1),
+            source.WhenAnyValue(property2),
+            (value1, value2) =>
+                selector(
+                    new PropertyObservation<TSource, T1>(source, propertyName1, value1),
+                    new PropertyObservation<TSource, T2>(source, propertyName2, value2)
+                )
+        );
+    }
+
+    /// <summary>
+    /// 观察三个属性,并在任一最终值变更时对它们的观察结果进行投影.
+    /// </summary>
+    /// <typeparam name="TSource">发出通知的源类型.</typeparam>
+    /// <typeparam name="T1">第一个属性的值类型.</typeparam>
+    /// <typeparam name="T2">第二个属性的值类型.</typeparam>
+    /// <typeparam name="T3">第三个属性的值类型.</typeparam>
+    /// <typeparam name="TResult">投影结果的类型.</typeparam>
+    /// <param name="source">要观察其属性的源对象.</param>
+    /// <param name="property1">第一条属性路径.</param>
+    /// <param name="property2">第二条属性路径.</param>
+    /// <param name="property3">第三条属性路径.</param>
+    /// <param name="selector">用于组合三个属性观察结果的函数.</param>
+    /// <returns>由投影后的观察结果构成的冷可观察序列.</returns>
+    public static IObservable<TResult> WhenAny<TSource, T1, T2, T3, TResult>(
+        this TSource source,
+        Expression<Func<TSource, T1>> property1,
+        Expression<Func<TSource, T2>> property2,
+        Expression<Func<TSource, T3>> property3,
+        Func<
+            PropertyObservation<TSource, T1>,
+            PropertyObservation<TSource, T2>,
+            PropertyObservation<TSource, T3>,
+            TResult
+        > selector
+    )
+        where TSource : class, INotifyPropertyChanged
+    {
+        ArgumentNullException.ThrowIfNull(selector);
+        var propertyName1 = property1.GetPropertyName();
+        var propertyName2 = property2.GetPropertyName();
+        var propertyName3 = property3.GetPropertyName();
+        return Combine(
+            source.WhenAnyValue(property1),
+            source.WhenAnyValue(property2),
+            source.WhenAnyValue(property3),
+            (value1, value2, value3) =>
+                selector(
+                    new PropertyObservation<TSource, T1>(source, propertyName1, value1),
+                    new PropertyObservation<TSource, T2>(source, propertyName2, value2),
+                    new PropertyObservation<TSource, T3>(source, propertyName3, value3)
+                )
+        );
+    }
+
+    /// <summary>
+    /// 观察四个属性,并在任一最终值变更时对它们的观察结果进行投影.
+    /// </summary>
+    /// <typeparam name="TSource">发出通知的源类型.</typeparam>
+    /// <typeparam name="T1">第一个属性的值类型.</typeparam>
+    /// <typeparam name="T2">第二个属性的值类型.</typeparam>
+    /// <typeparam name="T3">第三个属性的值类型.</typeparam>
+    /// <typeparam name="T4">第四个属性的值类型.</typeparam>
+    /// <typeparam name="TResult">投影结果的类型.</typeparam>
+    /// <param name="source">要观察其属性的源对象.</param>
+    /// <param name="property1">第一条属性路径.</param>
+    /// <param name="property2">第二条属性路径.</param>
+    /// <param name="property3">第三条属性路径.</param>
+    /// <param name="property4">第四条属性路径.</param>
+    /// <param name="selector">用于组合四个属性观察结果的函数.</param>
+    /// <returns>由投影后的观察结果构成的冷可观察序列.</returns>
+    public static IObservable<TResult> WhenAny<TSource, T1, T2, T3, T4, TResult>(
+        this TSource source,
+        Expression<Func<TSource, T1>> property1,
+        Expression<Func<TSource, T2>> property2,
+        Expression<Func<TSource, T3>> property3,
+        Expression<Func<TSource, T4>> property4,
+        Func<
+            PropertyObservation<TSource, T1>,
+            PropertyObservation<TSource, T2>,
+            PropertyObservation<TSource, T3>,
+            PropertyObservation<TSource, T4>,
+            TResult
+        > selector
+    )
+        where TSource : class, INotifyPropertyChanged
+    {
+        ArgumentNullException.ThrowIfNull(selector);
+        var propertyName1 = property1.GetPropertyName();
+        var propertyName2 = property2.GetPropertyName();
+        var propertyName3 = property3.GetPropertyName();
+        var propertyName4 = property4.GetPropertyName();
+        return Combine(
+            source.WhenAnyValue(property1),
+            source.WhenAnyValue(property2),
+            source.WhenAnyValue(property3),
+            source.WhenAnyValue(property4),
+            (value1, value2, value3, value4) =>
+                selector(
+                    new PropertyObservation<TSource, T1>(source, propertyName1, value1),
+                    new PropertyObservation<TSource, T2>(source, propertyName2, value2),
+                    new PropertyObservation<TSource, T3>(source, propertyName3, value3),
+                    new PropertyObservation<TSource, T4>(source, propertyName4, value4)
+                )
+        );
+    }
+
     private static IObservable<TResult> Combine<T1, T2, TResult>(
         IObservable<T1> source1,
         IObservable<T2> source2,
@@ -332,10 +464,12 @@ public static class WhenAnyExtensions
                 var shouldComplete = false;
                 lock (gate)
                 {
-                    if (stopped) return;
+                    if (stopped)
+                        return;
                     completedSources++;
                     shouldComplete = completedSources == 2;
-                    if (shouldComplete) stopped = true;
+                    if (shouldComplete)
+                        stopped = true;
                 }
                 if (shouldComplete)
                 {
@@ -446,10 +580,12 @@ public static class WhenAnyExtensions
                 var shouldComplete = false;
                 lock (gate)
                 {
-                    if (stopped) return;
+                    if (stopped)
+                        return;
                     completedSources++;
                     shouldComplete = completedSources == 3;
-                    if (shouldComplete) stopped = true;
+                    if (shouldComplete)
+                        stopped = true;
                 }
                 if (shouldComplete)
                 {
@@ -587,10 +723,12 @@ public static class WhenAnyExtensions
                 var shouldComplete = false;
                 lock (gate)
                 {
-                    if (stopped) return;
+                    if (stopped)
+                        return;
                     completedSources++;
                     shouldComplete = completedSources == 4;
-                    if (shouldComplete) stopped = true;
+                    if (shouldComplete)
+                        stopped = true;
                 }
                 if (shouldComplete)
                 {
@@ -1082,3 +1220,4 @@ public static class WhenAnyExtensions
         }
     }
 }
+#pragma warning restore S2436

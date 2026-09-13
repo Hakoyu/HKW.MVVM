@@ -4,24 +4,21 @@ using System.Reflection;
 
 namespace HKW.MVVM;
 
+#pragma warning disable S2436
 /// <summary>
 /// 提供单向和双向属性绑定辅助方法.
 /// </summary>
 public static class BindingExtensions
 {
     /// <summary>
-/// 使用调用方提供的赋值操作绑定可观察序列产生的值.
-/// </summary>
+    /// 使用调用方提供的赋值操作绑定可观察序列产生的值.
+    /// </summary>
     /// <typeparam name="TValue">源产生的值类型.</typeparam>
     /// <typeparam name="TTarget">目标对象的类型.</typeparam>
     /// <param name="source">提供值的可观察序列.</param>
     /// <param name="target">传递给 <paramref name="assignment"/> 的目标对象.</param>
     /// <param name="assignment">接收每个源值和目标对象的操作.</param>
     /// <returns>可停止绑定的可释放对象.</returns>
-    /// <remarks>
-    /// 此重载不解析或编译表达式,也不使用反射.它同样允许
-    /// 属性表达式无法表示的赋值,例如依赖属性 setter.
-    /// </remarks>
     public static IDisposable BindTo<TValue, TTarget>(
         this IObservable<TValue> source,
         TTarget target,
@@ -35,19 +32,14 @@ public static class BindingExtensions
     }
 
     /// <summary>
-/// 将可观察序列产生的值绑定到可写的目标属性.
-/// </summary>
+    /// 将可观察序列产生的值绑定到可写的目标属性.
+    /// </summary>
     /// <typeparam name="TTarget">目标对象的类型.</typeparam>
     /// <typeparam name="TValue">源和目标的值的类型.</typeparam>
     /// <param name="source">提供值的可观察序列.</param>
     /// <param name="target">接收值的属性所属对象.</param>
     /// <param name="targetProperty">以 <paramref name="target"/> 为根的,可写的属性路径.</param>
     /// <returns>可停止绑定的可释放对象.</returns>
-    /// <remarks>
-    /// 每个源值都会同步赋值.源错误采用
-    /// <see cref="NativeObservableSubscriptionExtensions.Subscribe{T}(IObservable{T}, Action{T})"/>
-    /// 的标准错误行为.<b>反射:否.</b>目标 setter 会针对每个属性路径编译一次并缓存.
-    /// </remarks>
     public static IDisposable BindTo<TTarget, TValue>(
         this IObservable<TValue> source,
         TTarget target,
@@ -56,8 +48,8 @@ public static class BindingExtensions
         where TTarget : class => BindTo(source, target, targetProperty, static value => value);
 
     /// <summary>
-/// 将可观察序列产生的,经过转换的值绑定到可写的目标属性.
-/// </summary>
+    /// 将可观察序列产生的,经过转换的值绑定到可写的目标属性.
+    /// </summary>
     /// <typeparam name="TSourceValue">源产生的值类型.</typeparam>
     /// <typeparam name="TTarget">目标对象的类型.</typeparam>
     /// <typeparam name="TTargetValue">目标属性的值类型.</typeparam>
@@ -66,7 +58,6 @@ public static class BindingExtensions
     /// <param name="targetProperty">以 <paramref name="target"/> 为根的,可写的属性路径.</param>
     /// <param name="converter">将源值转换为目标值的函数.</param>
     /// <returns>可停止绑定的可释放对象.</returns>
-    /// <remarks><b>反射:否.</b>目标 setter 会针对每个属性路径编译一次并缓存.</remarks>
     public static IDisposable BindTo<TSourceValue, TTarget, TTargetValue>(
         this IObservable<TSourceValue> source,
         TTarget target,
@@ -96,16 +87,16 @@ public static class BindingExtensions
     /// <param name="targetProperty">被观察的,可写的目标属性路径.</param>
     /// <returns>可停止双向更新的可释放对象.</returns>
     public static IDisposable TwoWayBind<TSource, TTarget, TValue>(
-        this TTarget target,
-        TSource source,
+        this TSource source,
+        TTarget target,
         Expression<Func<TSource, TValue>> sourceProperty,
         Expression<Func<TTarget, TValue>> targetProperty
     )
         where TSource : class, INotifyPropertyChanged
         where TTarget : class, INotifyPropertyChanged =>
         TwoWayBind(
-            target,
             source,
+            target,
             sourceProperty,
             targetProperty,
             static value => value,
@@ -127,8 +118,8 @@ public static class BindingExtensions
     /// <param name="targetToSource">在将目标值赋给源之前对其进行转换.</param>
     /// <returns>可停止双向更新的可释放对象.</returns>
     public static IDisposable TwoWayBind<TSource, TTarget, TSourceValue, TTargetValue>(
-        this TTarget target,
-        TSource source,
+        this TSource source,
+        TTarget target,
         Expression<Func<TSource, TSourceValue>> sourceProperty,
         Expression<Func<TTarget, TTargetValue>> targetProperty,
         Func<TSourceValue, TTargetValue> sourceToTarget,
@@ -147,8 +138,8 @@ public static class BindingExtensions
         var sourceSetter = PropertySetter.Create(sourceProperty);
         var targetSetter = PropertySetter.Create(targetProperty);
         return TwoWayBind(
-            target,
             source,
+            target,
             sourceProperty,
             targetProperty,
             (value, currentTarget) => targetSetter(currentTarget, sourceToTarget(value)),
@@ -171,13 +162,11 @@ public static class BindingExtensions
     /// <param name="assignSource">将目标值赋给源.</param>
     /// <returns>可停止双向更新的可释放对象.</returns>
     /// <remarks>
-    /// 源值用于初始化目标.赋值操作会被直接调用,不经过解析,编译
-    /// 或反射调用.属性观察遵循
-    /// <see cref="WhenAnyExtensions.WhenAnyValue{TSource,TValue}"/>.
+    /// 反射: 否.
     /// </remarks>
     public static IDisposable TwoWayBind<TSource, TTarget, TSourceValue, TTargetValue>(
-        this TTarget target,
-        TSource source,
+        this TSource source,
+        TTarget target,
         Expression<Func<TSource, TSourceValue>> sourceProperty,
         Expression<Func<TTarget, TTargetValue>> targetProperty,
         Action<TSourceValue, TTarget> assignTarget,
@@ -248,8 +237,7 @@ public static class BindingExtensions
                 {
                     return;
                 }
-            }
-            while (Interlocked.CompareExchange(ref _state, UpdatingTarget, state) != state);
+            } while (Interlocked.CompareExchange(ref _state, UpdatingTarget, state) != state);
 
             try
             {
@@ -287,11 +275,12 @@ public static class BindingExtensions
             Expression<Func<TTarget, TValue>> propertyExpression
         )
         {
-            var key = PropertyPathCacheKey<TTarget, TValue>.Create(propertyExpression);
+            var key = PropertyPathCacheKey<TTarget, TValue>.CreateCacheKey(propertyExpression);
             return PropertySetterCache<TTarget, TValue>.Setters.Get(key);
         }
 
-        private static Action<TTarget, TValue> Compile<TTarget, TValue>(
+#pragma warning disable S3398
+        private static Action<TTarget, TValue> KeyCompile<TTarget, TValue>(
             PropertyPathCacheKey<TTarget, TValue> key
         )
         {
@@ -318,8 +307,8 @@ public static class BindingExtensions
                 when (exception is ArgumentException or InvalidOperationException)
             {
                 throw new ArgumentException(
-                    "The expression must identify an assignable property path.",
-                    nameof(propertyExpression),
+                    "The key expression must identify an assignable property path.",
+                    nameof(key),
                     exception
                 );
             }
@@ -327,7 +316,7 @@ public static class BindingExtensions
 
         private static PropertyInfo GetTargetProperty(LambdaExpression expression)
         {
-            Expression current = GetPropertyBody(expression);
+            var current = GetPropertyBody(expression);
             PropertyInfo? finalProperty = null;
 
             while (current is MemberExpression member)
@@ -354,13 +343,13 @@ public static class BindingExtensions
 
             return finalProperty;
         }
-
+#pragma warning restore S3398
         private static Expression GetPropertyBody(LambdaExpression expression) =>
             expression.Body
                 is UnaryExpression
-            {
-                NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked
-            } conversion
+                {
+                    NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked
+                } conversion
                 ? conversion.Operand
                 : expression.Body;
 
@@ -369,7 +358,7 @@ public static class BindingExtensions
             public static readonly MemoizingLRUCache<
                 PropertyPathCacheKey<TTarget, TValue>,
                 Action<TTarget, TValue>
-            > Setters = new(Compile, 64);
+            > Setters = new(KeyCompile, 64);
         }
 
         private readonly struct PropertyPathCacheKey<TTarget, TValue>
@@ -392,7 +381,7 @@ public static class BindingExtensions
 
             public PropertyInfo FinalProperty { get; }
 
-            public static PropertyPathCacheKey<TTarget, TValue> Create(
+            public static PropertyPathCacheKey<TTarget, TValue> CreateCacheKey(
                 Expression<Func<TTarget, TValue>> expression
             )
             {
@@ -422,8 +411,8 @@ public static class BindingExtensions
 
             public bool Equals(PropertyPathCacheKey<TTarget, TValue> other)
             {
-                Expression current = GetPropertyBody(Expression);
-                Expression otherCurrent = GetPropertyBody(other.Expression);
+                var current = GetPropertyBody(Expression);
+                var otherCurrent = GetPropertyBody(other.Expression);
 
                 while (
                     current is MemberExpression member
@@ -449,3 +438,4 @@ public static class BindingExtensions
         }
     }
 }
+#pragma warning restore S2436

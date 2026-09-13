@@ -322,6 +322,88 @@ public sealed class WhenAnyValueTests
     }
 
     [TestMethod]
+    public void WhenAny_TwoProperties_ProvidesObservations()
+    {
+        var person = new Person { FirstName = "Ada", LastName = "Lovelace" };
+        var values = new List<string>();
+        using var subscription = person
+            .WhenAny(
+                x => x.FirstName,
+                x => x.LastName,
+                (first, last) => $"{first.PropertyName}:{first.Value}|{last.PropertyName}:{last.Value}"
+            )
+            .Subscribe(values.Add);
+
+        person.LastName = "Byron";
+
+        CollectionAssert.AreEqual(
+            new[] { "FirstName:Ada|LastName:Lovelace", "FirstName:Ada|LastName:Byron" },
+            values
+        );
+    }
+
+    [TestMethod]
+    public void WhenAny_ThreeProperties_SelectorReceivesObservations()
+    {
+        var person = new Person { FirstName = "Ada", LastName = "Lovelace", Age = 36 };
+        var values = new List<string>();
+        using var subscription = person
+            .WhenAny(
+                x => x.FirstName,
+                x => x.LastName,
+                x => x.Age,
+                (first, last, age) =>
+                    $"{first.PropertyName}:{first.Value}|{last.PropertyName}:{last.Value}|{age.PropertyName}:{age.Value}"
+            )
+            .Subscribe(values.Add);
+
+        person.Age = 37;
+
+        CollectionAssert.AreEqual(
+            new[]
+            {
+                "FirstName:Ada|LastName:Lovelace|Age:36",
+                "FirstName:Ada|LastName:Lovelace|Age:37",
+            },
+            values
+        );
+    }
+
+    [TestMethod]
+    public void WhenAny_FourProperties_ProvidesObservations()
+    {
+        var person = new Person
+        {
+            FirstName = "Ada",
+            LastName = "Lovelace",
+            Age = 36,
+            Address = new Address { City = "London" },
+        };
+        var values = new List<string>();
+        using var subscription = person
+            .WhenAny(
+                x => x.FirstName,
+                x => x.LastName,
+                x => x.Age,
+                x => x.Address!.City,
+                (first, last, age, city) =>
+                    $"{first.PropertyName}:{first.Value}|{last.PropertyName}:{last.Value}|{age.PropertyName}:{age.Value}|{city.PropertyName}:{city.Value}"
+            )
+            .Subscribe(values.Add);
+
+        person.Address!.City = "Paris";
+
+        CollectionAssert.AreEqual(
+            new[]
+            {
+                "FirstName:Ada|LastName:Lovelace|Age:36|City:London",
+                "FirstName:Ada|LastName:Lovelace|Age:36|City:Paris",
+            },
+            values
+        );
+    }
+
+    [TestMethod]
     public void InvalidExpressions_ThrowArgumentException()
     {
         var person = new Person();

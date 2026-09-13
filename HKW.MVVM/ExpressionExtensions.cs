@@ -8,8 +8,8 @@ namespace HKW.MVVM;
 internal static class ExpressionExtensions
 {
     /// <summary>
-/// 从表达式树中获取所选的成员名称.
-/// </summary>
+    /// 从表达式树中获取所选的成员名称.
+    /// </summary>
     public static string GetPropertyName(this LambdaExpression expression)
     {
         if (expression.Body is MemberExpression member)
