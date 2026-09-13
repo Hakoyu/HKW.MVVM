@@ -28,9 +28,14 @@ public sealed class MultipleDisposable : ICollection<IDisposable>, IDisposable
     }
 
     /// <summary>
-    /// 获取一个值,指示该集合是否为只读.
+    /// 只读
     /// </summary>
     public bool IsReadOnly => false;
+
+    /// <summary>
+    /// 已释放
+    /// </summary>
+    public bool IsDisposed { get; private set; }
 
     /// <summary>
     /// 向此容器添加一个资源.
@@ -147,6 +152,7 @@ public sealed class MultipleDisposable : ICollection<IDisposable>, IDisposable
 
             items = [.. _items];
             _items = null;
+            IsDisposed = true;
         }
 
         DisposeAll(items);
