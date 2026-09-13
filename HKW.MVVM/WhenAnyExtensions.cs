@@ -264,33 +264,11 @@ public static class WhenAnyExtensions
     {
         ArgumentNullException.ThrowIfNull(selector);
         var propertyName = property.GetPropertyName();
-        return Select(
+        return ObservableExtensions.Select(
             source.WhenAnyValue(property),
             value => selector(new PropertyObservation<TSource, TValue>(source, propertyName, value))
         );
     }
-
-    private static IObservable<TResult> Select<TSource, TResult>(
-        IObservable<TSource> source,
-        Func<TSource, TResult> selector
-    ) =>
-        new AnonymousObservable<TResult>(observer =>
-            source.Subscribe(
-                value =>
-                {
-                    try
-                    {
-                        observer.OnNext(selector(value));
-                    }
-                    catch (Exception exception)
-                    {
-                        observer.OnError(exception);
-                    }
-                },
-                observer.OnError,
-                observer.OnCompleted
-            )
-        );
 
     private static IObservable<TResult> Combine<T1, T2, TResult>(
         IObservable<T1> source1,
@@ -305,11 +283,13 @@ public static class WhenAnyExtensions
             var hasValue1 = false;
             var hasValue2 = false;
             var stopped = false;
+            var completedSources = 0;
             var subscriptions = new MultipleDisposable();
 
             void Publish()
             {
-                TResult result;
+                T1 current1;
+                T2 current2;
                 lock (gate)
                 {
                     if (stopped || hasValue1 is false || hasValue2 is false)
@@ -317,20 +297,18 @@ public static class WhenAnyExtensions
                         return;
                     }
 
-                    try
-                    {
-                        result = selector(value1, value2);
-                    }
-                    catch (Exception exception)
-                    {
-                        stopped = true;
-                        observer.OnError(exception);
-                        subscriptions.Dispose();
-                        return;
-                    }
+                    current1 = value1;
+                    current2 = value2;
                 }
 
-                observer.OnNext(result);
+                try
+                {
+                    observer.OnNext(selector(current1, current2));
+                }
+                catch (Exception exception)
+                {
+                    Fail(exception);
+                }
             }
 
             void Fail(Exception error)
@@ -349,6 +327,22 @@ public static class WhenAnyExtensions
                 subscriptions.Dispose();
             }
 
+            void Complete()
+            {
+                var shouldComplete = false;
+                lock (gate)
+                {
+                    if (stopped) return;
+                    completedSources++;
+                    shouldComplete = completedSources == 2;
+                    if (shouldComplete) stopped = true;
+                }
+                if (shouldComplete)
+                {
+                    observer.OnCompleted();
+                    subscriptions.Dispose();
+                }
+            }
             subscriptions.Add(
                 source1.Subscribe(
                     value =>
@@ -361,7 +355,8 @@ public static class WhenAnyExtensions
 
                         Publish();
                     },
-                    Fail
+                    Fail,
+                    Complete
                 )
             );
             subscriptions.Add(
@@ -376,7 +371,8 @@ public static class WhenAnyExtensions
 
                         Publish();
                     },
-                    Fail
+                    Fail,
+                    Complete
                 )
             );
 
@@ -399,11 +395,14 @@ public static class WhenAnyExtensions
             var hasValue2 = false;
             var hasValue3 = false;
             var stopped = false;
+            var completedSources = 0;
             var subscriptions = new MultipleDisposable();
 
             void Publish()
             {
-                TResult result;
+                T1 current1;
+                T2 current2;
+                T3 current3;
                 lock (gate)
                 {
                     if (stopped || hasValue1 is false || hasValue2 is false || hasValue3 is false)
@@ -411,20 +410,19 @@ public static class WhenAnyExtensions
                         return;
                     }
 
-                    try
-                    {
-                        result = selector(value1, value2, value3);
-                    }
-                    catch (Exception exception)
-                    {
-                        stopped = true;
-                        observer.OnError(exception);
-                        subscriptions.Dispose();
-                        return;
-                    }
+                    current1 = value1;
+                    current2 = value2;
+                    current3 = value3;
                 }
 
-                observer.OnNext(result);
+                try
+                {
+                    observer.OnNext(selector(current1, current2, current3));
+                }
+                catch (Exception exception)
+                {
+                    Fail(exception);
+                }
             }
 
             void Fail(Exception error)
@@ -443,6 +441,22 @@ public static class WhenAnyExtensions
                 subscriptions.Dispose();
             }
 
+            void Complete()
+            {
+                var shouldComplete = false;
+                lock (gate)
+                {
+                    if (stopped) return;
+                    completedSources++;
+                    shouldComplete = completedSources == 3;
+                    if (shouldComplete) stopped = true;
+                }
+                if (shouldComplete)
+                {
+                    observer.OnCompleted();
+                    subscriptions.Dispose();
+                }
+            }
             subscriptions.Add(
                 source1.Subscribe(
                     value =>
@@ -455,7 +469,8 @@ public static class WhenAnyExtensions
 
                         Publish();
                     },
-                    Fail
+                    Fail,
+                    Complete
                 )
             );
             subscriptions.Add(
@@ -470,7 +485,8 @@ public static class WhenAnyExtensions
 
                         Publish();
                     },
-                    Fail
+                    Fail,
+                    Complete
                 )
             );
             subscriptions.Add(
@@ -485,7 +501,8 @@ public static class WhenAnyExtensions
 
                         Publish();
                     },
-                    Fail
+                    Fail,
+                    Complete
                 )
             );
 
@@ -511,11 +528,15 @@ public static class WhenAnyExtensions
             var hasValue3 = false;
             var hasValue4 = false;
             var stopped = false;
+            var completedSources = 0;
             var subscriptions = new MultipleDisposable();
 
             void Publish()
             {
-                TResult result;
+                T1 current1;
+                T2 current2;
+                T3 current3;
+                T4 current4;
                 lock (gate)
                 {
                     if (
@@ -529,20 +550,20 @@ public static class WhenAnyExtensions
                         return;
                     }
 
-                    try
-                    {
-                        result = selector(value1, value2, value3, value4);
-                    }
-                    catch (Exception exception)
-                    {
-                        stopped = true;
-                        observer.OnError(exception);
-                        subscriptions.Dispose();
-                        return;
-                    }
+                    current1 = value1;
+                    current2 = value2;
+                    current3 = value3;
+                    current4 = value4;
                 }
 
-                observer.OnNext(result);
+                try
+                {
+                    observer.OnNext(selector(current1, current2, current3, current4));
+                }
+                catch (Exception exception)
+                {
+                    Fail(exception);
+                }
             }
 
             void Fail(Exception error)
@@ -561,6 +582,22 @@ public static class WhenAnyExtensions
                 subscriptions.Dispose();
             }
 
+            void Complete()
+            {
+                var shouldComplete = false;
+                lock (gate)
+                {
+                    if (stopped) return;
+                    completedSources++;
+                    shouldComplete = completedSources == 4;
+                    if (shouldComplete) stopped = true;
+                }
+                if (shouldComplete)
+                {
+                    observer.OnCompleted();
+                    subscriptions.Dispose();
+                }
+            }
             subscriptions.Add(
                 source1.Subscribe(
                     value =>
@@ -573,7 +610,8 @@ public static class WhenAnyExtensions
 
                         Publish();
                     },
-                    Fail
+                    Fail,
+                    Complete
                 )
             );
             subscriptions.Add(
@@ -588,7 +626,8 @@ public static class WhenAnyExtensions
 
                         Publish();
                     },
-                    Fail
+                    Fail,
+                    Complete
                 )
             );
             subscriptions.Add(
@@ -603,7 +642,8 @@ public static class WhenAnyExtensions
 
                         Publish();
                     },
-                    Fail
+                    Fail,
+                    Complete
                 )
             );
             subscriptions.Add(
@@ -618,7 +658,8 @@ public static class WhenAnyExtensions
 
                         Publish();
                     },
-                    Fail
+                    Fail,
+                    Complete
                 )
             );
 

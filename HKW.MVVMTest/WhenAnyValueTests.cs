@@ -347,6 +347,23 @@ public sealed class WhenAnyValueTests
     }
 
     [TestMethod]
+    public void WhenAny_SelectorErrorTerminatesOnlyOnce()
+    {
+        var person = new Person { FirstName = "Ada" };
+        var errors = 0;
+        var values = 0;
+        using var subscription = person
+            .WhenAny<Person, string, string>(x => x.FirstName, _ => throw new TestException("Selector failed."))
+            .Subscribe(_ => values++, _ => errors++);
+
+        person.RaiseChanged(nameof(Person.FirstName));
+        person.RaiseChanged(nameof(Person.FirstName));
+
+        Assert.AreEqual(0, values);
+        Assert.AreEqual(1, errors);
+    }
+
+    [TestMethod]
     public void NullArguments_Throw()
     {
         var person = new Person();

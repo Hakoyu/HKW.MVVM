@@ -360,11 +360,12 @@ public static class ObservableExtensions
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(synchronizationContext);
         return Create<TSource>(observer =>
-            source.Subscribe(
-                value => Post(synchronizationContext, () => observer.OnNext(value)),
-                error => Post(synchronizationContext, () => observer.OnError(error)),
-                () => Post(synchronizationContext, observer.OnCompleted)
-            )
+        {
+            var dispatcher = new NotificationDispatcher<TSource>(observer, synchronizationContext);
+            var subscription = source.Subscribe(dispatcher.OnNext, dispatcher.OnError, dispatcher.OnCompleted);
+            dispatcher.SetSubscription(subscription);
+            return dispatcher;
+        }
         );
     }
 
@@ -583,8 +584,20 @@ public static class ObservableExtensions
                         return;
                     }
 
-                    var subscription = source.Subscribe(observer);
-                    scheduledSubscription.SetSubscription(subscription);
+                    try
+                    {
+                        var subscription = source.Subscribe(observer);
+                        scheduledSubscription.SetSubscription(subscription);
+                    }
+                    catch (Exception exception)
+                    {
+                        if (scheduledSubscription.IsDisposed is false)
+                        {
+                            observer.OnError(exception);
+                        }
+
+                        scheduledSubscription.Dispose();
+                    }
                 }
             );
             return scheduledSubscription;
@@ -618,15 +631,20 @@ public static class ObservableExtensions
         ThreadPool.QueueUserWorkItem(static state => ((Action)state!).Invoke(), action);
     }
 
-    private sealed class NotificationDispatcher<T>(
-        IObserver<T> observer,
-        SynchronizationContext? context
-    ) : IDisposable
+    private sealed class NotificationDispatcher<T> : IDisposable
     {
+        private readonly IObserver<T> _observer;
         private readonly object _gate = new();
+        private readonly SerialActionQueue _queue;
         private IDisposable? _subscription;
         private bool _stopped;
         private bool _disposed;
+
+        public NotificationDispatcher(IObserver<T> observer, SynchronizationContext? context)
+        {
+            _observer = observer;
+            _queue = new SerialActionQueue(action => Schedule(context, action));
+        }
 
         public void SetSubscription(IDisposable subscription)
         {
@@ -652,26 +670,19 @@ public static class ObservableExtensions
                 }
             }
 
-            Schedule(
-                context,
-                () =>
+            _queue.Enqueue(() =>
+            {
+                lock (_gate)
                 {
-                    lock (_gate)
-                    {
-                        if (_disposed)
-                        {
-                            return;
-                        }
-                    }
-
-                    observer.OnNext(value);
+                    if (_disposed) return;
                 }
-            );
+                _observer.OnNext(value);
+            });
         }
 
-        public void OnError(Exception error) => ScheduleTerminal(() => observer.OnError(error));
+        public void OnError(Exception error) => ScheduleTerminal(() => _observer.OnError(error));
 
-        public void OnCompleted() => ScheduleTerminal(observer.OnCompleted);
+        public void OnCompleted() => ScheduleTerminal(_observer.OnCompleted);
 
         public void Dispose()
         {
@@ -689,6 +700,7 @@ public static class ObservableExtensions
             }
 
             subscription?.Dispose();
+            _queue.Dispose();
         }
 
         private void ScheduleTerminal(Action terminal)
@@ -703,22 +715,15 @@ public static class ObservableExtensions
                 _stopped = true;
             }
 
-            Schedule(
-                context,
-                () =>
+            _queue.Enqueue(() =>
+            {
+                lock (_gate)
                 {
-                    lock (_gate)
-                    {
-                        if (_disposed)
-                        {
-                            return;
-                        }
-                    }
-
-                    terminal();
-                    Dispose();
+                    if (_disposed) return;
                 }
-            );
+                terminal();
+                Dispose();
+            });
         }
     }
 

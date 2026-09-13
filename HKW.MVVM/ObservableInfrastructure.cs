@@ -92,6 +92,69 @@ internal sealed class SingleAssignmentDisposable : IDisposable
     }
 }
 
+/// <summary>Serializes scheduled callbacks while preserving their enqueue order.</summary>
+internal sealed class SerialActionQueue(Action<Action> schedule) : IDisposable
+{
+    private readonly Lock _gate = new();
+    private readonly Queue<Action> _actions = [];
+    private bool _scheduled;
+    private bool _disposed;
+
+    public void Enqueue(Action action)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+        var shouldSchedule = false;
+        lock (_gate)
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            _actions.Enqueue(action);
+            if (_scheduled is false)
+            {
+                _scheduled = true;
+                shouldSchedule = true;
+            }
+        }
+
+        if (shouldSchedule)
+        {
+            schedule(Drain);
+        }
+    }
+
+    private void Drain()
+    {
+        while (true)
+        {
+            Action? action;
+            lock (_gate)
+            {
+                if (_disposed || _actions.Count == 0)
+                {
+                    _scheduled = false;
+                    return;
+                }
+
+                action = _actions.Dequeue();
+            }
+
+            action();
+        }
+    }
+
+    public void Dispose()
+    {
+        lock (_gate)
+        {
+            _disposed = true;
+            _actions.Clear();
+        }
+    }
+}
+
 internal sealed class ExceptionSubject : IObservable<Exception>, IDisposable
 {
     private readonly Lock _gate = new();

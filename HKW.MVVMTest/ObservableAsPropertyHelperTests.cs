@@ -126,6 +126,25 @@ public sealed class ObservableAsPropertyHelperTests
     }
 
     [TestMethod]
+    public async Task SchedulerOverload_ThreadPoolPreservesFinalValue()
+    {
+        var source = new ManualObservable<string>();
+        var owner = new PropertyOwner();
+        using var helper = source.ToProperty(owner, nameof(PropertyOwner.Result), ObservableSchedulers.ThreadPool);
+        var notification = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        owner.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(PropertyOwner.Result) && helper.Value == "99")
+                notification.TrySetResult(true);
+        };
+
+        for (var value = 0; value < 100; value++) source.Emit(value.ToString());
+
+        await notification.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.AreEqual("99", helper.Value);
+    }
+
+    [TestMethod]
     public void SchedulerOverload_RejectsUnknownScheduler()
     {
         var source = new ManualObservable<string>();

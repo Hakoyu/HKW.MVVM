@@ -14,12 +14,12 @@ internal static class Program
             Job.Default.WithWarmupCount(5).WithIterationCount(20)
         );
 
-        //BenchmarkRunner.Run<BindToBenchmarks>(config);
+        BenchmarkRunner.Run<BindToBenchmarks>(config);
         //BenchmarkRunner.Run<TwoWayBindBenchmarks>(config);
         //BenchmarkRunner.Run<WhenAnyValueBenchmarks>(config);
         //BenchmarkRunner.Run<NestedWhenAnyValueBenchmarks>(config);
         //BenchmarkRunner.Run<MultiPropertyWhenAnyValueBenchmarks>(config);
         //BenchmarkRunner.Run<ToPropertyBenchmarks>(config);
-        BenchmarkRunner.Run<ObservableOperatorBenchmarks>(config);
+        //BenchmarkRunner.Run<ObservableOperatorBenchmarks>(config);
     }
 }

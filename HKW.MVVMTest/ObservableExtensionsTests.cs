@@ -5,6 +5,11 @@ namespace HKW.MVVMTest;
 [TestClass]
 public sealed class ObservableExtensionsTests
 {
+    private sealed class ThrowingSubscribeObservable(Exception exception) : IObservable<int>
+    {
+        public IDisposable Subscribe(IObserver<int> observer) => throw exception;
+    }
+
     private sealed class ThrowingComparer : IEqualityComparer<int>
     {
         public bool Equals(int x, int y) => throw new InvalidOperationException("Comparer failed.");
@@ -238,10 +243,28 @@ public sealed class ObservableExtensionsTests
         source.Emit(1);
         source.Complete();
 
-        Assert.AreEqual(2, context.PendingCount);
+        Assert.AreEqual(1, context.PendingCount);
         Assert.IsEmpty(events);
         context.RunAll();
         CollectionAssert.AreEqual(new[] { "Next:1", "Completed" }, events);
+    }
+
+    [TestMethod]
+    public async Task ObserveOn_ThreadPoolPreservesValueAndTerminalOrder()
+    {
+        var source = new ManualObservable<int>();
+        var values = new List<int>();
+        var completed = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var subscription = source.ObserveOn(ObservableSchedulers.ThreadPool).Subscribe(
+            values.Add,
+            error => Assert.Fail(error.Message),
+            () => completed.TrySetResult(true));
+
+        for (var value = 0; value < 100; value++) source.Emit(value);
+        source.Complete();
+
+        await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        CollectionAssert.AreEqual(Enumerable.Range(0, 100).ToArray(), values);
     }
 
     [TestMethod]
@@ -337,6 +360,25 @@ public sealed class ObservableExtensionsTests
     }
 
     [TestMethod]
+    public async Task SubscribeOn_WhenSubscriptionThrows_ForwardsError()
+    {
+        var context = new QueuedSynchronizationContext();
+        var expected = new TestException("Subscription failed.");
+        Exception? received = null;
+        var source = new ThrowingSubscribeObservable(expected);
+
+        using var subscription = source.SubscribeOn(context).Subscribe(
+            _ => Assert.Fail(),
+            error => received = error
+        );
+
+        context.RunAll();
+        await Task.Yield();
+
+        Assert.AreSame(expected, received);
+    }
+
+    [TestMethod]
     public async Task Throttle_EmitsOnlyLatestValueAfterQuietPeriod()
     {
         var source = new ManualObservable<int>();
@@ -417,7 +459,7 @@ public sealed class ObservableExtensionsTests
             source.Complete();
 
             Assert.IsEmpty(events);
-            Assert.AreEqual(2, context.PendingCount);
+            Assert.AreEqual(1, context.PendingCount);
             context.RunAll();
             CollectionAssert.AreEqual(new[] { "Next:1", "Completed" }, events);
         }

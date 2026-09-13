@@ -13,20 +13,13 @@ public sealed class ObservableAsPropertyHelper<T>
         INotifyPropertyChanged,
         INotifyPropertyChanging
 {
-    private static readonly SendOrPostCallback SetValueCallback = static state =>
-    {
-        var dispatchState = (SetValueDispatchState)state!;
-        dispatchState.Helper.SetValueCore(dispatchState.Value);
-    };
-    private static readonly Action<SetValueDispatchState> SetValueThreadPoolCallback = static state =>
-        state.Helper.SetValueCore(state.Value);
-
     private readonly Lock _gate = new();
     private readonly IObservable<T> _source;
     private readonly ObservableObject _owner;
     private readonly string _propertyName;
     private readonly SynchronizationContext? _synchronizationContext;
     private readonly bool _scheduleOnThreadPool;
+    private readonly SerialActionQueue? _notificationQueue;
     private readonly ExceptionSubject _exceptions = new();
     private IDisposable? _subscription;
     private T _value;
@@ -47,6 +40,9 @@ public sealed class ObservableAsPropertyHelper<T>
         _propertyName = propertyName;
         _value = initialValue;
         _synchronizationContext = synchronizationContext;
+        _notificationQueue = synchronizationContext is null
+            ? null
+            : new SerialActionQueue(action => synchronizationContext.Post(static state => ((Action)state!).Invoke(), action));
 
         if (deferSubscription is false)
         {
@@ -78,6 +74,17 @@ public sealed class ObservableAsPropertyHelper<T>
                 "Unknown observable scheduler."
             ),
         };
+        _notificationQueue = new SerialActionQueue(action =>
+        {
+            if (_scheduleOnThreadPool)
+            {
+                ThreadPool.QueueUserWorkItem(static state => ((Action)state!).Invoke(), action, preferLocal: false);
+            }
+            else
+            {
+                _synchronizationContext!.Post(static state => ((Action)state!).Invoke(), action);
+            }
+        });
 
         if (deferSubscription is false)
         {
@@ -124,6 +131,7 @@ public sealed class ObservableAsPropertyHelper<T>
         }
 
         subscription?.Dispose();
+        _notificationQueue?.Dispose();
         _exceptions.Dispose();
     }
 
@@ -156,18 +164,13 @@ public sealed class ObservableAsPropertyHelper<T>
             return;
         }
 
-        var state = new SetValueDispatchState(this, value);
-        if (_synchronizationContext is not null)
-        {
-            _synchronizationContext.Post(SetValueCallback, state);
-            return;
-        }
-
-        ThreadPool.QueueUserWorkItem(SetValueThreadPoolCallback, state, preferLocal: false);
+        _notificationQueue!.Enqueue(() => SetValueCore(value));
     }
 
     private void SetValueCore(T value)
     {
+        PropertyChangingEventHandler? propertyChanging;
+        PropertyChangedEventHandler? propertyChanged;
         lock (_gate)
         {
             if (_disposed || EqualityComparer<T>.Default.Equals(_value, value))
@@ -175,25 +178,21 @@ public sealed class ObservableAsPropertyHelper<T>
                 return;
             }
 
-            var propertyChanging = PropertyChanging;
-            propertyChanging?.Invoke(this, new PropertyChangingEventArgs(nameof(Value)));
-            PropertyNotificationDispatcher.NotifyPropertyChanging(_owner, _propertyName);
-            _value = value;
-            var propertyChanged = PropertyChanged;
-            propertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Value)));
-            PropertyNotificationDispatcher.NotifyPropertyChanged(_owner, _propertyName);
+            propertyChanging = PropertyChanging;
+            propertyChanged = PropertyChanged;
         }
+
+        propertyChanging?.Invoke(this, new PropertyChangingEventArgs(nameof(Value)));
+        PropertyNotificationDispatcher.NotifyPropertyChanging(_owner, _propertyName);
+        lock (_gate)
+        {
+            if (_disposed) return;
+            _value = value;
+        }
+        propertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Value)));
+        PropertyNotificationDispatcher.NotifyPropertyChanged(_owner, _propertyName);
     }
 
-    private sealed class SetValueDispatchState(
-        ObservableAsPropertyHelper<T> helper,
-        T value
-    )
-    {
-        public ObservableAsPropertyHelper<T> Helper { get; } = helper;
-
-        public T Value { get; } = value;
-    }
 }
 
 /// <summary>Provides extensions for exposing observable values as read-only properties.</summary>
