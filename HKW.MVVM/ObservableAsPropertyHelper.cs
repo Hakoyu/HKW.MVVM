@@ -211,7 +211,7 @@ public sealed class ObservableAsPropertyHelper<T>
 public static class ObservableAsPropertyHelperExtensions
 {
     /// <summary>
-    /// 将可观察序列转换为针对由表达式选择的只读拥有者属性的、带调度的辅助对象.
+    /// 将可观察序列转换为针对由表达式选择的只读拥有者属性的,带调度的辅助对象.
     /// </summary>
     /// <typeparam name="TOwner">CommunityToolkit 可观察对象拥有者的类型.</typeparam>
     /// <typeparam name="TValue">属性的值类型.</typeparam>
@@ -288,7 +288,7 @@ public static class ObservableAsPropertyHelperExtensions
     }
 
     /// <summary>
-    /// 将可观察序列转换为针对按名称标识的只读拥有者属性的、带调度的辅助对象.
+    /// 将可观察序列转换为针对按名称标识的只读拥有者属性的,带调度的辅助对象.
     /// </summary>
     /// <typeparam name="TOwner">CommunityToolkit 可观察对象拥有者的类型.</typeparam>
     /// <typeparam name="TValue">属性的值类型.</typeparam>

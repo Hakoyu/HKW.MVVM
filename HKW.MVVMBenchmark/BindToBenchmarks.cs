@@ -96,7 +96,7 @@ public class BindToBenchmarks
 
     #region HKW
     /// <summary>
-/// 测量直接观察者的创建、订阅和释放.
+/// 测量直接观察者的创建,订阅和释放.
 /// </summary>
     [Benchmark(Baseline = true)]
     [BenchmarkCategory("CreateAndDispose")]
@@ -113,7 +113,7 @@ public class BindToBenchmarks
     public void DirectUpdate() => _directSource.Emit(++_value);
 
     /// <summary>
-/// 测量表达式解析、setter 编译、订阅和释放.
+/// 测量表达式解析,setter 编译,订阅和释放.
 /// </summary>
     [Benchmark]
     [BenchmarkCategory("CreateAndDispose")]

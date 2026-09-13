@@ -87,7 +87,7 @@ public class WhenAnyValueBenchmarks
     #endregion
     #region HKW
     /// <summary>
-/// 测量 WhenAnyValue 的订阅、初始值发布和释放.
+/// 测量 WhenAnyValue 的订阅,初始值发布和释放.
 /// </summary>
     [Benchmark]
     [BenchmarkCategory("CreateAndDispose")]
@@ -108,7 +108,7 @@ public class WhenAnyValueBenchmarks
 
     #region ReactiveUI
     /// <summary>
-/// 测量 ReactiveUI WhenAnyValue 的创建、初始发布和释放.
+/// 测量 ReactiveUI WhenAnyValue 的创建,初始发布和释放.
 /// </summary>
     [Benchmark]
     [BenchmarkCategory("CreateAndDispose")]

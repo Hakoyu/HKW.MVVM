@@ -5,7 +5,7 @@ using System.Reflection;
 namespace HKW.MVVM;
 
 /// <summary>
-/// 属性观察结果,包含对象、属性名称和当前值.
+/// 属性观察结果,包含对象,属性名称和当前值.
 /// </summary>
 public readonly record struct PropertyObservation<TSender, TValue>(
     TSender Sender,
@@ -241,7 +241,7 @@ public static class WhenAnyExtensions
     }
 
     /// <summary>
-    /// 观察一条属性路径,并投影出包含发送方、最终属性名称和值的观察结果.
+    /// 观察一条属性路径,并投影出包含发送方,最终属性名称和值的观察结果.
     /// </summary>
     /// <typeparam name="TSource">发出通知的源类型.</typeparam>
     /// <typeparam name="TValue">最终属性的值类型.</typeparam>

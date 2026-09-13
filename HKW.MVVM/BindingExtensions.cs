@@ -41,7 +41,7 @@ public static class BindingExtensions
     /// <typeparam name="TValue">源和目标的值的类型.</typeparam>
     /// <param name="source">提供值的可观察序列.</param>
     /// <param name="target">接收值的属性所属对象.</param>
-    /// <param name="targetProperty">以 <paramref name="target"/> 为根的、可写的属性路径.</param>
+    /// <param name="targetProperty">以 <paramref name="target"/> 为根的,可写的属性路径.</param>
     /// <returns>可停止绑定的可释放对象.</returns>
     /// <remarks>
     /// 每个源值都会同步赋值.源错误采用
@@ -56,14 +56,14 @@ public static class BindingExtensions
         where TTarget : class => BindTo(source, target, targetProperty, static value => value);
 
     /// <summary>
-/// 将可观察序列产生的、经过转换的值绑定到可写的目标属性.
+/// 将可观察序列产生的,经过转换的值绑定到可写的目标属性.
 /// </summary>
     /// <typeparam name="TSourceValue">源产生的值类型.</typeparam>
     /// <typeparam name="TTarget">目标对象的类型.</typeparam>
     /// <typeparam name="TTargetValue">目标属性的值类型.</typeparam>
     /// <param name="source">提供值的可观察序列.</param>
     /// <param name="target">接收值的属性所属对象.</param>
-    /// <param name="targetProperty">以 <paramref name="target"/> 为根的、可写的属性路径.</param>
+    /// <param name="targetProperty">以 <paramref name="target"/> 为根的,可写的属性路径.</param>
     /// <param name="converter">将源值转换为目标值的函数.</param>
     /// <returns>可停止绑定的可释放对象.</returns>
     /// <remarks><b>反射:否.</b>目标 setter 会针对每个属性路径编译一次并缓存.</remarks>
@@ -92,8 +92,8 @@ public static class BindingExtensions
     /// <typeparam name="TValue">所绑定属性的值类型.</typeparam>
     /// <param name="target">调用此扩展方法的目标对象.</param>
     /// <param name="source">提供初始值的源对象.</param>
-    /// <param name="sourceProperty">被观察的、可写的源属性路径.</param>
-    /// <param name="targetProperty">被观察的、可写的目标属性路径.</param>
+    /// <param name="sourceProperty">被观察的,可写的源属性路径.</param>
+    /// <param name="targetProperty">被观察的,可写的目标属性路径.</param>
     /// <returns>可停止双向更新的可释放对象.</returns>
     public static IDisposable TwoWayBind<TSource, TTarget, TValue>(
         this TTarget target,
@@ -121,8 +121,8 @@ public static class BindingExtensions
     /// <typeparam name="TTargetValue">目标属性的值类型.</typeparam>
     /// <param name="target">调用此扩展方法的目标对象.</param>
     /// <param name="source">提供初始值的源对象.</param>
-    /// <param name="sourceProperty">被观察的、可写的源属性路径.</param>
-    /// <param name="targetProperty">被观察的、可写的目标属性路径.</param>
+    /// <param name="sourceProperty">被观察的,可写的源属性路径.</param>
+    /// <param name="targetProperty">被观察的,可写的目标属性路径.</param>
     /// <param name="sourceToTarget">在将源值赋给目标之前对其进行转换.</param>
     /// <param name="targetToSource">在将目标值赋给源之前对其进行转换.</param>
     /// <returns>可停止双向更新的可释放对象.</returns>
@@ -171,7 +171,7 @@ public static class BindingExtensions
     /// <param name="assignSource">将目标值赋给源.</param>
     /// <returns>可停止双向更新的可释放对象.</returns>
     /// <remarks>
-    /// 源值用于初始化目标.赋值操作会被直接调用,不经过解析、编译
+    /// 源值用于初始化目标.赋值操作会被直接调用,不经过解析,编译
     /// 或反射调用.属性观察遵循
     /// <see cref="WhenAnyExtensions.WhenAnyValue{TSource,TValue}"/>.
     /// </remarks>

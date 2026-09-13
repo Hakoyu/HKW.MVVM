@@ -237,7 +237,7 @@ public static class NativeObservableSubscriptionExtensions
     }
 
     /// <summary>
-    /// 订阅可观察序列,并提供针对值、错误和完成的回调.
+    /// 订阅可观察序列,并提供针对值,错误和完成的回调.
     /// </summary>
     /// <typeparam name="T">序列产生的值类型.</typeparam>
     /// <param name="source">要订阅的可观察序列.</param>

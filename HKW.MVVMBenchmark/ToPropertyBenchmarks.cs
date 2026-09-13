@@ -10,7 +10,7 @@ using ReactiveObservableAsPropertyHelper = ReactiveUI.ObservableAsPropertyHelper
 namespace HKW.MVVMBenchmark;
 
 /// <summary>
-/// 比较 ToProperty 与等效的手写、由可观察序列支持的属性.
+/// 比较 ToProperty 与等效的手写,由可观察序列支持的属性.
 /// </summary>
 [MemoryDiagnoser]
 [GroupBenchmarksBy(BenchmarkLogicalGroupRule.ByCategory)]
@@ -94,7 +94,7 @@ public class ToPropertyBenchmarks
     }
 
     /// <summary>
-/// 测量通过手写的、由 IPropertyNotifier 支持的属性发生的一次值变更.
+/// 测量通过手写的,由 IPropertyNotifier 支持的属性发生的一次值变更.
 /// </summary>
     [Benchmark(Baseline = true)]
     [BenchmarkCategory("FastOwnerUpdate")]

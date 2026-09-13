@@ -72,7 +72,7 @@ public class ObservableOperatorBenchmarks
 
     #region Core
     /// <summary>
-/// 测量直接观察者的创建、订阅和释放.
+/// 测量直接观察者的创建,订阅和释放.
 /// </summary>
     [Benchmark(Baseline = true)]
     [BenchmarkCategory("CreateAndDispose")]
@@ -100,7 +100,7 @@ public class ObservableOperatorBenchmarks
 
     #region HKW
     /// <summary>
-/// 测量操作符管道的创建、订阅和释放.
+/// 测量操作符管道的创建,订阅和释放.
 /// </summary>
     [Benchmark]
     [BenchmarkCategory("CreateAndDispose")]
@@ -128,7 +128,7 @@ public class ObservableOperatorBenchmarks
 
     #region ReactiveUI
     /// <summary>
-/// 测量 ReactiveUI 操作符管道的创建、订阅和释放.
+/// 测量 ReactiveUI 操作符管道的创建,订阅和释放.
 /// </summary>
     [Benchmark]
     [BenchmarkCategory("CreateAndDispose")]

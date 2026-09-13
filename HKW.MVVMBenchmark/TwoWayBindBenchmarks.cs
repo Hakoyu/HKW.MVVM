@@ -80,7 +80,7 @@ public class TwoWayBindBenchmarks
 
     #region Core
     /// <summary>
-/// 测量直接事件处理程序绑定的创建、初始同步和释放.
+/// 测量直接事件处理程序绑定的创建,初始同步和释放.
 /// </summary>
     [Benchmark(Baseline = true)]
     [BenchmarkCategory("CreateAndDispose")]
@@ -105,7 +105,7 @@ public class TwoWayBindBenchmarks
     #endregion
     #region HKW
     /// <summary>
-/// 测量绑定创建、两次 setter 编译、订阅和释放.
+/// 测量绑定创建,两次 setter 编译,订阅和释放.
 /// </summary>
     [Benchmark]
     [BenchmarkCategory("CreateAndDispose")]
@@ -119,7 +119,7 @@ public class TwoWayBindBenchmarks
     }
 
     /// <summary>
-/// 测量赋值操作绑定的创建、订阅和释放.
+/// 测量赋值操作绑定的创建,订阅和释放.
 /// </summary>
     [Benchmark]
     [BenchmarkCategory("CreateAndDispose")]

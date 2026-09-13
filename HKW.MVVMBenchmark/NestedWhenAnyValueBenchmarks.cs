@@ -74,7 +74,7 @@ public class NestedWhenAnyValueBenchmarks
 
     #region Core
     /// <summary>
-/// 测量直接嵌套订阅的创建、初始发布和释放.
+/// 测量直接嵌套订阅的创建,初始发布和释放.
 /// </summary>
     [Benchmark(Baseline = true)]
     [BenchmarkCategory("CreateAndDispose")]
@@ -109,7 +109,7 @@ public class NestedWhenAnyValueBenchmarks
 
     #region HKW
     /// <summary>
-/// 测量嵌套路径解析、反射订阅、初始发布和释放.
+/// 测量嵌套路径解析,反射订阅,初始发布和释放.
 /// </summary>
     [Benchmark]
     [BenchmarkCategory("CreateAndDispose")]

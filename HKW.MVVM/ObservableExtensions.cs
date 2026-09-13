@@ -99,7 +99,7 @@ public static class ObservableExtensions
     /// <param name="message">用于在日志条目中标识该序列的标签.</param>
     /// <returns>记录并转发每个源通知的冷可观察序列.</returns>
     /// <remarks>
-    /// 提供的级别用于值、错误和成功完成.错误会保留原始异常.
+    /// 提供的级别用于值,错误和成功完成.错误会保留原始异常.
     /// 仅在订阅之后才开始记录日志.
     /// <b>反射:否.</b>日志记录与观察者通知方法均被直接调用.
     /// </remarks>
@@ -369,7 +369,7 @@ public static class ObservableExtensions
     }
 
     /// <summary>
-/// 通过同步上下文派发源的值、错误和完成通知.
+/// 通过同步上下文派发源的值,错误和完成通知.
 /// </summary>
     /// <typeparam name="TSource">源值类型.</typeparam>
     /// <param name="source">要派发其通知的可观察序列.</param>
