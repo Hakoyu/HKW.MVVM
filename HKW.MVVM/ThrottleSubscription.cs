@@ -1,7 +1,9 @@
 namespace HKW.MVVM;
 
-/// <summary>Manages the timer and source subscription used by the throttle operator.</summary>
-/// <typeparam name="TSource">The source value type.</typeparam>
+/// <summary>
+/// 管理限流操作符所使用的计时器和源订阅.
+/// </summary>
+/// <typeparam name="TSource">源值类型.</typeparam>
 internal sealed class ThrottleSubscription<TSource> : IDisposable
 {
     private readonly IObserver<TSource> _observer;

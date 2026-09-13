@@ -6,7 +6,9 @@ using HKW.MVVM;
 
 namespace HKW.MVVMBenchmark;
 
-/// <summary>Measures how WhenAnyValue creation and updates scale from one to four properties.</summary>
+/// <summary>
+/// 测量 WhenAnyValue 的创建与更新如何从单属性扩展到四属性.
+/// </summary>
 [MemoryDiagnoser]
 [GroupBenchmarksBy(BenchmarkLogicalGroupRule.ByCategory)]
 [CategoriesColumn]
@@ -44,7 +46,9 @@ public class MultiPropertyWhenAnyValueBenchmarks
     private int _reactiveUIResult;
     private int _value;
 
-    /// <summary>Creates long-lived subscriptions used by update benchmarks.</summary>
+    /// <summary>
+/// 创建更新基准测试所使用的长期订阅.
+/// </summary>
     [GlobalSetup]
     public void SetupUpdateSubscriptions()
     {
@@ -108,7 +112,9 @@ public class MultiPropertyWhenAnyValueBenchmarks
             .Subscribe(value => _reactiveUIResult = value);
     }
 
-    /// <summary>Disposes subscriptions used by update benchmarks.</summary>
+    /// <summary>
+/// 释放更新基准测试所使用的订阅.
+/// </summary>
     [GlobalCleanup]
     public void CleanupUpdateSubscriptions()
     {
@@ -124,7 +130,9 @@ public class MultiPropertyWhenAnyValueBenchmarks
     }
 
     #region Core
-    /// <summary>Measures a direct one-property subscription.</summary>
+    /// <summary>
+/// 测量直接的单属性订阅.
+/// </summary>
     [Benchmark(Baseline = true)]
     [BenchmarkCategory("OnePropertyCreateAndDispose")]
     public void DirectOnePropertyCreateAndDispose()
@@ -136,7 +144,9 @@ public class MultiPropertyWhenAnyValueBenchmarks
         );
     }
 
-    /// <summary>Measures a direct two-property combined subscription.</summary>
+    /// <summary>
+/// 测量直接的双属性组合订阅.
+/// </summary>
     [Benchmark(Baseline = true)]
     [BenchmarkCategory("TwoPropertiesCreateAndDispose")]
     public void DirectTwoPropertiesCreateAndDispose()
@@ -148,7 +158,9 @@ public class MultiPropertyWhenAnyValueBenchmarks
         );
     }
 
-    /// <summary>Measures a direct four-property combined subscription.</summary>
+    /// <summary>
+/// 测量直接的四属性组合订阅.
+/// </summary>
     [Benchmark(Baseline = true)]
     [BenchmarkCategory("FourPropertiesCreateAndDispose")]
     public void DirectFourPropertiesCreateAndDispose()
@@ -160,24 +172,32 @@ public class MultiPropertyWhenAnyValueBenchmarks
         );
     }
 
-    /// <summary>Measures a direct one-property update.</summary>
+    /// <summary>
+/// 测量直接的单属性更新.
+/// </summary>
     [Benchmark(Baseline = true)]
     [BenchmarkCategory("OnePropertyUpdate")]
     public void DirectOnePropertyUpdate() => _directOneUpdateSource.Value1 = ++_value;
 
-    /// <summary>Measures an update observed by a direct two-property subscription.</summary>
+    /// <summary>
+/// 测量由直接双属性订阅观察到的更新.
+/// </summary>
     [Benchmark(Baseline = true)]
     [BenchmarkCategory("TwoPropertiesUpdate")]
     public void DirectTwoPropertiesUpdate() => _directTwoUpdateSource.Value1 = ++_value;
 
-    /// <summary>Measures an update observed by a direct four-property subscription.</summary>
+    /// <summary>
+/// 测量由直接四属性订阅观察到的更新.
+/// </summary>
     [Benchmark(Baseline = true)]
     [BenchmarkCategory("FourPropertiesUpdate")]
     public void DirectFourPropertiesUpdate() => _directFourUpdateSource.Value1 = ++_value;
     #endregion
 
     #region HKW
-    /// <summary>Measures one-property WhenAnyValue creation and disposal.</summary>
+    /// <summary>
+/// 测量单属性 WhenAnyValue 的创建和释放.
+/// </summary>
     [Benchmark]
     [BenchmarkCategory("OnePropertyCreateAndDispose")]
     public void WhenAnyValueOnePropertyCreateAndDispose()
@@ -187,7 +207,9 @@ public class MultiPropertyWhenAnyValueBenchmarks
             .Subscribe(value => _whenAnyResult = value);
     }
 
-    /// <summary>Measures two-property WhenAnyValue creation and disposal.</summary>
+    /// <summary>
+/// 测量双属性 WhenAnyValue 的创建和释放.
+/// </summary>
     [Benchmark]
     [BenchmarkCategory("TwoPropertiesCreateAndDispose")]
     public void WhenAnyValueTwoPropertiesCreateAndDispose()
@@ -201,7 +223,9 @@ public class MultiPropertyWhenAnyValueBenchmarks
             .Subscribe(value => _whenAnyResult = value);
     }
 
-    /// <summary>Measures four-property WhenAnyValue creation and disposal.</summary>
+    /// <summary>
+/// 测量四属性 WhenAnyValue 的创建和释放.
+/// </summary>
     [Benchmark]
     [BenchmarkCategory("FourPropertiesCreateAndDispose")]
     public void WhenAnyValueFourPropertiesCreateAndDispose()
@@ -217,24 +241,32 @@ public class MultiPropertyWhenAnyValueBenchmarks
             .Subscribe(value => _whenAnyResult = value);
     }
 
-    /// <summary>Measures a one-property WhenAnyValue update.</summary>
+    /// <summary>
+/// 测量单属性 WhenAnyValue 的更新.
+/// </summary>
     [Benchmark]
     [BenchmarkCategory("OnePropertyUpdate")]
     public void WhenAnyValueOnePropertyUpdate() => _whenAnyOneUpdateSource.Value1 = ++_value;
 
-    /// <summary>Measures an update observed by two-property WhenAnyValue.</summary>
+    /// <summary>
+/// 测量由双属性 WhenAnyValue 观察到的更新.
+/// </summary>
     [Benchmark]
     [BenchmarkCategory("TwoPropertiesUpdate")]
     public void WhenAnyValueTwoPropertiesUpdate() => _whenAnyTwoUpdateSource.Value1 = ++_value;
 
-    /// <summary>Measures an update observed by four-property WhenAnyValue.</summary>
+    /// <summary>
+/// 测量由四属性 WhenAnyValue 观察到的更新.
+/// </summary>
     [Benchmark]
     [BenchmarkCategory("FourPropertiesUpdate")]
     public void WhenAnyValueFourPropertiesUpdate() => _whenAnyFourUpdateSource.Value1 = ++_value;
     #endregion
     #region ReactiveUI
 
-    /// <summary>Measures ReactiveUI one-property WhenAnyValue creation and disposal.</summary>
+    /// <summary>
+/// 测量 ReactiveUI 单属性 WhenAnyValue 的创建和释放.
+/// </summary>
     [Benchmark]
     [BenchmarkCategory("OnePropertyCreateAndDispose")]
     public void ReactiveUIOnePropertyCreateAndDispose()
@@ -244,7 +276,9 @@ public class MultiPropertyWhenAnyValueBenchmarks
             .Subscribe(value => _reactiveUIResult = value);
     }
 
-    /// <summary>Measures ReactiveUI two-property WhenAnyValue creation and disposal.</summary>
+    /// <summary>
+/// 测量 ReactiveUI 双属性 WhenAnyValue 的创建和释放.
+/// </summary>
     [Benchmark]
     [BenchmarkCategory("TwoPropertiesCreateAndDispose")]
     public void ReactiveUITwoPropertiesCreateAndDispose()
@@ -259,7 +293,9 @@ public class MultiPropertyWhenAnyValueBenchmarks
             .Subscribe(value => _reactiveUIResult = value);
     }
 
-    /// <summary>Measures ReactiveUI four-property WhenAnyValue creation and disposal.</summary>
+    /// <summary>
+/// 测量 ReactiveUI 四属性 WhenAnyValue 的创建和释放.
+/// </summary>
     [Benchmark]
     [BenchmarkCategory("FourPropertiesCreateAndDispose")]
     public void ReactiveUIFourPropertiesCreateAndDispose()
@@ -276,17 +312,23 @@ public class MultiPropertyWhenAnyValueBenchmarks
             .Subscribe(value => _reactiveUIResult = value);
     }
 
-    /// <summary>Measures a ReactiveUI one-property WhenAnyValue update.</summary>
+    /// <summary>
+/// 测量 ReactiveUI 单属性 WhenAnyValue 的更新.
+/// </summary>
     [Benchmark]
     [BenchmarkCategory("OnePropertyUpdate")]
     public void ReactiveUIOnePropertyUpdate() => _reactiveUIOneUpdateSource.Value1 = ++_value;
 
-    /// <summary>Measures an update observed by ReactiveUI two-property WhenAnyValue.</summary>
+    /// <summary>
+/// 测量由 ReactiveUI 双属性 WhenAnyValue 观察到的更新.
+/// </summary>
     [Benchmark]
     [BenchmarkCategory("TwoPropertiesUpdate")]
     public void ReactiveUITwoPropertiesUpdate() => _reactiveUITwoUpdateSource.Value1 = ++_value;
 
-    /// <summary>Measures an update observed by ReactiveUI four-property WhenAnyValue.</summary>
+    /// <summary>
+/// 测量由 ReactiveUI 四属性 WhenAnyValue 观察到的更新.
+/// </summary>
     [Benchmark]
     [BenchmarkCategory("FourPropertiesUpdate")]
     public void ReactiveUIFourPropertiesUpdate() => _reactiveUIFourUpdateSource.Value1 = ++_value;

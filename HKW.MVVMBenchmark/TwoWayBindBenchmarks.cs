@@ -6,7 +6,9 @@ using HKW.MVVM;
 
 namespace HKW.MVVMBenchmark;
 
-/// <summary>Compares TwoWayBind overloads with equivalent direct PropertyChanged handlers.</summary>
+/// <summary>
+/// 比较 TwoWayBind 各重载与等效的直接 PropertyChanged 处理程序.
+/// </summary>
 [MemoryDiagnoser]
 [GroupBenchmarksBy(BenchmarkLogicalGroupRule.ByCategory)]
 [CategoriesColumn]
@@ -34,7 +36,9 @@ public class TwoWayBindBenchmarks
     private IDisposable? _reactiveUIBinding;
     private int _value;
 
-    /// <summary>Creates the long-lived bindings used by the update benchmarks.</summary>
+    /// <summary>
+/// 创建更新基准测试所使用的长期绑定.
+/// </summary>
     [GlobalSetup]
     public void SetupUpdateBindings()
     {
@@ -62,7 +66,9 @@ public class TwoWayBindBenchmarks
         );
     }
 
-    /// <summary>Disposes the long-lived bindings used by the update benchmarks.</summary>
+    /// <summary>
+/// 释放更新基准测试所使用的长期绑定.
+/// </summary>
     [GlobalCleanup]
     public void CleanupUpdateBindings()
     {
@@ -73,7 +79,9 @@ public class TwoWayBindBenchmarks
     }
 
     #region Core
-    /// <summary>Measures direct event-handler binding creation, initial synchronization, and disposal.</summary>
+    /// <summary>
+/// 测量直接事件处理程序绑定的创建、初始同步和释放.
+/// </summary>
     [Benchmark(Baseline = true)]
     [BenchmarkCategory("CreateAndDispose")]
     public void DirectCreateAndDispose()
@@ -81,18 +89,24 @@ public class TwoWayBindBenchmarks
         using var binding = new DirectTwoWayBinding(_directCreateSource, _directCreateTarget);
     }
 
-    /// <summary>Measures one source-to-target update through direct event handlers.</summary>
+    /// <summary>
+/// 测量通过直接事件处理程序进行的一次源到目标更新.
+/// </summary>
     [Benchmark(Baseline = true)]
     [BenchmarkCategory("SourceToTargetUpdate")]
     public void DirectSourceToTargetUpdate() => _directUpdateSource.Value = ++_value;
 
-    /// <summary>Measures one target-to-source update through direct event handlers.</summary>
+    /// <summary>
+/// 测量通过直接事件处理程序进行的一次目标到源更新.
+/// </summary>
     [Benchmark(Baseline = true)]
     [BenchmarkCategory("TargetToSourceUpdate")]
     public void DirectTargetToSourceUpdate() => _directUpdateTarget.Value = ++_value;
     #endregion
     #region HKW
-    /// <summary>Measures binding creation, two setter compilations, subscriptions, and disposal.</summary>
+    /// <summary>
+/// 测量绑定创建、两次 setter 编译、订阅和释放.
+/// </summary>
     [Benchmark]
     [BenchmarkCategory("CreateAndDispose")]
     public void ExpressionCreateAndDispose()
@@ -104,7 +118,9 @@ public class TwoWayBindBenchmarks
         );
     }
 
-    /// <summary>Measures assignment-action binding creation, subscriptions, and disposal.</summary>
+    /// <summary>
+/// 测量赋值操作绑定的创建、订阅和释放.
+/// </summary>
     [Benchmark]
     [BenchmarkCategory("CreateAndDispose")]
     public void AssignmentCreateAndDispose()
@@ -118,29 +134,39 @@ public class TwoWayBindBenchmarks
         );
     }
 
-    /// <summary>Measures one source-to-target update through an existing expression binding.</summary>
+    /// <summary>
+/// 测量通过现有表达式绑定进行的一次源到目标更新.
+/// </summary>
     [Benchmark]
     [BenchmarkCategory("SourceToTargetUpdate")]
     public void ExpressionSourceToTargetUpdate() => _expressionUpdateSource.Value = ++_value;
 
-    /// <summary>Measures one source-to-target update through an existing assignment binding.</summary>
+    /// <summary>
+/// 测量通过现有赋值绑定进行的一次源到目标更新.
+/// </summary>
     [Benchmark]
     [BenchmarkCategory("SourceToTargetUpdate")]
     public void AssignmentSourceToTargetUpdate() => _assignmentUpdateSource.Value = ++_value;
 
-    /// <summary>Measures one target-to-source update through an existing expression binding.</summary>
+    /// <summary>
+/// 测量通过现有表达式绑定进行的一次目标到源更新.
+/// </summary>
     [Benchmark]
     [BenchmarkCategory("TargetToSourceUpdate")]
     public void ExpressionTargetToSourceUpdate() => _expressionUpdateTarget.Value = ++_value;
 
-    /// <summary>Measures one target-to-source update through an existing assignment binding.</summary>
+    /// <summary>
+/// 测量通过现有赋值绑定进行的一次目标到源更新.
+/// </summary>
     [Benchmark]
     [BenchmarkCategory("TargetToSourceUpdate")]
     public void AssignmentTargetToSourceUpdate() => _assignmentUpdateTarget.Value = ++_value;
     #endregion
 
     #region ReactiveUI
-    /// <summary>Measures ReactiveUI two-way binding creation and disposal.</summary>
+    /// <summary>
+/// 测量 ReactiveUI 双向绑定的创建和释放.
+/// </summary>
     [Benchmark]
     [BenchmarkCategory("CreateAndDispose")]
     public void ReactiveUICreateAndDispose()
@@ -153,12 +179,16 @@ public class TwoWayBindBenchmarks
         );
     }
 
-    /// <summary>Measures one source-to-target update through an existing ReactiveUI binding.</summary>
+    /// <summary>
+/// 测量通过现有 ReactiveUI 绑定进行的一次源到目标更新.
+/// </summary>
     [Benchmark]
     [BenchmarkCategory("SourceToTargetUpdate")]
     public void ReactiveUISourceToTargetUpdate() => _reactiveUIUpdateSource.Value = ++_value;
 
-    /// <summary>Measures one target-to-source update through an existing ReactiveUI binding.</summary>
+    /// <summary>
+/// 测量通过现有 ReactiveUI 绑定进行的一次目标到源更新.
+/// </summary>
     [Benchmark]
     [BenchmarkCategory("TargetToSourceUpdate")]
     public void ReactiveUITargetToSourceUpdate() => _reactiveUIUpdateTarget.Value = ++_value;

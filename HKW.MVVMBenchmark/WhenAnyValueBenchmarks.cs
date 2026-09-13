@@ -6,7 +6,9 @@ using HKW.MVVM;
 
 namespace HKW.MVVMBenchmark;
 
-/// <summary>Compares WhenAnyValue with equivalent direct PropertyChanged subscriptions.</summary>
+/// <summary>
+/// 比较 WhenAnyValue 与等效的直接 PropertyChanged 订阅.
+/// </summary>
 [MemoryDiagnoser]
 [GroupBenchmarksBy(BenchmarkLogicalGroupRule.ByCategory)]
 [CategoriesColumn]
@@ -26,7 +28,9 @@ public class WhenAnyValueBenchmarks
     private int _reactiveUIValue;
     private int _value;
 
-    /// <summary>Creates the long-lived subscriptions used by update benchmarks.</summary>
+    /// <summary>
+/// 创建更新基准测试所使用的长期订阅.
+/// </summary>
     [GlobalSetup]
     public void SetupUpdateSubscriptions()
     {
@@ -47,7 +51,9 @@ public class WhenAnyValueBenchmarks
             .Subscribe(value => _reactiveUIValue = value);
     }
 
-    /// <summary>Disposes the long-lived subscriptions used by update benchmarks.</summary>
+    /// <summary>
+/// 释放更新基准测试所使用的长期订阅.
+/// </summary>
     [GlobalCleanup]
     public void CleanupUpdateSubscriptions()
     {
@@ -57,7 +63,9 @@ public class WhenAnyValueBenchmarks
     }
 
     #region Core
-    /// <summary>Measures an equivalent direct PropertyChanged subscription.</summary>
+    /// <summary>
+/// 测量等效的直接 PropertyChanged 订阅.
+/// </summary>
     [Benchmark(Baseline = true)]
     [BenchmarkCategory("CreateAndDispose")]
     public void DirectCreateAndDispose()
@@ -70,13 +78,17 @@ public class WhenAnyValueBenchmarks
         );
     }
 
-    /// <summary>Measures direct PropertyChanged delivery.</summary>
+    /// <summary>
+/// 测量直接 PropertyChanged 的传递.
+/// </summary>
     [Benchmark(Baseline = true)]
     [BenchmarkCategory("Update")]
     public void DirectUpdate() => _directUpdateSource.Value = ++_value;
     #endregion
     #region HKW
-    /// <summary>Measures WhenAnyValue subscription, initial value publication, and disposal.</summary>
+    /// <summary>
+/// 测量 WhenAnyValue 的订阅、初始值发布和释放.
+/// </summary>
     [Benchmark]
     [BenchmarkCategory("CreateAndDispose")]
     public void WhenAnyValueCreateAndDispose()
@@ -86,14 +98,18 @@ public class WhenAnyValueBenchmarks
             .Subscribe(value => _whenAnyValue = value);
     }
 
-    /// <summary>Measures WhenAnyValue delivery for a direct property.</summary>
+    /// <summary>
+/// 测量 WhenAnyValue 对直接属性的传递.
+/// </summary>
     [Benchmark]
     [BenchmarkCategory("Update")]
     public void WhenAnyValueUpdate() => _whenAnyUpdateSource.Value = ++_value;
     #endregion
 
     #region ReactiveUI
-    /// <summary>Measures ReactiveUI WhenAnyValue creation, initial publication, and disposal.</summary>
+    /// <summary>
+/// 测量 ReactiveUI WhenAnyValue 的创建、初始发布和释放.
+/// </summary>
     [Benchmark]
     [BenchmarkCategory("CreateAndDispose")]
     public void ReactiveUIWhenAnyValueCreateAndDispose()
@@ -103,7 +119,9 @@ public class WhenAnyValueBenchmarks
             .Subscribe(value => _reactiveUIValue = value);
     }
 
-    /// <summary>Measures ReactiveUI WhenAnyValue delivery for a direct property.</summary>
+    /// <summary>
+/// 测量 ReactiveUI WhenAnyValue 对直接属性的传递.
+/// </summary>
     [Benchmark]
     [BenchmarkCategory("Update")]
     public void ReactiveUIWhenAnyValueUpdate() => _reactiveUIUpdateSource.Value = ++_value;

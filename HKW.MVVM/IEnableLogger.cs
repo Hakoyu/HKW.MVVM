@@ -6,11 +6,13 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace HKW.MVVM;
 
-/// <summary>Marks a type as supporting the <see cref="LoggerMixins.Log(IEnableLogger)"/> logging mixin.</summary>
+/// <summary>
+/// 将类型标记为支持 <see cref="LoggerMixins.Log(IEnableLogger)"/> 日志混入.
+/// </summary>
 /// <remarks>
-/// This marker interface defines no members. Implement it and call <c>this.Log()</c> to obtain an
-/// <see cref="ILogger"/> whose category is the runtime type's fully qualified name. Loggers are cached by runtime
-/// type and reused until the logger factory changes.
+/// 该标记接口不定义任何成员.实现它并调用 <c>this.Log()</c> 即可获得一个
+/// <see cref="ILogger"/>,其类别为运行时类型的完全限定名称.日志记录器按运行时类型
+/// 缓存,并在日志记录器工厂发生变化前重复使用.
 /// </remarks>
 [ComVisible(false)]
 [SuppressMessage(
@@ -21,20 +23,22 @@ namespace HKW.MVVM;
 public interface IEnableLogger;
 
 /// <summary>
-/// Marks a type as providing its own <see cref="ILogger"/> instance.
+/// 将类型标记为可提供自身的 <see cref="ILogger"/> 实例.
 /// </summary>
 /// <remarks>
-/// Calling <c>this.Log()</c> on an implementation returns <see cref="Logger"/> instead of resolving a logger from
-/// the default <see cref="ILoggerFactory"/>.
+/// 在实现类上调用 <c>this.Log()</c> 会返回 <see cref="Logger"/>,而不会从
+/// 默认的 <see cref="ILoggerFactory"/> 解析日志记录器.
 /// </remarks>
 public interface IEnableLoggerWithLogger : IEnableLogger
 {
-    /// <summary>Gets the logger owned by this instance.</summary>
+    /// <summary>
+/// 获取由此实例拥有的日志记录器.
+/// </summary>
     ILogger Logger { get; }
 }
 
 /// <summary>
-/// Provides access to the logger factory used by <see cref="LoggerMixins.Log(IEnableLogger)"/>.
+/// 提供对 <see cref="LoggerMixins.Log(IEnableLogger)"/> 所使用的日志记录器工厂的访问.
 /// </summary>
 public static class LogHost
 {
@@ -43,21 +47,21 @@ public static class LogHost
     private static ILoggerFactory? _loggerFactoryOverride;
 
     /// <summary>
-    /// Gets the default <see cref="ILogger"/> associated with <see cref="LogHost"/>.
+    /// 获取与 <see cref="LogHost"/> 关联的默认 <see cref="ILogger"/>.
     /// </summary>
     /// <remarks>
-    /// The logger is created by <see cref="LoggerFactory"/> and uses the fully qualified name of
-    /// <see cref="LogHost"/> as its category.
+    /// 该日志记录器由 <see cref="LoggerFactory"/> 创建,并使用
+    /// <see cref="LogHost"/> 的完全限定名称作为其类别.
     /// </remarks>
     public static ILogger Default => GetLogger(typeof(LogHost));
 
     /// <summary>
-    /// Gets or sets an explicit process-wide logger factory.
+    /// 获取或设置显式的进程级日志记录器工厂.
     /// </summary>
     /// <remarks>
-    /// When no explicit factory is configured, the getter resolves <see cref="ILoggerFactory"/> from
-    /// <see cref="Ioc.Default"/>. If the IoC container has not been configured or has no logger factory,
-    /// <see cref="NullLoggerFactory.Instance"/> is returned.
+    /// 未配置显式工厂时,getter 会从 <see cref="Ioc.Default"/> 解析 <see cref="ILoggerFactory"/>.
+    /// 如果 IoC 容器尚未配置或其中没有日志记录器工厂,
+    /// 则返回 <see cref="NullLoggerFactory.Instance"/>.
     /// </remarks>
     public static ILoggerFactory LoggerFactory
     {
@@ -71,8 +75,8 @@ public static class LogHost
     }
 
     /// <summary>
-    /// Removes the explicit logger factory override so subsequent logger requests use the factory registered in
-    /// <see cref="Ioc.Default"/>.
+    /// 移除显式的日志记录器工厂替代设置,使后续的日志记录器请求使用
+    /// <see cref="Ioc.Default"/> 中注册的工厂.
     /// </summary>
     public static void UseDefaultLoggerFactory()
     {
@@ -103,7 +107,7 @@ public static class LogHost
         }
         catch (InvalidOperationException)
         {
-            // CommunityToolkit's Ioc throws until ConfigureServices has been called.
+            // 在调用 ConfigureServices 之前,CommunityToolkit 的 Ioc 会抛出异常.
             return NullLoggerFactory.Instance;
         }
     }
@@ -131,17 +135,17 @@ public static class LogHost
 }
 
 /// <summary>
-/// Logging extensions for <see cref="IEnableLogger"/> implementations.
+/// 面向 <see cref="IEnableLogger"/> 实现的日志扩展.
 /// </summary>
 public static class LoggerMixins
 {
     /// <summary>
-    /// Gets a logger categorized by the instance's runtime type.
+    /// 获取以实例运行时类型为类别的日志记录器.
     /// </summary>
-    /// <param name="instance">The logger-enabled instance.</param>
-    /// <returns>A cached logger created by <see cref="LogHost.LoggerFactory"/>.</returns>
+    /// <param name="instance">启用了日志记录器的实例.</param>
+    /// <returns>由 <see cref="LogHost.LoggerFactory"/> 创建的缓存日志记录器.</returns>
     /// <remarks>
-    /// The runtime type is used only as the logger category and is not inspected through reflection.
+    /// 运行时类型仅用作日志记录器类别,不会通过反射进行检查.
     /// </remarks>
     public static ILogger Log(this IEnableLogger instance)
     {
@@ -155,9 +159,11 @@ public static class LoggerMixins
         return LogHost.GetLogger(instance.GetType());
     }
 
-    /// <summary>Uses the specified logger on behalf of a logger-enabled instance.</summary>
-    /// <param name="instance">The logger-enabled instance.</param>
-    /// <param name="logger">The logger to use.</param>
+    /// <summary>
+/// 代表启用了日志记录器的实例,使用指定的日志记录器.
+/// </summary>
+    /// <param name="instance">启用了日志记录器的实例.</param>
+    /// <param name="logger">要使用的日志记录器.</param>
     /// <returns><paramref name="logger"/>.</returns>
     public static ILogger Log(this IEnableLogger instance, ILogger logger)
     {

@@ -5,7 +5,7 @@ using System.Reflection;
 namespace HKW.MVVM;
 
 /// <summary>
-/// A property observation containing the object, property name, and current value.
+/// 属性观察结果,包含对象、属性名称和当前值.
 /// </summary>
 public readonly record struct PropertyObservation<TSender, TValue>(
     TSender Sender,
@@ -14,22 +14,22 @@ public readonly record struct PropertyObservation<TSender, TValue>(
 );
 
 /// <summary>
-/// Converts <see cref="INotifyPropertyChanged"/> properties into cold observable streams.
+/// 将 <see cref="INotifyPropertyChanged"/> 属性转换为冷可观察序列.
 /// </summary>
 public static class WhenAnyExtensions
 {
     /// <summary>
-    /// Observes one property path and emits its current value on subscription followed by distinct changes.
-    /// Nested paths are rebound when an intermediate object changes; an unavailable path is suppressed until it recovers.
+    /// 观察一条属性路径,在订阅时发出其当前值,随后发出去重后的变更值.
+    /// 当中间对象发生变更时会重新绑定嵌套路径;路径不可用期间将被抑制,直到其恢复.
     /// </summary>
-    /// <typeparam name="TSource">The notifying source type.</typeparam>
-    /// <typeparam name="TValue">The final property value type.</typeparam>
-    /// <param name="source">The source object whose property is observed.</param>
-    /// <param name="property">A property path rooted at <paramref name="source"/>, such as <c>x =&gt; x.Address.City</c>.</param>
-    /// <returns>A cold observable sequence of final property values.</returns>
+    /// <typeparam name="TSource">发出通知的源类型.</typeparam>
+    /// <typeparam name="TValue">最终属性的值类型.</typeparam>
+    /// <param name="source">要观察其属性的源对象.</param>
+    /// <param name="property">以 <paramref name="source"/> 为根的属性路径,例如 <c>x =&gt; x.Address.City</c>.</param>
+    /// <returns>由最终属性值构成的冷可观察序列.</returns>
     /// <remarks>
-    /// <b>REFLECTION: CONDITIONAL.</b> A direct property is read through a compiled getter.
-    /// Nested paths fall back to reflection-based path observation and rebinding.
+    /// <b>反射:有条件.</b>直接属性通过已编译的 getter 读取.
+    /// 嵌套路径则回退到基于反射的路径观察与重新绑定.
     /// </remarks>
     public static IObservable<TValue> WhenAnyValue<TSource, TValue>(
         this TSource source,
@@ -40,9 +40,9 @@ public static class WhenAnyExtensions
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(property);
 
-        // A direct property only needs INotifyPropertyChanged. Keep nested paths on the
-        // rebinding implementation, but avoid reflection and handler reconstruction for
-        // the overwhelmingly common single-property case.
+        // 直接属性只需 INotifyPropertyChanged.让嵌套路径继续走
+        // 重新绑定实现,但对占绝大多数的单属性情形避免反射
+        // 以及事件处理程序的重建.
         if (PropertyPath.TryGetDirectProperty(property, out var directProperty))
         {
             return new DirectPropertyObservable<TSource, TValue>(
@@ -56,19 +56,19 @@ public static class WhenAnyExtensions
     }
 
     /// <summary>
-    /// Observes two properties and emits their latest values as a tuple whenever either final value changes.
+    /// 观察两个属性,并在任一最终值变更时以元组形式发出二者的最新值.
     /// </summary>
-    /// <typeparam name="TSource">The notifying source type.</typeparam>
-    /// <typeparam name="T1">The first property value type.</typeparam>
-    /// <typeparam name="T2">The second property value type.</typeparam>
-    /// <param name="source">The source object whose properties are observed.</param>
-    /// <param name="property1">The first property path.</param>
-    /// <param name="property2">The second property path.</param>
-    /// <returns>A cold observable sequence of tuples containing the latest property values.</returns>
+    /// <typeparam name="TSource">发出通知的源类型.</typeparam>
+    /// <typeparam name="T1">第一个属性的值类型.</typeparam>
+    /// <typeparam name="T2">第二个属性的值类型.</typeparam>
+    /// <param name="source">要观察其属性的源对象.</param>
+    /// <param name="property1">第一条属性路径.</param>
+    /// <param name="property2">第二条属性路径.</param>
+    /// <returns>由包含最新属性值的元组构成的冷可观察序列.</returns>
     /// <remarks>
-    /// <b>REFLECTION: CONDITIONAL.</b> Each property delegates to the single-property
-    /// <see cref="WhenAnyValue{TSource,TValue}(TSource, Expression{Func{TSource,TValue}})"/> implementation,
-    /// which uses a compiled getter for direct properties and falls back to reflection for nested paths.
+    /// <b>反射:有条件.</b>每个属性都委托给单属性的
+    /// <see cref="WhenAnyValue{TSource,TValue}(TSource, Expression{Func{TSource,TValue}})"/> 实现,
+    /// 该实现对直接属性使用已编译的 getter,对嵌套路径回退到反射.
     /// </remarks>
     public static IObservable<(T1, T2)> WhenAnyValue<TSource, T1, T2>(
         this TSource source,
@@ -83,17 +83,17 @@ public static class WhenAnyExtensions
         );
 
     /// <summary>
-    /// Observes two properties and projects their latest values whenever either final value changes.
+    /// 观察两个属性,并在任一最终值变更时对二者的最新值进行投影.
     /// </summary>
-    /// <typeparam name="TSource">The notifying source type.</typeparam>
-    /// <typeparam name="T1">The first property value type.</typeparam>
-    /// <typeparam name="T2">The second property value type.</typeparam>
-    /// <typeparam name="TResult">The projected result type.</typeparam>
-    /// <param name="source">The source object whose properties are observed.</param>
-    /// <param name="property1">The first property path.</param>
-    /// <param name="property2">The second property path.</param>
-    /// <param name="selector">The function that combines the latest property values.</param>
-    /// <returns>A cold observable sequence of projected results.</returns>
+    /// <typeparam name="TSource">发出通知的源类型.</typeparam>
+    /// <typeparam name="T1">第一个属性的值类型.</typeparam>
+    /// <typeparam name="T2">第二个属性的值类型.</typeparam>
+    /// <typeparam name="TResult">投影结果的类型.</typeparam>
+    /// <param name="source">要观察其属性的源对象.</param>
+    /// <param name="property1">第一条属性路径.</param>
+    /// <param name="property2">第二条属性路径.</param>
+    /// <param name="selector">用于组合各项最新属性值的函数.</param>
+    /// <returns>由投影结果构成的冷可观察序列.</returns>
     public static IObservable<TResult> WhenAnyValue<TSource, T1, T2, TResult>(
         this TSource source,
         Expression<Func<TSource, T1>> property1,
@@ -107,21 +107,21 @@ public static class WhenAnyExtensions
     }
 
     /// <summary>
-    /// Observes three properties and emits their latest values as a tuple whenever any final value changes.
+    /// 观察三个属性,并在任一最终值变更时以元组形式发出它们的最新值.
     /// </summary>
-    /// <typeparam name="TSource">The notifying source type.</typeparam>
-    /// <typeparam name="T1">The first property value type.</typeparam>
-    /// <typeparam name="T2">The second property value type.</typeparam>
-    /// <typeparam name="T3">The third property value type.</typeparam>
-    /// <param name="source">The source object whose properties are observed.</param>
-    /// <param name="property1">The first property path.</param>
-    /// <param name="property2">The second property path.</param>
-    /// <param name="property3">The third property path.</param>
-    /// <returns>A cold observable sequence of tuples containing the latest property values.</returns>
+    /// <typeparam name="TSource">发出通知的源类型.</typeparam>
+    /// <typeparam name="T1">第一个属性的值类型.</typeparam>
+    /// <typeparam name="T2">第二个属性的值类型.</typeparam>
+    /// <typeparam name="T3">第三个属性的值类型.</typeparam>
+    /// <param name="source">要观察其属性的源对象.</param>
+    /// <param name="property1">第一条属性路径.</param>
+    /// <param name="property2">第二条属性路径.</param>
+    /// <param name="property3">第三条属性路径.</param>
+    /// <returns>由包含最新属性值的元组构成的冷可观察序列.</returns>
     /// <remarks>
-    /// <b>REFLECTION: CONDITIONAL.</b> All properties delegate to the single-property
-    /// <see cref="WhenAnyValue{TSource,TValue}(TSource, Expression{Func{TSource,TValue}})"/> implementation,
-    /// which uses a compiled getter for direct properties and falls back to reflection for nested paths.
+    /// <b>反射:有条件.</b>所有属性都委托给单属性的
+    /// <see cref="WhenAnyValue{TSource,TValue}(TSource, Expression{Func{TSource,TValue}})"/> 实现,
+    /// 该实现对直接属性使用已编译的 getter,对嵌套路径回退到反射.
     /// </remarks>
     public static IObservable<(T1, T2, T3)> WhenAnyValue<TSource, T1, T2, T3>(
         this TSource source,
@@ -138,19 +138,19 @@ public static class WhenAnyExtensions
         );
 
     /// <summary>
-    /// Observes three properties and projects their latest values whenever any final value changes.
+    /// 观察三个属性,并在任一最终值变更时对它们的最新值进行投影.
     /// </summary>
-    /// <typeparam name="TSource">The notifying source type.</typeparam>
-    /// <typeparam name="T1">The first property value type.</typeparam>
-    /// <typeparam name="T2">The second property value type.</typeparam>
-    /// <typeparam name="T3">The third property value type.</typeparam>
-    /// <typeparam name="TResult">The projected result type.</typeparam>
-    /// <param name="source">The source object whose properties are observed.</param>
-    /// <param name="property1">The first property path.</param>
-    /// <param name="property2">The second property path.</param>
-    /// <param name="property3">The third property path.</param>
-    /// <param name="selector">The function that combines the latest property values.</param>
-    /// <returns>A cold observable sequence of projected results.</returns>
+    /// <typeparam name="TSource">发出通知的源类型.</typeparam>
+    /// <typeparam name="T1">第一个属性的值类型.</typeparam>
+    /// <typeparam name="T2">第二个属性的值类型.</typeparam>
+    /// <typeparam name="T3">第三个属性的值类型.</typeparam>
+    /// <typeparam name="TResult">投影结果的类型.</typeparam>
+    /// <param name="source">要观察其属性的源对象.</param>
+    /// <param name="property1">第一条属性路径.</param>
+    /// <param name="property2">第二条属性路径.</param>
+    /// <param name="property3">第三条属性路径.</param>
+    /// <param name="selector">用于组合各项最新属性值的函数.</param>
+    /// <returns>由投影结果构成的冷可观察序列.</returns>
     public static IObservable<TResult> WhenAnyValue<TSource, T1, T2, T3, TResult>(
         this TSource source,
         Expression<Func<TSource, T1>> property1,
@@ -170,23 +170,23 @@ public static class WhenAnyExtensions
     }
 
     /// <summary>
-    /// Observes four properties and emits their latest values as a tuple whenever any final value changes.
+    /// 观察四个属性,并在任一最终值变更时以元组形式发出它们的最新值.
     /// </summary>
-    /// <typeparam name="TSource">The notifying source type.</typeparam>
-    /// <typeparam name="T1">The first property value type.</typeparam>
-    /// <typeparam name="T2">The second property value type.</typeparam>
-    /// <typeparam name="T3">The third property value type.</typeparam>
-    /// <typeparam name="T4">The fourth property value type.</typeparam>
-    /// <param name="source">The source object whose properties are observed.</param>
-    /// <param name="property1">The first property path.</param>
-    /// <param name="property2">The second property path.</param>
-    /// <param name="property3">The third property path.</param>
-    /// <param name="property4">The fourth property path.</param>
-    /// <returns>A cold observable sequence of tuples containing the latest property values.</returns>
+    /// <typeparam name="TSource">发出通知的源类型.</typeparam>
+    /// <typeparam name="T1">第一个属性的值类型.</typeparam>
+    /// <typeparam name="T2">第二个属性的值类型.</typeparam>
+    /// <typeparam name="T3">第三个属性的值类型.</typeparam>
+    /// <typeparam name="T4">第四个属性的值类型.</typeparam>
+    /// <param name="source">要观察其属性的源对象.</param>
+    /// <param name="property1">第一条属性路径.</param>
+    /// <param name="property2">第二条属性路径.</param>
+    /// <param name="property3">第三条属性路径.</param>
+    /// <param name="property4">第四条属性路径.</param>
+    /// <returns>由包含最新属性值的元组构成的冷可观察序列.</returns>
     /// <remarks>
-    /// <b>REFLECTION: CONDITIONAL.</b> All properties delegate to the single-property
-    /// <see cref="WhenAnyValue{TSource,TValue}(TSource, Expression{Func{TSource,TValue}})"/> implementation,
-    /// which uses a compiled getter for direct properties and falls back to reflection for nested paths.
+    /// <b>反射:有条件.</b>所有属性都委托给单属性的
+    /// <see cref="WhenAnyValue{TSource,TValue}(TSource, Expression{Func{TSource,TValue}})"/> 实现,
+    /// 该实现对直接属性使用已编译的 getter,对嵌套路径回退到反射.
     /// </remarks>
     public static IObservable<(T1, T2, T3, T4)> WhenAnyValue<TSource, T1, T2, T3, T4>(
         this TSource source,
@@ -205,21 +205,21 @@ public static class WhenAnyExtensions
         );
 
     /// <summary>
-    /// Observes four properties and projects their latest values whenever any final value changes.
+    /// 观察四个属性,并在任一最终值变更时对它们的最新值进行投影.
     /// </summary>
-    /// <typeparam name="TSource">The notifying source type.</typeparam>
-    /// <typeparam name="T1">The first property value type.</typeparam>
-    /// <typeparam name="T2">The second property value type.</typeparam>
-    /// <typeparam name="T3">The third property value type.</typeparam>
-    /// <typeparam name="T4">The fourth property value type.</typeparam>
-    /// <typeparam name="TResult">The projected result type.</typeparam>
-    /// <param name="source">The source object whose properties are observed.</param>
-    /// <param name="property1">The first property path.</param>
-    /// <param name="property2">The second property path.</param>
-    /// <param name="property3">The third property path.</param>
-    /// <param name="property4">The fourth property path.</param>
-    /// <param name="selector">The function that combines the latest property values.</param>
-    /// <returns>A cold observable sequence of projected results.</returns>
+    /// <typeparam name="TSource">发出通知的源类型.</typeparam>
+    /// <typeparam name="T1">第一个属性的值类型.</typeparam>
+    /// <typeparam name="T2">第二个属性的值类型.</typeparam>
+    /// <typeparam name="T3">第三个属性的值类型.</typeparam>
+    /// <typeparam name="T4">第四个属性的值类型.</typeparam>
+    /// <typeparam name="TResult">投影结果的类型.</typeparam>
+    /// <param name="source">要观察其属性的源对象.</param>
+    /// <param name="property1">第一条属性路径.</param>
+    /// <param name="property2">第二条属性路径.</param>
+    /// <param name="property3">第三条属性路径.</param>
+    /// <param name="property4">第四条属性路径.</param>
+    /// <param name="selector">用于组合各项最新属性值的函数.</param>
+    /// <returns>由投影结果构成的冷可观察序列.</returns>
     public static IObservable<TResult> WhenAnyValue<TSource, T1, T2, T3, T4, TResult>(
         this TSource source,
         Expression<Func<TSource, T1>> property1,
@@ -241,19 +241,19 @@ public static class WhenAnyExtensions
     }
 
     /// <summary>
-    /// Observes a property path and projects an observation containing the sender, final property name, and value.
+    /// 观察一条属性路径,并投影出包含发送方、最终属性名称和值的观察结果.
     /// </summary>
-    /// <typeparam name="TSource">The notifying source type.</typeparam>
-    /// <typeparam name="TValue">The final property value type.</typeparam>
-    /// <typeparam name="TResult">The projected result type.</typeparam>
-    /// <param name="source">The source object whose property is observed.</param>
-    /// <param name="property">The property path to observe.</param>
-    /// <param name="selector">The function that projects each property observation.</param>
-    /// <returns>A cold observable sequence of projected observations.</returns>
+    /// <typeparam name="TSource">发出通知的源类型.</typeparam>
+    /// <typeparam name="TValue">最终属性的值类型.</typeparam>
+    /// <typeparam name="TResult">投影结果的类型.</typeparam>
+    /// <param name="source">要观察其属性的源对象.</param>
+    /// <param name="property">要观察的属性路径.</param>
+    /// <param name="selector">用于投影每个属性观察结果的函数.</param>
+    /// <returns>由投影后的观察结果构成的冷可观察序列.</returns>
     /// <remarks>
-    /// <b>REFLECTION: CONDITIONAL.</b> This method delegates value observation to
-    /// <see cref="WhenAnyValue{TSource,TValue}(TSource, Expression{Func{TSource,TValue}})"/>, which prefers
-    /// a compiled getter for direct properties and falls back to reflection for nested paths.
+    /// <b>反射:有条件.</b>该方法将值观察委托给
+    /// <see cref="WhenAnyValue{TSource,TValue}(TSource, Expression{Func{TSource,TValue}})"/>,后者对直接属性
+    /// 优先使用已编译的 getter,对嵌套路径回退到反射.
     /// </remarks>
     public static IObservable<TResult> WhenAny<TSource, TValue, TResult>(
         this TSource source,

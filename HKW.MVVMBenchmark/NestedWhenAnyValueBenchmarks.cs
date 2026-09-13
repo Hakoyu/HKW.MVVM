@@ -6,7 +6,9 @@ using HKW.MVVM;
 
 namespace HKW.MVVMBenchmark;
 
-/// <summary>Compares nested WhenAnyValue paths with equivalent direct event subscriptions.</summary>
+/// <summary>
+/// 比较嵌套 WhenAnyValue 路径与等效的直接事件订阅.
+/// </summary>
 [MemoryDiagnoser]
 [GroupBenchmarksBy(BenchmarkLogicalGroupRule.ByCategory)]
 [CategoriesColumn]
@@ -35,7 +37,9 @@ public class NestedWhenAnyValueBenchmarks
     private int _reactiveUIResult;
     private int _value;
 
-    /// <summary>Creates subscriptions used by leaf-update and rebind benchmarks.</summary>
+    /// <summary>
+/// 创建叶级更新与重新绑定基准测试所使用的订阅.
+/// </summary>
     [GlobalSetup]
     public void SetupUpdateSubscriptions()
     {
@@ -57,7 +61,9 @@ public class NestedWhenAnyValueBenchmarks
             .Subscribe(value => _reactiveUIResult = value);
     }
 
-    /// <summary>Disposes subscriptions used by update benchmarks.</summary>
+    /// <summary>
+/// 释放更新基准测试所使用的订阅.
+/// </summary>
     [GlobalCleanup]
     public void CleanupUpdateSubscriptions()
     {
@@ -67,7 +73,9 @@ public class NestedWhenAnyValueBenchmarks
     }
 
     #region Core
-    /// <summary>Measures direct nested subscription creation, initial publication, and disposal.</summary>
+    /// <summary>
+/// 测量直接嵌套订阅的创建、初始发布和释放.
+/// </summary>
     [Benchmark(Baseline = true)]
     [BenchmarkCategory("CreateAndDispose")]
     public void DirectCreateAndDispose()
@@ -78,12 +86,16 @@ public class NestedWhenAnyValueBenchmarks
         );
     }
 
-    /// <summary>Measures a leaf update through direct nested subscriptions.</summary>
+    /// <summary>
+/// 测量通过直接嵌套订阅进行的叶级更新.
+/// </summary>
     [Benchmark(Baseline = true)]
     [BenchmarkCategory("LeafUpdate")]
     public void DirectLeafUpdate() => _directUpdateRoot.Child.Value = ++_value;
 
-    /// <summary>Measures direct detachment and reattachment after replacing an intermediate object.</summary>
+    /// <summary>
+/// 测量替换中间对象后的直接解绑与重新绑定.
+/// </summary>
     [Benchmark(Baseline = true)]
     [BenchmarkCategory("IntermediateRebind")]
     public void DirectIntermediateRebind()
@@ -96,7 +108,9 @@ public class NestedWhenAnyValueBenchmarks
     #endregion
 
     #region HKW
-    /// <summary>Measures nested path parsing, reflection subscriptions, initial publication, and disposal.</summary>
+    /// <summary>
+/// 测量嵌套路径解析、反射订阅、初始发布和释放.
+/// </summary>
     [Benchmark]
     [BenchmarkCategory("CreateAndDispose")]
     public void WhenAnyValueCreateAndDispose()
@@ -106,12 +120,16 @@ public class NestedWhenAnyValueBenchmarks
             .Subscribe(value => _whenAnyResult = value);
     }
 
-    /// <summary>Measures a leaf update through nested WhenAnyValue.</summary>
+    /// <summary>
+/// 测量通过嵌套 WhenAnyValue 进行的叶级更新.
+/// </summary>
     [Benchmark]
     [BenchmarkCategory("LeafUpdate")]
     public void WhenAnyValueLeafUpdate() => _whenAnyUpdateRoot.Child.Value = ++_value;
 
-    /// <summary>Measures WhenAnyValue detachment and reattachment after replacing an intermediate object.</summary>
+    /// <summary>
+/// 测量替换中间对象后 WhenAnyValue 的解绑与重新绑定.
+/// </summary>
     [Benchmark]
     [BenchmarkCategory("IntermediateRebind")]
     public void WhenAnyValueIntermediateRebind()
@@ -124,7 +142,9 @@ public class NestedWhenAnyValueBenchmarks
     #endregion
 
     #region ReactiveUI
-    /// <summary>Measures ReactiveUI nested WhenAnyValue creation and disposal.</summary>
+    /// <summary>
+/// 测量 ReactiveUI 嵌套 WhenAnyValue 的创建和释放.
+/// </summary>
     [Benchmark]
     [BenchmarkCategory("CreateAndDispose")]
     public void ReactiveUIWhenAnyValueCreateAndDispose()
@@ -134,12 +154,16 @@ public class NestedWhenAnyValueBenchmarks
             .Subscribe(value => _reactiveUIResult = value);
     }
 
-    /// <summary>Measures a leaf update through ReactiveUI nested WhenAnyValue.</summary>
+    /// <summary>
+/// 测量通过 ReactiveUI 嵌套 WhenAnyValue 进行的叶级更新.
+/// </summary>
     [Benchmark]
     [BenchmarkCategory("LeafUpdate")]
     public void ReactiveUIWhenAnyValueLeafUpdate() => _reactiveUIUpdateRoot.Child.Value = ++_value;
 
-    /// <summary>Measures ReactiveUI re-subscription after replacing an intermediate object.</summary>
+    /// <summary>
+/// 测量替换中间对象后的 ReactiveUI 重新订阅.
+/// </summary>
     [Benchmark]
     [BenchmarkCategory("IntermediateRebind")]
     public void ReactiveUIWhenAnyValueIntermediateRebind()

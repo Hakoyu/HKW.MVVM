@@ -5,19 +5,23 @@ using CommunityToolkit.Mvvm.ComponentModel;
 namespace HKW.MVVM;
 
 /// <summary>
-/// Exposes property-change notification methods in addition to the standard notification events.
+/// 除标准通知事件之外,还公开属性更改通知方法.
 /// </summary>
 public interface IPropertyChangeNotifier : INotifyPropertyChanging, INotifyPropertyChanged
 {
-    /// <summary>Raises <see cref="INotifyPropertyChanging.PropertyChanging"/>.</summary>
+    /// <summary>
+/// 引发 <see cref="INotifyPropertyChanging.PropertyChanging"/>.
+/// </summary>
     void NotifyPropertyChanging([CallerMemberName] string? propertyName = null);
 
-    /// <summary>Raises <see cref="INotifyPropertyChanged.PropertyChanged"/>.</summary>
+    /// <summary>
+/// 引发 <see cref="INotifyPropertyChanged.PropertyChanged"/>.
+/// </summary>
     void NotifyPropertyChanged([CallerMemberName] string? propertyName = null);
 }
 
 /// <summary>
-/// An enhanced <see cref="ObservableObject"/> whose notification methods are publicly accessible.
+/// 增强的 <see cref="ObservableObject"/>,其通知方法可公开访问.
 /// </summary>
 public class ObservableObjectEx : ObservableObject, IPropertyChangeNotifier
 {

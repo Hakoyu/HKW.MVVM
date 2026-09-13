@@ -6,7 +6,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 namespace HKW.MVVM;
 
 /// <summary>
-/// Stores the latest value from an observable and raises notifications for a read-only owner property.
+/// 存储可观察序列的最新值,并为只读的拥有者属性引发通知.
 /// </summary>
 public sealed class ObservableAsPropertyHelper<T>
     : IDisposable,
@@ -92,13 +92,19 @@ public sealed class ObservableAsPropertyHelper<T>
         }
     }
 
-    /// <summary>Raised before <see cref="Value"/> changes.</summary>
+    /// <summary>
+/// 在 <see cref="Value"/> 变更之前引发.
+/// </summary>
     public event PropertyChangingEventHandler? PropertyChanging;
 
-    /// <summary>Raised after <see cref="Value"/> changes.</summary>
+    /// <summary>
+/// 在 <see cref="Value"/> 变更之后引发.
+/// </summary>
     public event PropertyChangedEventHandler? PropertyChanged;
 
-    /// <summary>Gets the latest value received from the source observable.</summary>
+    /// <summary>
+/// 获取从源可观察序列接收的最新值.
+/// </summary>
     public T Value
     {
         get
@@ -111,10 +117,14 @@ public sealed class ObservableAsPropertyHelper<T>
         }
     }
 
-    /// <summary>Receives terminal errors produced by the source.</summary>
+    /// <summary>
+/// 接收源产生的终止性错误.
+/// </summary>
     public IObservable<Exception> ThrownExceptions => _exceptions;
 
-    /// <summary>Stops observing the source and releases all owned resources.</summary>
+    /// <summary>
+/// 停止观察源并释放所有已占用的资源.
+/// </summary>
     public void Dispose()
     {
         IDisposable? subscription;
@@ -195,25 +205,27 @@ public sealed class ObservableAsPropertyHelper<T>
 
 }
 
-/// <summary>Provides extensions for exposing observable values as read-only properties.</summary>
+/// <summary>
+/// 提供用于将可观察值公开为只读属性的扩展.
+/// </summary>
 public static class ObservableAsPropertyHelperExtensions
 {
     /// <summary>
-    /// Converts an observable sequence into a scheduled helper for a read-only owner property selected by an expression.
+    /// 将可观察序列转换为针对由表达式选择的只读拥有者属性的、带调度的辅助对象.
     /// </summary>
-    /// <typeparam name="TOwner">The CommunityToolkit observable owner type.</typeparam>
-    /// <typeparam name="TValue">The property value type.</typeparam>
-    /// <param name="source">The sequence that supplies property values.</param>
-    /// <param name="owner">The object that owns the read-only property.</param>
-    /// <param name="property">An expression selecting a direct property on <paramref name="owner"/>.</param>
-    /// <param name="scheduler">The scheduler used to dispatch value changes and notifications.</param>
-    /// <param name="initialValue">The value exposed before the source produces its first distinct value.</param>
-    /// <param name="deferSubscription">Whether source subscription should be delayed until the helper value is first read.</param>
-    /// <returns>An observable property helper that stores the latest value and notifies the owner.</returns>
+    /// <typeparam name="TOwner">CommunityToolkit 可观察对象拥有者的类型.</typeparam>
+    /// <typeparam name="TValue">属性的值类型.</typeparam>
+    /// <param name="source">提供属性值的序列.</param>
+    /// <param name="owner">拥有该只读属性的对象.</param>
+    /// <param name="property">选择 <paramref name="owner"/> 上直接属性的表达式.</param>
+    /// <param name="scheduler">用于派发值变更和通知的调度器.</param>
+    /// <param name="initialValue">在源产生首个去重值之前所公开的值.</param>
+    /// <param name="deferSubscription">是否将源订阅推迟到首次读取该辅助对象的值时.</param>
+    /// <returns>存储最新值并通知拥有者的可观察属性辅助对象.</returns>
     /// <remarks>
-    /// <see cref="ObservableSchedulers.Current"/> captures <see cref="SynchronizationContext.Current"/> when the
-    /// helper is created and falls back to the thread pool when no context exists.
-    /// <see cref="ObservableSchedulers.ThreadPool"/> always queues changes to the thread pool.
+    /// <see cref="ObservableSchedulers.Current"/> 会在创建辅助对象时捕获
+    /// <see cref="SynchronizationContext.Current"/>,不存在上下文时回退到线程池.
+    /// <see cref="ObservableSchedulers.ThreadPool"/> 则始终将变更排队到线程池.
     /// </remarks>
     public static ObservableAsPropertyHelper<TValue> ToProperty<TOwner, TValue>(
         this IObservable<TValue> source,
@@ -237,21 +249,21 @@ public static class ObservableAsPropertyHelperExtensions
     }
 
     /// <summary>
-    /// Converts an observable sequence into a helper for a read-only owner property selected by an expression.
+    /// 将可观察序列转换为针对由表达式选择的只读拥有者属性的辅助对象.
     /// </summary>
-    /// <typeparam name="TOwner">The CommunityToolkit observable owner type.</typeparam>
-    /// <typeparam name="TValue">The property value type.</typeparam>
-    /// <param name="source">The sequence that supplies property values.</param>
-    /// <param name="owner">The object that owns the read-only property.</param>
-    /// <param name="property">An expression selecting a direct property on <paramref name="owner"/>.</param>
-    /// <param name="initialValue">The value exposed before the source produces its first distinct value.</param>
-    /// <param name="deferSubscription">Whether source subscription should be delayed until the helper value is first read.</param>
-    /// <param name="synchronizationContext">An optional context used to dispatch value changes and notifications.</param>
-    /// <returns>An observable property helper that stores the latest value and notifies the owner.</returns>
+    /// <typeparam name="TOwner">CommunityToolkit 可观察对象拥有者的类型.</typeparam>
+    /// <typeparam name="TValue">属性的值类型.</typeparam>
+    /// <param name="source">提供属性值的序列.</param>
+    /// <param name="owner">拥有该只读属性的对象.</param>
+    /// <param name="property">选择 <paramref name="owner"/> 上直接属性的表达式.</param>
+    /// <param name="initialValue">在源产生首个去重值之前所公开的值.</param>
+    /// <param name="deferSubscription">是否将源订阅推迟到首次读取该辅助对象的值时.</param>
+    /// <param name="synchronizationContext">用于派发值变更和通知的可选上下文.</param>
+    /// <returns>存储最新值并通知拥有者的可观察属性辅助对象.</returns>
     /// <remarks>
-    /// <b>REFLECTION: CONDITIONAL.</b> The property name is extracted from the expression. Owner notification
-    /// prefers <see cref="IPropertyChangeNotifier"/> and otherwise invokes CommunityToolkit's protected methods
-    /// through cached delegates created from <see cref="MethodInfo"/> instances.
+    /// <b>反射:有条件.</b>属性名称从表达式中提取.拥有者通知
+    /// 优先使用 <see cref="IPropertyChangeNotifier"/>,否则通过由 <see cref="MethodInfo"/> 实例
+    /// 创建的缓存委托来调用 CommunityToolkit 的受保护方法.
     /// </remarks>
     public static ObservableAsPropertyHelper<TValue> ToProperty<TOwner, TValue>(
         this IObservable<TValue> source,
@@ -276,21 +288,21 @@ public static class ObservableAsPropertyHelperExtensions
     }
 
     /// <summary>
-    /// Converts an observable sequence into a scheduled helper for a read-only owner property identified by name.
+    /// 将可观察序列转换为针对按名称标识的只读拥有者属性的、带调度的辅助对象.
     /// </summary>
-    /// <typeparam name="TOwner">The CommunityToolkit observable owner type.</typeparam>
-    /// <typeparam name="TValue">The property value type.</typeparam>
-    /// <param name="source">The sequence that supplies property values.</param>
-    /// <param name="owner">The object that owns the read-only property.</param>
-    /// <param name="propertyName">The owner property name used in change notifications.</param>
-    /// <param name="scheduler">The scheduler used to dispatch value changes and notifications.</param>
-    /// <param name="initialValue">The value exposed before the source produces its first distinct value.</param>
-    /// <param name="deferSubscription">Whether source subscription should be delayed until the helper value is first read.</param>
-    /// <returns>An observable property helper that stores the latest value and notifies the owner.</returns>
+    /// <typeparam name="TOwner">CommunityToolkit 可观察对象拥有者的类型.</typeparam>
+    /// <typeparam name="TValue">属性的值类型.</typeparam>
+    /// <param name="source">提供属性值的序列.</param>
+    /// <param name="owner">拥有该只读属性的对象.</param>
+    /// <param name="propertyName">变更通知中使用的拥有者属性名称.</param>
+    /// <param name="scheduler">用于派发值变更和通知的调度器.</param>
+    /// <param name="initialValue">在源产生首个去重值之前所公开的值.</param>
+    /// <param name="deferSubscription">是否将源订阅推迟到首次读取该辅助对象的值时.</param>
+    /// <returns>存储最新值并通知拥有者的可观察属性辅助对象.</returns>
     /// <remarks>
-    /// <see cref="ObservableSchedulers.Current"/> captures <see cref="SynchronizationContext.Current"/> when the
-    /// helper is created and falls back to the thread pool when no context exists.
-    /// <see cref="ObservableSchedulers.ThreadPool"/> always queues changes to the thread pool.
+    /// <see cref="ObservableSchedulers.Current"/> 会在创建辅助对象时捕获
+    /// <see cref="SynchronizationContext.Current"/>,不存在上下文时回退到线程池.
+    /// <see cref="ObservableSchedulers.ThreadPool"/> 则始终将变更排队到线程池.
     /// </remarks>
     public static ObservableAsPropertyHelper<TValue> ToProperty<TOwner, TValue>(
         this IObservable<TValue> source,
@@ -316,20 +328,20 @@ public static class ObservableAsPropertyHelperExtensions
     }
 
     /// <summary>
-    /// Converts an observable sequence into a helper for a read-only owner property identified by name.
+    /// 将可观察序列转换为针对按名称标识的只读拥有者属性的辅助对象.
     /// </summary>
-    /// <typeparam name="TOwner">The CommunityToolkit observable owner type.</typeparam>
-    /// <typeparam name="TValue">The property value type.</typeparam>
-    /// <param name="source">The sequence that supplies property values.</param>
-    /// <param name="owner">The object that owns the read-only property.</param>
-    /// <param name="propertyName">The owner property name used in change notifications.</param>
-    /// <param name="initialValue">The value exposed before the source produces its first distinct value.</param>
-    /// <param name="deferSubscription">Whether source subscription should be delayed until the helper value is first read.</param>
-    /// <param name="synchronizationContext">An optional context used to dispatch value changes and notifications.</param>
-    /// <returns>An observable property helper that stores the latest value and notifies the owner.</returns>
+    /// <typeparam name="TOwner">CommunityToolkit 可观察对象拥有者的类型.</typeparam>
+    /// <typeparam name="TValue">属性的值类型.</typeparam>
+    /// <param name="source">提供属性值的序列.</param>
+    /// <param name="owner">拥有该只读属性的对象.</param>
+    /// <param name="propertyName">变更通知中使用的拥有者属性名称.</param>
+    /// <param name="initialValue">在源产生首个去重值之前所公开的值.</param>
+    /// <param name="deferSubscription">是否将源订阅推迟到首次读取该辅助对象的值时.</param>
+    /// <param name="synchronizationContext">用于派发值变更和通知的可选上下文.</param>
+    /// <returns>存储最新值并通知拥有者的可观察属性辅助对象.</returns>
     /// <remarks>
-    /// <b>REFLECTION: CONDITIONAL.</b> Owner notification prefers <see cref="IPropertyChangeNotifier"/> and otherwise
-    /// invokes CommunityToolkit's protected methods through cached delegates created once with reflection.
+    /// <b>反射:有条件.</b>拥有者通知优先使用 <see cref="IPropertyChangeNotifier"/>,
+    /// 否则通过仅使用一次反射创建的缓存委托来调用 CommunityToolkit 的受保护方法.
     /// </remarks>
     public static ObservableAsPropertyHelper<TValue> ToProperty<TOwner, TValue>(
         this IObservable<TValue> source,

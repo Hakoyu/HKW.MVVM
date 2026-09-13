@@ -2,34 +2,40 @@ using Microsoft.Extensions.Logging;
 
 namespace HKW.MVVM;
 
-/// <summary>Specifies where an observable operation should be scheduled.</summary>
+/// <summary>
+/// 指定可观察操作应在何处调度.
+/// </summary>
 public enum ObservableSchedulers
 {
-    /// <summary>Uses the <see cref="SynchronizationContext.Current"/> captured by the operator.</summary>
+    /// <summary>
+/// 使用操作符捕获的 <see cref="SynchronizationContext.Current"/>.
+/// </summary>
     Current,
 
-    /// <summary>Uses the .NET thread pool.</summary>
+    /// <summary>
+/// 使用 .NET 线程池.
+/// </summary>
     ThreadPool,
 }
 
 /// <summary>
-/// Common observable operators implemented without taking a dependency on System.Reactive.
+/// 不依赖 System.Reactive 实现的常用可观察操作符.
 /// </summary>
 public static class ObservableExtensions
 {
     /// <summary>
-    /// Logs each notification from an observable sequence and forwards the sequence unchanged.
+    /// 记录可观察序列的每个通知,并原样转发该序列.
     /// </summary>
-    /// <typeparam name="TSource">The source value type.</typeparam>
-    /// <param name="source">The observable sequence to log.</param>
-    /// <param name="loggerOwner">The object whose runtime type supplies the logger category.</param>
-    /// <param name="message">A label used to identify this sequence in log entries.</param>
-    /// <returns>A cold observable sequence that logs and forwards every source notification.</returns>
+    /// <typeparam name="TSource">源值类型.</typeparam>
+    /// <param name="source">要记录日志的可观察序列.</param>
+    /// <param name="loggerOwner">其运行时类型用于提供日志记录器类别的对象.</param>
+    /// <param name="message">用于在日志条目中标识该序列的标签.</param>
+    /// <returns>记录并转发每个源通知的冷可观察序列.</returns>
     /// <remarks>
-    /// Values and successful completion are logged at <see cref="LogLevel.Debug"/>; errors are logged at
-    /// <see cref="LogLevel.Error"/> and retain the original exception. Logging begins only after subscription.
-    /// <b>REFLECTION: NO.</b> The logger is obtained through <see cref="LoggerMixins.Log(IEnableLogger)"/>
-    /// and notifications are forwarded directly.
+    /// 值与成功完成以 <see cref="LogLevel.Debug"/> 级别记录;错误以
+    /// <see cref="LogLevel.Error"/> 级别记录并保留原始异常.仅在订阅之后才开始记录日志.
+    /// <b>反射:否.</b>日志记录器通过 <see cref="LoggerMixins.Log(IEnableLogger)"/> 获取,
+    /// 通知会被直接转发.
     /// </remarks>
     public static IObservable<TSource> Log<TSource>(
         this IObservable<TSource> source,
@@ -42,14 +48,14 @@ public static class ObservableExtensions
     }
 
     /// <summary>
-    /// Logs each notification from an observable sequence at the specified level using a logger-enabled owner.
+    /// 使用启用了日志记录器的所有者,以指定级别记录可观察序列的每个通知.
     /// </summary>
-    /// <typeparam name="TSource">The source value type.</typeparam>
-    /// <param name="source">The observable sequence to log.</param>
-    /// <param name="loggerOwner">The object whose runtime type supplies the logger category.</param>
-    /// <param name="logLevel">The level used to log every sequence notification.</param>
-    /// <param name="message">A label used to identify this sequence in log entries.</param>
-    /// <returns>A cold observable sequence that logs and forwards every source notification.</returns>
+    /// <typeparam name="TSource">源值类型.</typeparam>
+    /// <param name="source">要记录日志的可观察序列.</param>
+    /// <param name="loggerOwner">其运行时类型用于提供日志记录器类别的对象.</param>
+    /// <param name="logLevel">用于记录每个序列通知的级别.</param>
+    /// <param name="message">用于在日志条目中标识该序列的标签.</param>
+    /// <returns>记录并转发每个源通知的冷可观察序列.</returns>
     public static IObservable<TSource> Log<TSource>(
         this IObservable<TSource> source,
         IEnableLogger loggerOwner,
@@ -62,17 +68,17 @@ public static class ObservableExtensions
     }
 
     /// <summary>
-    /// Logs each notification from an observable sequence with a specified logger and forwards it unchanged.
+    /// 使用指定的日志记录器记录可观察序列的每个通知,并原样转发.
     /// </summary>
-    /// <typeparam name="TSource">The source value type.</typeparam>
-    /// <param name="source">The observable sequence to log.</param>
-    /// <param name="logger">The logger that receives sequence notifications.</param>
-    /// <param name="message">A label used to identify this sequence in log entries.</param>
-    /// <returns>A cold observable sequence that logs and forwards every source notification.</returns>
+    /// <typeparam name="TSource">源值类型.</typeparam>
+    /// <param name="source">要记录日志的可观察序列.</param>
+    /// <param name="logger">接收序列通知的日志记录器.</param>
+    /// <param name="message">用于在日志条目中标识该序列的标签.</param>
+    /// <returns>记录并转发每个源通知的冷可观察序列.</returns>
     /// <remarks>
-    /// Values and successful completion are logged at <see cref="LogLevel.Debug"/>; errors are logged at
-    /// <see cref="LogLevel.Error"/> and retain the original exception. Logging begins only after subscription.
-    /// <b>REFLECTION: NO.</b> Logging and observer notification methods are invoked directly.
+    /// 值与成功完成以 <see cref="LogLevel.Debug"/> 级别记录;错误以
+    /// <see cref="LogLevel.Error"/> 级别记录并保留原始异常.仅在订阅之后才开始记录日志.
+    /// <b>反射:否.</b>日志记录与观察者通知方法均被直接调用.
     /// </remarks>
     public static IObservable<TSource> Log<TSource>(
         this IObservable<TSource> source,
@@ -84,18 +90,18 @@ public static class ObservableExtensions
     }
 
     /// <summary>
-    /// Logs each notification from an observable sequence at the specified level and forwards it unchanged.
+    /// 以指定级别记录可观察序列的每个通知,并原样转发.
     /// </summary>
-    /// <typeparam name="TSource">The source value type.</typeparam>
-    /// <param name="source">The observable sequence to log.</param>
-    /// <param name="logger">The logger that receives sequence notifications.</param>
-    /// <param name="logLevel">The level used to log every sequence notification.</param>
-    /// <param name="message">A label used to identify this sequence in log entries.</param>
-    /// <returns>A cold observable sequence that logs and forwards every source notification.</returns>
+    /// <typeparam name="TSource">源值类型.</typeparam>
+    /// <param name="source">要记录日志的可观察序列.</param>
+    /// <param name="logger">接收序列通知的日志记录器.</param>
+    /// <param name="logLevel">用于记录每个序列通知的级别.</param>
+    /// <param name="message">用于在日志条目中标识该序列的标签.</param>
+    /// <returns>记录并转发每个源通知的冷可观察序列.</returns>
     /// <remarks>
-    /// The supplied level is used for values, errors, and successful completion. Errors retain the original
-    /// exception. Logging begins only after subscription.
-    /// <b>REFLECTION: NO.</b> Logging and observer notification methods are invoked directly.
+    /// 提供的级别用于值、错误和成功完成.错误会保留原始异常.
+    /// 仅在订阅之后才开始记录日志.
+    /// <b>反射:否.</b>日志记录与观察者通知方法均被直接调用.
     /// </remarks>
     public static IObservable<TSource> Log<TSource>(
         this IObservable<TSource> source,
@@ -146,13 +152,15 @@ public static class ObservableExtensions
         );
     }
 
-    /// <summary>Projects each source value into a new form.</summary>
-    /// <typeparam name="TSource">The source value type.</typeparam>
-    /// <typeparam name="TResult">The projected value type.</typeparam>
-    /// <param name="source">The observable sequence to transform.</param>
-    /// <param name="selector">The projection applied to each value.</param>
-    /// <returns>An observable sequence containing projected values.</returns>
-    /// <remarks><b>REFLECTION: NO.</b> Values are transformed by invoking the supplied delegate directly.</remarks>
+    /// <summary>
+/// 将每个源值投影为新形式.
+/// </summary>
+    /// <typeparam name="TSource">源值类型.</typeparam>
+    /// <typeparam name="TResult">投影后的值类型.</typeparam>
+    /// <param name="source">要转换的可观察序列.</param>
+    /// <param name="selector">应用于每个值的投影.</param>
+    /// <returns>包含投影值的可观察序列.</returns>
+    /// <remarks><b>反射:否.</b>值通过直接调用提供的委托进行转换.</remarks>
     public static IObservable<TResult> Select<TSource, TResult>(
         this IObservable<TSource> source,
         Func<TSource, TResult> selector
@@ -163,12 +171,14 @@ public static class ObservableExtensions
         return new SelectObservable<TSource, TResult>(source, selector);
     }
 
-    /// <summary>Filters an observable sequence using a predicate.</summary>
-    /// <typeparam name="TSource">The source value type.</typeparam>
-    /// <param name="source">The observable sequence to filter.</param>
-    /// <param name="predicate">A function that determines whether a value is emitted.</param>
-    /// <returns>An observable sequence containing only values accepted by the predicate.</returns>
-    /// <remarks><b>REFLECTION: NO.</b> The predicate is invoked directly for each value.</remarks>
+    /// <summary>
+/// 使用谓词筛选可观察序列.
+/// </summary>
+    /// <typeparam name="TSource">源值类型.</typeparam>
+    /// <param name="source">要筛选的可观察序列.</param>
+    /// <param name="predicate">用于确定是否发出某个值的函数.</param>
+    /// <returns>仅包含谓词接受的值的可观察序列.</returns>
+    /// <remarks><b>反射:否.</b>对每个值直接调用谓词.</remarks>
     public static IObservable<TSource> Where<TSource>(
         this IObservable<TSource> source,
         Func<TSource, bool> predicate
@@ -179,21 +189,25 @@ public static class ObservableExtensions
         return new WhereObservable<TSource>(source, predicate);
     }
 
-    /// <summary>Suppresses consecutive duplicate values using the default equality comparer.</summary>
-    /// <typeparam name="TSource">The source value type.</typeparam>
-    /// <param name="source">The observable sequence whose consecutive values are compared.</param>
-    /// <returns>An observable sequence without consecutive duplicates.</returns>
-    /// <remarks><b>REFLECTION: NO.</b> Equality is evaluated by <see cref="EqualityComparer{T}.Default"/>.</remarks>
+    /// <summary>
+/// 使用默认相等比较器抑制连续的重复值.
+/// </summary>
+    /// <typeparam name="TSource">源值类型.</typeparam>
+    /// <param name="source">要比较相邻值的可观察序列.</param>
+    /// <returns>不含连续重复值的可观察序列.</returns>
+    /// <remarks><b>反射:否.</b>相等性由 <see cref="EqualityComparer{T}.Default"/> 判定.</remarks>
     public static IObservable<TSource> DistinctUntilChanged<TSource>(
         this IObservable<TSource> source
     ) => DistinctUntilChanged(source, EqualityComparer<TSource>.Default);
 
-    /// <summary>Suppresses consecutive duplicate values using a specified equality comparer.</summary>
-    /// <typeparam name="TSource">The source value type.</typeparam>
-    /// <param name="source">The observable sequence whose consecutive values are compared.</param>
-    /// <param name="comparer">The comparer used to determine whether adjacent values are equal.</param>
-    /// <returns>An observable sequence without consecutive duplicates.</returns>
-    /// <remarks><b>REFLECTION: NO.</b> Equality is evaluated by calling the supplied comparer directly.</remarks>
+    /// <summary>
+/// 使用指定的相等比较器抑制连续的重复值.
+/// </summary>
+    /// <typeparam name="TSource">源值类型.</typeparam>
+    /// <param name="source">要比较相邻值的可观察序列.</param>
+    /// <param name="comparer">用于判定相邻值是否相等的比较器.</param>
+    /// <returns>不含连续重复值的可观察序列.</returns>
+    /// <remarks><b>反射:否.</b>相等性通过直接调用提供的比较器判定.</remarks>
     public static IObservable<TSource> DistinctUntilChanged<TSource>(
         this IObservable<TSource> source,
         IEqualityComparer<TSource> comparer
@@ -204,12 +218,14 @@ public static class ObservableExtensions
         return new DistinctUntilChangedObservable<TSource>(source, comparer);
     }
 
-    /// <summary>Prepends one value to an observable sequence.</summary>
-    /// <typeparam name="TSource">The source value type.</typeparam>
-    /// <param name="source">The observable sequence to precede.</param>
-    /// <param name="value">The value emitted before subscribing to the source.</param>
-    /// <returns>An observable sequence beginning with <paramref name="value"/>.</returns>
-    /// <remarks><b>REFLECTION: NO.</b> The initial value is sent directly to the observer.</remarks>
+    /// <summary>
+/// 在可观察序列前插入一个值.
+/// </summary>
+    /// <typeparam name="TSource">源值类型.</typeparam>
+    /// <param name="source">要置于其前的可观察序列.</param>
+    /// <param name="value">在订阅源之前发出的值.</param>
+    /// <returns>以 <paramref name="value"/> 开头的可观察序列.</returns>
+    /// <remarks><b>反射:否.</b>初始值被直接发送给观察者.</remarks>
     public static IObservable<TSource> StartWith<TSource>(
         this IObservable<TSource> source,
         TSource value
@@ -223,12 +239,14 @@ public static class ObservableExtensions
         });
     }
 
-    /// <summary>Skips a specified number of source values and then emits the remainder.</summary>
-    /// <typeparam name="TSource">The source value type.</typeparam>
-    /// <param name="source">The observable sequence to skip values from.</param>
-    /// <param name="count">The number of initial values to skip.</param>
-    /// <returns>An observable sequence containing values after the skipped prefix.</returns>
-    /// <remarks><b>REFLECTION: NO.</b> Values are counted directly.</remarks>
+    /// <summary>
+/// 跳过指定数量的源值,然后发出其余值.
+/// </summary>
+    /// <typeparam name="TSource">源值类型.</typeparam>
+    /// <param name="source">要跳过其值的可观察序列.</param>
+    /// <param name="count">要跳过的起始值数量.</param>
+    /// <returns>包含跳过前缀之后剩余值的可观察序列.</returns>
+    /// <remarks><b>反射:否.</b>值直接计数.</remarks>
     public static IObservable<TSource> Skip<TSource>(this IObservable<TSource> source, int count)
     {
         ArgumentNullException.ThrowIfNull(source);
@@ -254,12 +272,14 @@ public static class ObservableExtensions
         });
     }
 
-    /// <summary>Emits at most a specified number of source values and then completes.</summary>
-    /// <typeparam name="TSource">The source value type.</typeparam>
-    /// <param name="source">The observable sequence to take values from.</param>
-    /// <param name="count">The maximum number of values to emit.</param>
-    /// <returns>An observable sequence containing no more than <paramref name="count"/> values.</returns>
-    /// <remarks><b>REFLECTION: NO.</b> Values are counted directly and the upstream subscription is disposed when the limit is reached.</remarks>
+    /// <summary>
+/// 最多发出指定数量的源值,然后完成.
+/// </summary>
+    /// <typeparam name="TSource">源值类型.</typeparam>
+    /// <param name="source">要从中取值的可观察序列.</param>
+    /// <param name="count">要发出的最大数量.</param>
+    /// <returns>最多包含 <paramref name="count"/> 个值的可观察序列.</returns>
+    /// <remarks><b>反射:否.</b>值直接计数,达到上限时释放上游订阅.</remarks>
     public static IObservable<TSource> Take<TSource>(this IObservable<TSource> source, int count)
     {
         ArgumentNullException.ThrowIfNull(source);
@@ -302,12 +322,14 @@ public static class ObservableExtensions
         });
     }
 
-    /// <summary>Invokes an action for each value before forwarding that value unchanged.</summary>
-    /// <typeparam name="TSource">The source value type.</typeparam>
-    /// <param name="source">The observable sequence to inspect.</param>
-    /// <param name="onNext">The side-effect action invoked for each value.</param>
-    /// <returns>An observable sequence that mirrors the source.</returns>
-    /// <remarks><b>REFLECTION: NO.</b> The side-effect delegate is invoked directly.</remarks>
+    /// <summary>
+/// 在转发每个值之前对其调用一个操作,并原样转发该值.
+/// </summary>
+    /// <typeparam name="TSource">源值类型.</typeparam>
+    /// <param name="source">要检查的可观察序列.</param>
+    /// <param name="onNext">对每个值调用的副作用操作.</param>
+    /// <returns>镜像源的可观察序列.</returns>
+    /// <remarks><b>反射:否.</b>副作用委托被直接调用.</remarks>
     public static IObservable<TSource> Do<TSource>(
         this IObservable<TSource> source,
         Action<TSource> onNext
@@ -346,12 +368,14 @@ public static class ObservableExtensions
         });
     }
 
-    /// <summary>Dispatches source values, errors, and completion through a synchronization context.</summary>
-    /// <typeparam name="TSource">The source value type.</typeparam>
-    /// <param name="source">The observable sequence whose notifications are dispatched.</param>
-    /// <param name="synchronizationContext">The synchronization context that receives notifications.</param>
-    /// <returns>An observable sequence whose notifications are posted to the context.</returns>
-    /// <remarks><b>REFLECTION: NO.</b> Notifications are scheduled with <see cref="SynchronizationContext.Post"/>.</remarks>
+    /// <summary>
+/// 通过同步上下文派发源的值、错误和完成通知.
+/// </summary>
+    /// <typeparam name="TSource">源值类型.</typeparam>
+    /// <param name="source">要派发其通知的可观察序列.</param>
+    /// <param name="synchronizationContext">接收通知的同步上下文.</param>
+    /// <returns>通知被投递到该上下文的可观察序列.</returns>
+    /// <remarks><b>反射:否.</b>通知通过 <see cref="SynchronizationContext.Post"/> 进行调度.</remarks>
     public static IObservable<TSource> ObserveOn<TSource>(
         this IObservable<TSource> source,
         SynchronizationContext synchronizationContext
@@ -369,15 +393,17 @@ public static class ObservableExtensions
         );
     }
 
-    /// <summary>Dispatches source notifications through the selected scheduler.</summary>
-    /// <typeparam name="TSource">The source value type.</typeparam>
-    /// <param name="source">The observable sequence whose notifications are dispatched.</param>
-    /// <param name="scheduler">The scheduler used for observer notifications.</param>
-    /// <returns>An observable sequence whose notifications are scheduled on the selected scheduler.</returns>
+    /// <summary>
+/// 通过选定的调度器派发源通知.
+/// </summary>
+    /// <typeparam name="TSource">源值类型.</typeparam>
+    /// <param name="source">要派发其通知的可观察序列.</param>
+    /// <param name="scheduler">用于观察者通知的调度器.</param>
+    /// <returns>通知在选定调度器上进行调度的可观察序列.</returns>
     /// <remarks>
-    /// <see cref="ObservableSchedulers.Current"/> captures
-    /// <see cref="SynchronizationContext.Current"/> when this operator is created. If no context is available,
-    /// it falls back to the thread pool. Notifications are queued in order.
+    /// <see cref="ObservableSchedulers.Current"/> 在创建该操作符时捕获
+    /// <see cref="SynchronizationContext.Current"/>.如果没有可用的上下文,
+    /// 则回退到线程池.通知按顺序排队.
     /// </remarks>
     public static IObservable<TSource> ObserveOn<TSource>(
         this IObservable<TSource> source,
@@ -400,14 +426,16 @@ public static class ObservableExtensions
         });
     }
 
-    /// <summary>Schedules subscription to the source on a synchronization context.</summary>
-    /// <typeparam name="TSource">The source value type.</typeparam>
-    /// <param name="source">The observable sequence to subscribe to.</param>
-    /// <param name="synchronizationContext">The synchronization context used for the subscription action.</param>
-    /// <returns>An observable sequence whose source subscription is posted to the context.</returns>
+    /// <summary>
+/// 在同步上下文上调度对源的订阅.
+/// </summary>
+    /// <typeparam name="TSource">源值类型.</typeparam>
+    /// <param name="source">要订阅的可观察序列.</param>
+    /// <param name="synchronizationContext">用于订阅操作的同步上下文.</param>
+    /// <returns>其源订阅被投递到该上下文的可观察序列.</returns>
     /// <remarks>
-    /// The source is always subscribed asynchronously through <see cref="SynchronizationContext.Post"/>.
-    /// Disposing before the posted action runs prevents the source from being subscribed.
+    /// 源始终通过 <see cref="SynchronizationContext.Post"/> 异步订阅.
+    /// 在投递的操作执行前释放,可避免对源进行订阅.
     /// </remarks>
     public static IObservable<TSource> SubscribeOn<TSource>(
         this IObservable<TSource> source,
@@ -419,16 +447,17 @@ public static class ObservableExtensions
         return SubscribeOnCore(source, synchronizationContext);
     }
 
-    /// <summary>Schedules subscription to the source on the selected scheduler.</summary>
-    /// <typeparam name="TSource">The source value type.</typeparam>
-    /// <param name="source">The observable sequence to subscribe to.</param>
-    /// <param name="scheduler">The scheduler used for the subscription action.</param>
-    /// <returns>An observable sequence whose source subscription is scheduled.</returns>
+    /// <summary>
+/// 在选定的调度器上调度对源的订阅.
+/// </summary>
+    /// <typeparam name="TSource">源值类型.</typeparam>
+    /// <param name="source">要订阅的可观察序列.</param>
+    /// <param name="scheduler">用于订阅操作的调度器.</param>
+    /// <returns>其源订阅被调度的可观察序列.</returns>
     /// <remarks>
-    /// <see cref="ObservableSchedulers.Current"/> captures
-    /// <see cref="SynchronizationContext.Current"/> when this operator is created. If no context is available,
-    /// it falls back to the thread pool. Disposing before the scheduled action runs prevents the source from being
-    /// subscribed.
+    /// <see cref="ObservableSchedulers.Current"/> 在创建该操作符时捕获
+    /// <see cref="SynchronizationContext.Current"/>.如果没有可用的上下文,
+    /// 则回退到线程池.在计划的操作执行前释放,可避免对源进行订阅.
     /// </remarks>
     public static IObservable<TSource> SubscribeOn<TSource>(
         this IObservable<TSource> source,
@@ -441,27 +470,27 @@ public static class ObservableExtensions
     }
 
     /// <summary>
-    /// Emits only the most recent value after the source remains quiet for the specified duration.
+    /// 仅当源在指定时长内保持静默后,才发出最近的一个值.
     /// </summary>
-    /// <typeparam name="TSource">The source value type.</typeparam>
-    /// <param name="source">The observable sequence to throttle.</param>
-    /// <param name="dueTime">The required quiet period.</param>
-    /// <returns>A throttled observable sequence using <see cref="TimeProvider.System"/>.</returns>
-    /// <remarks><b>REFLECTION: NO.</b> Delayed emissions use <see cref="TimeProvider"/> timers.</remarks>
+    /// <typeparam name="TSource">源值类型.</typeparam>
+    /// <param name="source">要限流的可观察序列.</param>
+    /// <param name="dueTime">所需的静默时长.</param>
+    /// <returns>使用 <see cref="TimeProvider.System"/> 的限流可观察序列.</returns>
+    /// <remarks><b>反射:否.</b>延迟发出使用 <see cref="TimeProvider"/> 计时器.</remarks>
     public static IObservable<TSource> Throttle<TSource>(
         this IObservable<TSource> source,
         TimeSpan dueTime
     ) => Throttle(source, dueTime, TimeProvider.System);
 
     /// <summary>
-    /// Emits only the most recent value after the source remains quiet for the specified duration,
-    /// and dispatches notifications through the selected scheduler.
+    /// 仅当源在指定时长内保持静默后,才发出最近的一个值,
+    /// 并通过选定的调度器派发通知.
     /// </summary>
-    /// <typeparam name="TSource">The source value type.</typeparam>
-    /// <param name="source">The observable sequence to throttle.</param>
-    /// <param name="dueTime">The required quiet period.</param>
-    /// <param name="scheduler">The scheduler used for throttled notifications.</param>
-    /// <returns>A throttled observable sequence whose notifications use the selected scheduler.</returns>
+    /// <typeparam name="TSource">源值类型.</typeparam>
+    /// <param name="source">要限流的可观察序列.</param>
+    /// <param name="dueTime">所需的静默时长.</param>
+    /// <param name="scheduler">用于限流通知的调度器.</param>
+    /// <returns>通知使用选定调度器的限流可观察序列.</returns>
     public static IObservable<TSource> Throttle<TSource>(
         this IObservable<TSource> source,
         TimeSpan dueTime,
@@ -469,15 +498,14 @@ public static class ObservableExtensions
     ) => Throttle(source, dueTime, TimeProvider.System).ObserveOn(scheduler);
 
     /// <summary>
-    /// Emits only the most recent value after the source remains quiet for the specified duration,
-    /// using a supplied time provider.
+    /// 使用提供的时间提供程序,仅当源在指定时长内保持静默后,才发出最近的一个值.
     /// </summary>
-    /// <typeparam name="TSource">The source value type.</typeparam>
-    /// <param name="source">The observable sequence to throttle.</param>
-    /// <param name="dueTime">The required quiet period.</param>
-    /// <param name="timeProvider">The provider used to create timers.</param>
-    /// <returns>A throttled observable sequence.</returns>
-    /// <remarks><b>REFLECTION: NO.</b> Delayed emissions use <see cref="TimeProvider.CreateTimer"/> directly.</remarks>
+    /// <typeparam name="TSource">源值类型.</typeparam>
+    /// <param name="source">要限流的可观察序列.</param>
+    /// <param name="dueTime">所需的静默时长.</param>
+    /// <param name="timeProvider">用于创建计时器的时间提供程序.</param>
+    /// <returns>限流的可观察序列.</returns>
+    /// <remarks><b>反射:否.</b>延迟发出直接使用 <see cref="TimeProvider.CreateTimer"/>.</remarks>
     public static IObservable<TSource> Throttle<TSource>(
         this IObservable<TSource> source,
         TimeSpan dueTime,
@@ -496,12 +524,14 @@ public static class ObservableExtensions
         ));
     }
 
-    /// <summary>Continues with a replacement observable when the source terminates with an error.</summary>
-    /// <typeparam name="TSource">The source value type.</typeparam>
-    /// <param name="source">The observable sequence to monitor for errors.</param>
-    /// <param name="handler">A function that maps the source error to a replacement sequence.</param>
-    /// <returns>An observable sequence that mirrors the source or its replacement after an error.</returns>
-    /// <remarks><b>REFLECTION: NO.</b> The error handler is invoked directly.</remarks>
+    /// <summary>
+/// 当源以错误终止时,继续使用替换的可观察序列.
+/// </summary>
+    /// <typeparam name="TSource">源值类型.</typeparam>
+    /// <param name="source">要监视错误的可观察序列.</param>
+    /// <param name="handler">将源错误映射为替换序列的函数.</param>
+    /// <returns>镜像源,或在发生错误后镜像其替换序列的可观察序列.</returns>
+    /// <remarks><b>反射:否.</b>错误处理程序被直接调用.</remarks>
     public static IObservable<TSource> Catch<TSource>(
         this IObservable<TSource> source,
         Func<Exception, IObservable<TSource>> handler
@@ -541,11 +571,13 @@ public static class ObservableExtensions
         });
     }
 
-    /// <summary>Creates an observable sequence that emits one value and then completes.</summary>
-    /// <typeparam name="TSource">The emitted value type.</typeparam>
-    /// <param name="value">The single value to emit.</param>
-    /// <returns>An observable sequence containing exactly one value.</returns>
-    /// <remarks><b>REFLECTION: NO.</b> The value and completion notification are sent directly.</remarks>
+    /// <summary>
+/// 创建一个发出单个值后即完成的可观察序列.
+/// </summary>
+    /// <typeparam name="TSource">发出的值类型.</typeparam>
+    /// <param name="value">要发出的单个值.</param>
+    /// <returns>仅包含一个值的可观察序列.</returns>
+    /// <remarks><b>反射:否.</b>值与完成通知被直接发送.</remarks>
     public static IObservable<TSource> Return<TSource>(TSource value) =>
         Create<TSource>(observer =>
         {
@@ -554,10 +586,12 @@ public static class ObservableExtensions
             return new ActionDisposable(() => { });
         });
 
-    /// <summary>Creates an observable sequence that completes without emitting any values.</summary>
-    /// <typeparam name="TSource">The sequence value type.</typeparam>
-    /// <returns>An empty, immediately completing observable sequence.</returns>
-    /// <remarks><b>REFLECTION: NO.</b> Completion is sent directly to the observer.</remarks>
+    /// <summary>
+/// 创建一个不发出任何值即完成的可观察序列.
+/// </summary>
+    /// <typeparam name="TSource">序列值类型.</typeparam>
+    /// <returns>立即完成的空可观察序列.</returns>
+    /// <remarks><b>反射:否.</b>完成通知被直接发送给观察者.</remarks>
     public static IObservable<TSource> Empty<TSource>() =>
         Create<TSource>(observer =>
         {

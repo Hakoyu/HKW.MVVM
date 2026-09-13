@@ -5,7 +5,9 @@ using HKW.MVVM;
 
 namespace HKW.MVVMBenchmark;
 
-/// <summary>Compares observable operator pipelines with equivalent direct observer logic.</summary>
+/// <summary>
+/// 比较可观察操作符管道与等效的直接观察者逻辑.
+/// </summary>
 [MemoryDiagnoser]
 [GroupBenchmarksBy(BenchmarkLogicalGroupRule.ByCategory)]
 [CategoriesColumn]
@@ -25,11 +27,15 @@ public class ObservableOperatorBenchmarks
     private int _reactiveUIResult;
     private int _value;
 
-    /// <summary>Gets the pipeline shape used by the current benchmark case.</summary>
+    /// <summary>
+/// 获取当前基准用例所使用的管道形态.
+/// </summary>
     [Params(PipelineKind.Select, PipelineKind.WhereSelect, PipelineKind.WhereSelectDistinct)]
     public PipelineKind Pipeline { get; set; }
 
-    /// <summary>Creates long-lived subscriptions used by message-delivery benchmarks.</summary>
+    /// <summary>
+/// 创建消息传递基准测试所使用的长期订阅.
+/// </summary>
     [GlobalSetup]
     public void SetupUpdateSubscriptions()
     {
@@ -53,7 +59,9 @@ public class ObservableOperatorBenchmarks
         );
     }
 
-    /// <summary>Disposes subscriptions used by message-delivery benchmarks.</summary>
+    /// <summary>
+/// 释放消息传递基准测试所使用的订阅.
+/// </summary>
     [GlobalCleanup]
     public void CleanupUpdateSubscriptions()
     {
@@ -63,7 +71,9 @@ public class ObservableOperatorBenchmarks
     }
 
     #region Core
-    /// <summary>Measures direct observer creation, subscription, and disposal.</summary>
+    /// <summary>
+/// 测量直接观察者的创建、订阅和释放.
+/// </summary>
     [Benchmark(Baseline = true)]
     [BenchmarkCategory("CreateAndDispose")]
     public void DirectCreateAndDispose()
@@ -75,7 +85,9 @@ public class ObservableOperatorBenchmarks
         );
     }
 
-    /// <summary>Measures two messages through equivalent direct observer logic.</summary>
+    /// <summary>
+/// 测量通过等效的直接观察者逻辑传递的两条消息.
+/// </summary>
     [Benchmark(Baseline = true)]
     [BenchmarkCategory("Update")]
     public void DirectUpdate()
@@ -87,7 +99,9 @@ public class ObservableOperatorBenchmarks
     #endregion
 
     #region HKW
-    /// <summary>Measures operator pipeline creation, subscription, and disposal.</summary>
+    /// <summary>
+/// 测量操作符管道的创建、订阅和释放.
+/// </summary>
     [Benchmark]
     [BenchmarkCategory("CreateAndDispose")]
     public void OperatorCreateAndDispose()
@@ -99,7 +113,9 @@ public class ObservableOperatorBenchmarks
         );
     }
 
-    /// <summary>Measures two messages through the selected observable operator pipeline.</summary>
+    /// <summary>
+/// 测量通过所选可观察操作符管道传递的两条消息.
+/// </summary>
     [Benchmark]
     [BenchmarkCategory("Update")]
     public void OperatorUpdate()
@@ -111,7 +127,9 @@ public class ObservableOperatorBenchmarks
     #endregion
 
     #region ReactiveUI
-    /// <summary>Measures ReactiveUI operator pipeline creation, subscription, and disposal.</summary>
+    /// <summary>
+/// 测量 ReactiveUI 操作符管道的创建、订阅和释放.
+/// </summary>
     [Benchmark]
     [BenchmarkCategory("CreateAndDispose")]
     public void ReactiveUIOperatorCreateAndDispose()
@@ -123,7 +141,9 @@ public class ObservableOperatorBenchmarks
         );
     }
 
-    /// <summary>Measures two messages through the equivalent ReactiveUI operator pipeline.</summary>
+    /// <summary>
+/// 测量通过等效 ReactiveUI 操作符管道传递的两条消息.
+/// </summary>
     [Benchmark]
     [BenchmarkCategory("Update")]
     public void ReactiveUIOperatorUpdate()
@@ -192,16 +212,24 @@ public class ObservableOperatorBenchmarks
 
     private static int Transform(int value) => value * 2;
 
-    /// <summary>Identifies the observable pipeline being measured.</summary>
+    /// <summary>
+/// 标识当前所测量的可观察管道.
+/// </summary>
     public enum PipelineKind
     {
-        /// <summary>A single Select operator.</summary>
+        /// <summary>
+/// 单个 Select 操作符.
+/// </summary>
         Select,
 
-        /// <summary>A Where operator followed by Select.</summary>
+        /// <summary>
+/// Where 操作符后接 Select.
+/// </summary>
         WhereSelect,
 
-        /// <summary>Where and Select followed by DistinctUntilChanged.</summary>
+        /// <summary>
+/// Where 和 Select 后接 DistinctUntilChanged.
+/// </summary>
         WhereSelectDistinct,
     }
 

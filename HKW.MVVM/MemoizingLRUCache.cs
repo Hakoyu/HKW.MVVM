@@ -1,10 +1,10 @@
 namespace HKW.MVVM;
 
 /// <summary>
-/// Provides a thread-safe, bounded cache that memoizes values and retains the most recently used entries.
+/// 提供线程安全的有界缓存,用于记忆值并保留最近使用过的条目.
 /// </summary>
-/// <typeparam name="TKey">The cache key type.</typeparam>
-/// <typeparam name="TValue">The cached value type.</typeparam>
+/// <typeparam name="TKey">缓存键类型.</typeparam>
+/// <typeparam name="TValue">缓存值类型.</typeparam>
 internal sealed class MemoizingLRUCache<TKey, TValue>
     where TKey : notnull
 {
@@ -15,10 +15,10 @@ internal sealed class MemoizingLRUCache<TKey, TValue>
     private readonly LinkedList<TKey> _mostRecentlyUsedKeys = new();
 
     /// <summary>
-    /// Initializes a new cache.
+    /// 初始化新缓存.
     /// </summary>
-    /// <param name="valueFactory">Creates a value for a missing key.</param>
-    /// <param name="maximumSize">The maximum number of values retained by the cache.</param>
+    /// <param name="valueFactory">为缺失的键创建值.</param>
+    /// <param name="maximumSize">缓存保留的最大值数量.</param>
     public MemoizingLRUCache(Func<TKey, TValue> valueFactory, int maximumSize)
     {
         ArgumentNullException.ThrowIfNull(valueFactory);
@@ -30,13 +30,13 @@ internal sealed class MemoizingLRUCache<TKey, TValue>
     }
 
     /// <summary>
-    /// Gets the cached value for <paramref name="key"/>, creating it when it is not already cached.
+    /// 获取 <paramref name="key"/> 对应的缓存值,尚未缓存时创建该值.
     /// </summary>
-    /// <param name="key">The key whose value should be returned.</param>
-    /// <returns>The cached or newly created value.</returns>
+    /// <param name="key">要返回其值的键.</param>
+    /// <returns>已缓存或新创建的值.</returns>
     /// <remarks>
-    /// Value creation is serialized with cache updates so concurrent requests for the same key invoke the value
-    /// factory only once.
+    /// 值创建过程与缓存更新串行执行,因此针对同一键的并发请求只会调用一次
+    /// 值工厂.
     /// </remarks>
     public TValue Get(TKey key)
     {

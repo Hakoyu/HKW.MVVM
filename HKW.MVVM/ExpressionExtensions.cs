@@ -2,10 +2,14 @@ using System.Linq.Expressions;
 
 namespace HKW.MVVM;
 
-/// <summary>Provides helpers for expression trees.</summary>
+/// <summary>
+/// 提供表达式树的辅助方法.
+/// </summary>
 internal static class ExpressionExtensions
 {
-    /// <summary>Gets the selected member name from an expression.</summary>
+    /// <summary>
+/// 从表达式树中获取所选的成员名称.
+/// </summary>
     public static string GetPropertyName(this LambdaExpression expression)
     {
         if (expression.Body is MemberExpression member)

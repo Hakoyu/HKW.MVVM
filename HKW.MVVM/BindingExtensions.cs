@@ -4,19 +4,23 @@ using System.Reflection;
 
 namespace HKW.MVVM;
 
-/// <summary>Provides one-way and two-way property binding helpers.</summary>
+/// <summary>
+/// 提供单向和双向属性绑定辅助方法.
+/// </summary>
 public static class BindingExtensions
 {
-    /// <summary>Binds values produced by an observable sequence using a caller-provided assignment action.</summary>
-    /// <typeparam name="TValue">The value type produced by the source.</typeparam>
-    /// <typeparam name="TTarget">The target object type.</typeparam>
-    /// <param name="source">The observable sequence that supplies values.</param>
-    /// <param name="target">The target object passed to <paramref name="assignment"/>.</param>
-    /// <param name="assignment">The action that receives each source value and the target object.</param>
-    /// <returns>A disposable object that stops the binding.</returns>
+    /// <summary>
+/// 使用调用方提供的赋值操作绑定可观察序列产生的值.
+/// </summary>
+    /// <typeparam name="TValue">源产生的值类型.</typeparam>
+    /// <typeparam name="TTarget">目标对象的类型.</typeparam>
+    /// <param name="source">提供值的可观察序列.</param>
+    /// <param name="target">传递给 <paramref name="assignment"/> 的目标对象.</param>
+    /// <param name="assignment">接收每个源值和目标对象的操作.</param>
+    /// <returns>可停止绑定的可释放对象.</returns>
     /// <remarks>
-    /// This overload does not parse or compile an expression and does not use reflection. It also permits
-    /// assignments that cannot be represented by a property expression, such as dependency-property setters.
+    /// 此重载不解析或编译表达式,也不使用反射.它同样允许
+    /// 属性表达式无法表示的赋值,例如依赖属性 setter.
     /// </remarks>
     public static IDisposable BindTo<TValue, TTarget>(
         this IObservable<TValue> source,
@@ -30,17 +34,19 @@ public static class BindingExtensions
         return source.Subscribe(value => assignment(value, target));
     }
 
-    /// <summary>Binds values produced by an observable sequence to a writable target property.</summary>
-    /// <typeparam name="TTarget">The target object type.</typeparam>
-    /// <typeparam name="TValue">The source and target value type.</typeparam>
-    /// <param name="source">The observable sequence that supplies values.</param>
-    /// <param name="target">The object whose property receives values.</param>
-    /// <param name="targetProperty">A writable property path rooted at <paramref name="target"/>.</param>
-    /// <returns>A disposable object that stops the binding.</returns>
+    /// <summary>
+/// 将可观察序列产生的值绑定到可写的目标属性.
+/// </summary>
+    /// <typeparam name="TTarget">目标对象的类型.</typeparam>
+    /// <typeparam name="TValue">源和目标的值的类型.</typeparam>
+    /// <param name="source">提供值的可观察序列.</param>
+    /// <param name="target">接收值的属性所属对象.</param>
+    /// <param name="targetProperty">以 <paramref name="target"/> 为根的、可写的属性路径.</param>
+    /// <returns>可停止绑定的可释放对象.</returns>
     /// <remarks>
-    /// Every source value is assigned synchronously. Source errors use the standard
+    /// 每个源值都会同步赋值.源错误采用
     /// <see cref="NativeObservableSubscriptionExtensions.Subscribe{T}(IObservable{T}, Action{T})"/>
-    /// error behavior. <b>REFLECTION: NO.</b> The target setter is compiled once per property path and cached.
+    /// 的标准错误行为.<b>反射:否.</b>目标 setter 会针对每个属性路径编译一次并缓存.
     /// </remarks>
     public static IDisposable BindTo<TTarget, TValue>(
         this IObservable<TValue> source,
@@ -49,16 +55,18 @@ public static class BindingExtensions
     )
         where TTarget : class => BindTo(source, target, targetProperty, static value => value);
 
-    /// <summary>Binds converted values produced by an observable sequence to a writable target property.</summary>
-    /// <typeparam name="TSourceValue">The value type produced by the source.</typeparam>
-    /// <typeparam name="TTarget">The target object type.</typeparam>
-    /// <typeparam name="TTargetValue">The target property value type.</typeparam>
-    /// <param name="source">The observable sequence that supplies values.</param>
-    /// <param name="target">The object whose property receives values.</param>
-    /// <param name="targetProperty">A writable property path rooted at <paramref name="target"/>.</param>
-    /// <param name="converter">The function that converts source values to target values.</param>
-    /// <returns>A disposable object that stops the binding.</returns>
-    /// <remarks><b>REFLECTION: NO.</b> The target setter is compiled once per property path and cached.</remarks>
+    /// <summary>
+/// 将可观察序列产生的、经过转换的值绑定到可写的目标属性.
+/// </summary>
+    /// <typeparam name="TSourceValue">源产生的值类型.</typeparam>
+    /// <typeparam name="TTarget">目标对象的类型.</typeparam>
+    /// <typeparam name="TTargetValue">目标属性的值类型.</typeparam>
+    /// <param name="source">提供值的可观察序列.</param>
+    /// <param name="target">接收值的属性所属对象.</param>
+    /// <param name="targetProperty">以 <paramref name="target"/> 为根的、可写的属性路径.</param>
+    /// <param name="converter">将源值转换为目标值的函数.</param>
+    /// <returns>可停止绑定的可释放对象.</returns>
+    /// <remarks><b>反射:否.</b>目标 setter 会针对每个属性路径编译一次并缓存.</remarks>
     public static IDisposable BindTo<TSourceValue, TTarget, TTargetValue>(
         this IObservable<TSourceValue> source,
         TTarget target,
@@ -77,16 +85,16 @@ public static class BindingExtensions
     }
 
     /// <summary>
-    /// Creates a two-way binding between source and target properties of the same type.
+    /// 在类型相同的源属性和目标属性之间创建双向绑定.
     /// </summary>
-    /// <typeparam name="TSource">The source object type.</typeparam>
-    /// <typeparam name="TTarget">The target object type.</typeparam>
-    /// <typeparam name="TValue">The bound property value type.</typeparam>
-    /// <param name="target">The target object on which this extension is invoked.</param>
-    /// <param name="source">The source object that supplies the initial value.</param>
-    /// <param name="sourceProperty">The observed, writable source property path.</param>
-    /// <param name="targetProperty">The observed, writable target property path.</param>
-    /// <returns>A disposable object that stops updates in both directions.</returns>
+    /// <typeparam name="TSource">源对象的类型.</typeparam>
+    /// <typeparam name="TTarget">目标对象的类型.</typeparam>
+    /// <typeparam name="TValue">所绑定属性的值类型.</typeparam>
+    /// <param name="target">调用此扩展方法的目标对象.</param>
+    /// <param name="source">提供初始值的源对象.</param>
+    /// <param name="sourceProperty">被观察的、可写的源属性路径.</param>
+    /// <param name="targetProperty">被观察的、可写的目标属性路径.</param>
+    /// <returns>可停止双向更新的可释放对象.</returns>
     public static IDisposable TwoWayBind<TSource, TTarget, TValue>(
         this TTarget target,
         TSource source,
@@ -105,19 +113,19 @@ public static class BindingExtensions
         );
 
     /// <summary>
-    /// Creates a converted two-way binding between source and target properties.
+    /// 在源属性和目标属性之间创建经过转换的双向绑定.
     /// </summary>
-    /// <typeparam name="TSource">The source object type.</typeparam>
-    /// <typeparam name="TTarget">The target object type.</typeparam>
-    /// <typeparam name="TSourceValue">The source property value type.</typeparam>
-    /// <typeparam name="TTargetValue">The target property value type.</typeparam>
-    /// <param name="target">The target object on which this extension is invoked.</param>
-    /// <param name="source">The source object that supplies the initial value.</param>
-    /// <param name="sourceProperty">The observed, writable source property path.</param>
-    /// <param name="targetProperty">The observed, writable target property path.</param>
-    /// <param name="sourceToTarget">Converts a source value before assigning it to the target.</param>
-    /// <param name="targetToSource">Converts a target value before assigning it to the source.</param>
-    /// <returns>A disposable object that stops updates in both directions.</returns>
+    /// <typeparam name="TSource">源对象的类型.</typeparam>
+    /// <typeparam name="TTarget">目标对象的类型.</typeparam>
+    /// <typeparam name="TSourceValue">源属性的值类型.</typeparam>
+    /// <typeparam name="TTargetValue">目标属性的值类型.</typeparam>
+    /// <param name="target">调用此扩展方法的目标对象.</param>
+    /// <param name="source">提供初始值的源对象.</param>
+    /// <param name="sourceProperty">被观察的、可写的源属性路径.</param>
+    /// <param name="targetProperty">被观察的、可写的目标属性路径.</param>
+    /// <param name="sourceToTarget">在将源值赋给目标之前对其进行转换.</param>
+    /// <param name="targetToSource">在将目标值赋给源之前对其进行转换.</param>
+    /// <returns>可停止双向更新的可释放对象.</returns>
     public static IDisposable TwoWayBind<TSource, TTarget, TSourceValue, TTargetValue>(
         this TTarget target,
         TSource source,
@@ -149,22 +157,22 @@ public static class BindingExtensions
     }
 
     /// <summary>
-    /// Creates a two-way binding using caller-provided assignment actions for both directions.
+    /// 使用调用方为两个方向提供的赋值操作创建双向绑定.
     /// </summary>
-    /// <typeparam name="TSource">The source object type.</typeparam>
-    /// <typeparam name="TTarget">The target object type.</typeparam>
-    /// <typeparam name="TSourceValue">The observed source value type.</typeparam>
-    /// <typeparam name="TTargetValue">The observed target value type.</typeparam>
-    /// <param name="target">The target object on which this extension is invoked.</param>
-    /// <param name="source">The source object that supplies the initial value.</param>
-    /// <param name="sourceProperty">The source property path to observe.</param>
-    /// <param name="targetProperty">The target property path to observe.</param>
-    /// <param name="assignTarget">Assigns a source value to the target.</param>
-    /// <param name="assignSource">Assigns a target value to the source.</param>
-    /// <returns>A disposable object that stops updates in both directions.</returns>
+    /// <typeparam name="TSource">源对象的类型.</typeparam>
+    /// <typeparam name="TTarget">目标对象的类型.</typeparam>
+    /// <typeparam name="TSourceValue">被观察的源值类型.</typeparam>
+    /// <typeparam name="TTargetValue">被观察的目标值类型.</typeparam>
+    /// <param name="target">调用此扩展方法的目标对象.</param>
+    /// <param name="source">提供初始值的源对象.</param>
+    /// <param name="sourceProperty">要观察的源属性路径.</param>
+    /// <param name="targetProperty">要观察的目标属性路径.</param>
+    /// <param name="assignTarget">将源值赋给目标.</param>
+    /// <param name="assignSource">将目标值赋给源.</param>
+    /// <returns>可停止双向更新的可释放对象.</returns>
     /// <remarks>
-    /// The source value initializes the target. The assignment actions are called directly and are not parsed,
-    /// compiled, or invoked through reflection. Property observation follows
+    /// 源值用于初始化目标.赋值操作会被直接调用,不经过解析、编译
+    /// 或反射调用.属性观察遵循
     /// <see cref="WhenAnyExtensions.WhenAnyValue{TSource,TValue}"/>.
     /// </remarks>
     public static IDisposable TwoWayBind<TSource, TTarget, TSourceValue, TTargetValue>(
@@ -230,8 +238,8 @@ public static class BindingExtensions
 
         public void UpdateTarget(TSourceValue value)
         {
-            // Source-to-target has priority: it may replace UpdatingSource, while
-            // UpdateSource is only allowed to enter from Idle.
+            // 源到目标具有更高优先级:它可以替换 UpdatingSource,而
+            // UpdateSource 只允许从 Idle 状态进入.
             int state;
             do
             {

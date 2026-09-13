@@ -92,7 +92,9 @@ internal sealed class SingleAssignmentDisposable : IDisposable
     }
 }
 
-/// <summary>Serializes scheduled callbacks while preserving their enqueue order.</summary>
+/// <summary>
+/// 串行化已调度的回调,同时保持其入队顺序.
+/// </summary>
 internal sealed class SerialActionQueue(Action<Action> schedule) : IDisposable
 {
     private readonly Lock _gate = new();
@@ -215,18 +217,18 @@ internal sealed class ExceptionSubject : IObservable<Exception>, IDisposable
 }
 
 /// <summary>
-/// Convenience subscription overloads that do not require System.Reactive.
+/// 无需 System.Reactive 的便捷订阅重载.
 /// </summary>
 public static class NativeObservableSubscriptionExtensions
 {
     /// <summary>
-    /// Subscribes to an observable sequence and invokes an action for every value.
+    /// 订阅可观察序列,并对每个值调用一个操作.
     /// </summary>
-    /// <typeparam name="T">The type of value produced by the sequence.</typeparam>
-    /// <param name="source">The observable sequence to subscribe to.</param>
-    /// <param name="onNext">The action invoked for each value.</param>
-    /// <returns>A disposable object that cancels the subscription.</returns>
-    /// <remarks><b>REFLECTION: NO.</b> The method creates an <see cref="IObserver{T}"/> wrapper directly.</remarks>
+    /// <typeparam name="T">序列产生的值类型.</typeparam>
+    /// <param name="source">要订阅的可观察序列.</param>
+    /// <param name="onNext">对每个值调用的操作.</param>
+    /// <returns>可取消该订阅的可释放对象.</returns>
+    /// <remarks><b>反射:否.</b>该方法直接创建 <see cref="IObserver{T}"/> 包装器.</remarks>
     public static IDisposable Subscribe<T>(this IObservable<T> source, Action<T> onNext)
     {
         ArgumentNullException.ThrowIfNull(source);
@@ -235,15 +237,15 @@ public static class NativeObservableSubscriptionExtensions
     }
 
     /// <summary>
-    /// Subscribes to an observable sequence with callbacks for values, errors, and completion.
+    /// 订阅可观察序列,并提供针对值、错误和完成的回调.
     /// </summary>
-    /// <typeparam name="T">The type of value produced by the sequence.</typeparam>
-    /// <param name="source">The observable sequence to subscribe to.</param>
-    /// <param name="onNext">The action invoked for each value.</param>
-    /// <param name="onError">The action invoked when the sequence terminates with an error.</param>
-    /// <param name="onCompleted">The optional action invoked when the sequence completes successfully.</param>
-    /// <returns>A disposable object that cancels the subscription.</returns>
-    /// <remarks><b>REFLECTION: NO.</b> The method creates an <see cref="IObserver{T}"/> wrapper directly.</remarks>
+    /// <typeparam name="T">序列产生的值类型.</typeparam>
+    /// <param name="source">要订阅的可观察序列.</param>
+    /// <param name="onNext">对每个值调用的操作.</param>
+    /// <param name="onError">序列以错误终止时调用的操作.</param>
+    /// <param name="onCompleted">序列成功完成时调用的可选操作.</param>
+    /// <returns>可取消该订阅的可释放对象.</returns>
+    /// <remarks><b>反射:否.</b>该方法直接创建 <see cref="IObserver{T}"/> 包装器.</remarks>
     public static IDisposable Subscribe<T>(
         this IObservable<T> source,
         Action<T> onNext,
