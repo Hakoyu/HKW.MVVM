@@ -29,8 +29,8 @@ public class WhenAnyValueBenchmarks
     private int _value;
 
     /// <summary>
-/// 创建更新基准测试所使用的长期订阅.
-/// </summary>
+    /// 创建更新基准测试所使用的长期订阅.
+    /// </summary>
     [GlobalSetup]
     public void SetupUpdateSubscriptions()
     {
@@ -52,8 +52,8 @@ public class WhenAnyValueBenchmarks
     }
 
     /// <summary>
-/// 释放更新基准测试所使用的长期订阅.
-/// </summary>
+    /// 释放更新基准测试所使用的长期订阅.
+    /// </summary>
     [GlobalCleanup]
     public void CleanupUpdateSubscriptions()
     {
@@ -64,10 +64,10 @@ public class WhenAnyValueBenchmarks
 
     #region Core
     /// <summary>
-/// 测量等效的直接 PropertyChanged 订阅.
-/// </summary>
+    /// 测量等效的直接 PropertyChanged 订阅.
+    /// </summary>
     [Benchmark(Baseline = true)]
-    [BenchmarkCategory("CreateAndDispose")]
+    [BenchmarkCategory("CAD")]
     public void DirectCreateAndDispose()
     {
         using var subscription = new DirectPropertyChangedSubscription<PropertySource, int>(
@@ -79,18 +79,18 @@ public class WhenAnyValueBenchmarks
     }
 
     /// <summary>
-/// 测量直接 PropertyChanged 的传递.
-/// </summary>
+    /// 测量直接 PropertyChanged 的传递.
+    /// </summary>
     [Benchmark(Baseline = true)]
-    [BenchmarkCategory("Update")]
+    [BenchmarkCategory("U")]
     public void DirectUpdate() => _directUpdateSource.Value = ++_value;
     #endregion
     #region HKW
     /// <summary>
-/// 测量 WhenAnyValue 的订阅,初始值发布和释放.
-/// </summary>
+    /// 测量 WhenAnyValue 的订阅,初始值发布和释放.
+    /// </summary>
     [Benchmark]
-    [BenchmarkCategory("CreateAndDispose")]
+    [BenchmarkCategory("CAD")]
     public void WhenAnyValueCreateAndDispose()
     {
         using var subscription = _whenAnyCreateSource
@@ -99,19 +99,19 @@ public class WhenAnyValueBenchmarks
     }
 
     /// <summary>
-/// 测量 WhenAnyValue 对直接属性的传递.
-/// </summary>
+    /// 测量 WhenAnyValue 对直接属性的传递.
+    /// </summary>
     [Benchmark]
-    [BenchmarkCategory("Update")]
+    [BenchmarkCategory("U")]
     public void WhenAnyValueUpdate() => _whenAnyUpdateSource.Value = ++_value;
     #endregion
 
     #region ReactiveUI
     /// <summary>
-/// 测量 ReactiveUI WhenAnyValue 的创建,初始发布和释放.
-/// </summary>
+    /// 测量 ReactiveUI WhenAnyValue 的创建,初始发布和释放.
+    /// </summary>
     [Benchmark]
-    [BenchmarkCategory("CreateAndDispose")]
+    [BenchmarkCategory("CAD")]
     public void ReactiveUIWhenAnyValueCreateAndDispose()
     {
         using var subscription = ReactiveUI
@@ -120,10 +120,10 @@ public class WhenAnyValueBenchmarks
     }
 
     /// <summary>
-/// 测量 ReactiveUI WhenAnyValue 对直接属性的传递.
-/// </summary>
+    /// 测量 ReactiveUI WhenAnyValue 对直接属性的传递.
+    /// </summary>
     [Benchmark]
-    [BenchmarkCategory("Update")]
+    [BenchmarkCategory("U")]
     public void ReactiveUIWhenAnyValueUpdate() => _reactiveUIUpdateSource.Value = ++_value;
 
     #endregion

@@ -14,51 +14,51 @@ namespace HKW.MVVMBenchmark;
 [CategoriesColumn]
 public class MultiPropertyWhenAnyValueBenchmarks
 {
-    private readonly Values _directOneCreateSource = new();
+    private readonly Values _coreOneCreateSource = new();
     private readonly Values _whenAnyOneCreateSource = new();
     private readonly Values _reactiveUIOneCreateSource = new();
-    private readonly Values _directTwoCreateSource = new();
+    private readonly Values _coreTwoCreateSource = new();
     private readonly Values _whenAnyTwoCreateSource = new();
     private readonly Values _reactiveUITwoCreateSource = new();
-    private readonly Values _directFourCreateSource = new();
+    private readonly Values _coreFourCreateSource = new();
     private readonly Values _whenAnyFourCreateSource = new();
     private readonly Values _reactiveUIFourCreateSource = new();
-    private readonly Values _directOneUpdateSource = new();
+    private readonly Values _coreOneUpdateSource = new();
     private readonly Values _whenAnyOneUpdateSource = new();
     private readonly Values _reactiveUIOneUpdateSource = new();
-    private readonly Values _directTwoUpdateSource = new();
+    private readonly Values _coreTwoUpdateSource = new();
     private readonly Values _whenAnyTwoUpdateSource = new();
     private readonly Values _reactiveUITwoUpdateSource = new();
-    private readonly Values _directFourUpdateSource = new();
+    private readonly Values _coreFourUpdateSource = new();
     private readonly Values _whenAnyFourUpdateSource = new();
     private readonly Values _reactiveUIFourUpdateSource = new();
-    private IDisposable? _directOneSubscription;
+    private IDisposable? _coreOneSubscription;
     private IDisposable? _whenAnyOneSubscription;
     private IDisposable? _reactiveUIOneSubscription;
-    private IDisposable? _directTwoSubscription;
+    private IDisposable? _coreTwoSubscription;
     private IDisposable? _whenAnyTwoSubscription;
     private IDisposable? _reactiveUITwoSubscription;
-    private IDisposable? _directFourSubscription;
+    private IDisposable? _coreFourSubscription;
     private IDisposable? _whenAnyFourSubscription;
     private IDisposable? _reactiveUIFourSubscription;
-    private int _directResult;
+    private int _coreResult;
     private int _whenAnyResult;
     private int _reactiveUIResult;
     private int _value;
 
     /// <summary>
-/// 创建更新基准测试所使用的长期订阅.
-/// </summary>
+    /// 创建更新基准测试所使用的长期订阅.
+    /// </summary>
     [GlobalSetup]
     public void SetupUpdateSubscriptions()
     {
         ReactiveUI.Builder.BuilderMixins.BuildApp(
             ReactiveUI.Builder.RxAppBuilder.CreateReactiveUIBuilder().WithCoreServices()
         );
-        _directOneSubscription = new DirectCombinedSubscription(
-            _directOneUpdateSource,
+        _coreOneSubscription = new CoreCombinedSubscription(
+            _coreOneUpdateSource,
             1,
-            value => _directResult = value
+            value => _coreResult = value
         );
         _whenAnyOneSubscription = _whenAnyOneUpdateSource
             .WhenAnyValue(source => source.Value1)
@@ -66,10 +66,10 @@ public class MultiPropertyWhenAnyValueBenchmarks
         _reactiveUIOneSubscription = ReactiveUI
             .WhenAnyMixins.WhenAnyValue(_reactiveUIOneUpdateSource, source => source.Value1)
             .Subscribe(value => _reactiveUIResult = value);
-        _directTwoSubscription = new DirectCombinedSubscription(
-            _directTwoUpdateSource,
+        _coreTwoSubscription = new CoreCombinedSubscription(
+            _coreTwoUpdateSource,
             2,
-            value => _directResult = value
+            value => _coreResult = value
         );
         _whenAnyTwoSubscription = _whenAnyTwoUpdateSource
             .WhenAnyValue(
@@ -86,10 +86,10 @@ public class MultiPropertyWhenAnyValueBenchmarks
                 static (value1, value2) => value1 + value2
             )
             .Subscribe(value => _reactiveUIResult = value);
-        _directFourSubscription = new DirectCombinedSubscription(
-            _directFourUpdateSource,
+        _coreFourSubscription = new CoreCombinedSubscription(
+            _coreFourUpdateSource,
             4,
-            value => _directResult = value
+            value => _coreResult = value
         );
         _whenAnyFourSubscription = _whenAnyFourUpdateSource
             .WhenAnyValue(
@@ -113,94 +113,94 @@ public class MultiPropertyWhenAnyValueBenchmarks
     }
 
     /// <summary>
-/// 释放更新基准测试所使用的订阅.
-/// </summary>
+    /// 释放更新基准测试所使用的订阅.
+    /// </summary>
     [GlobalCleanup]
     public void CleanupUpdateSubscriptions()
     {
-        _directOneSubscription?.Dispose();
+        _coreOneSubscription?.Dispose();
         _whenAnyOneSubscription?.Dispose();
         _reactiveUIOneSubscription?.Dispose();
-        _directTwoSubscription?.Dispose();
+        _coreTwoSubscription?.Dispose();
         _whenAnyTwoSubscription?.Dispose();
         _reactiveUITwoSubscription?.Dispose();
-        _directFourSubscription?.Dispose();
+        _coreFourSubscription?.Dispose();
         _whenAnyFourSubscription?.Dispose();
         _reactiveUIFourSubscription?.Dispose();
     }
 
     #region Core
     /// <summary>
-/// 测量直接的单属性订阅.
-/// </summary>
+    /// 测量直接的单属性订阅.
+    /// </summary>
     [Benchmark(Baseline = true)]
-    [BenchmarkCategory("OnePropertyCreateAndDispose")]
-    public void DirectOnePropertyCreateAndDispose()
+    [BenchmarkCategory("OneCAD")]
+    public void CoreOneCreateAndDispose()
     {
-        using var subscription = new DirectCombinedSubscription(
-            _directOneCreateSource,
+        using var subscription = new CoreCombinedSubscription(
+            _coreOneCreateSource,
             1,
-            value => _directResult = value
+            value => _coreResult = value
         );
     }
 
     /// <summary>
-/// 测量直接的双属性组合订阅.
-/// </summary>
+    /// 测量直接的双属性组合订阅.
+    /// </summary>
     [Benchmark(Baseline = true)]
-    [BenchmarkCategory("TwoPropertiesCreateAndDispose")]
-    public void DirectTwoPropertiesCreateAndDispose()
+    [BenchmarkCategory("TwoCAD")]
+    public void CoreTwoCreateAndDispose()
     {
-        using var subscription = new DirectCombinedSubscription(
-            _directTwoCreateSource,
+        using var subscription = new CoreCombinedSubscription(
+            _coreTwoCreateSource,
             2,
-            value => _directResult = value
+            value => _coreResult = value
         );
     }
 
     /// <summary>
-/// 测量直接的四属性组合订阅.
-/// </summary>
+    /// 测量直接的四属性组合订阅.
+    /// </summary>
     [Benchmark(Baseline = true)]
-    [BenchmarkCategory("FourPropertiesCreateAndDispose")]
-    public void DirectFourPropertiesCreateAndDispose()
+    [BenchmarkCategory("FourCAD")]
+    public void CoreFourCreateAndDispose()
     {
-        using var subscription = new DirectCombinedSubscription(
-            _directFourCreateSource,
+        using var subscription = new CoreCombinedSubscription(
+            _coreFourCreateSource,
             4,
-            value => _directResult = value
+            value => _coreResult = value
         );
     }
 
     /// <summary>
-/// 测量直接的单属性更新.
-/// </summary>
+    /// 测量直接的单属性更新.
+    /// </summary>
     [Benchmark(Baseline = true)]
-    [BenchmarkCategory("OnePropertyUpdate")]
-    public void DirectOnePropertyUpdate() => _directOneUpdateSource.Value1 = ++_value;
+    [BenchmarkCategory("OneU")]
+    public void CoreOneUpdate() => _coreOneUpdateSource.Value1 = ++_value;
 
     /// <summary>
-/// 测量由直接双属性订阅观察到的更新.
-/// </summary>
+    /// 测量由直接双属性订阅观察到的更新.
+    /// </summary>
     [Benchmark(Baseline = true)]
-    [BenchmarkCategory("TwoPropertiesUpdate")]
-    public void DirectTwoPropertiesUpdate() => _directTwoUpdateSource.Value1 = ++_value;
+    [BenchmarkCategory("TwoU")]
+    public void CoreTwoUpdate() => _coreTwoUpdateSource.Value1 = ++_value;
 
     /// <summary>
-/// 测量由直接四属性订阅观察到的更新.
-/// </summary>
+    /// 测量由直接四属性订阅观察到的更新.
+    /// </summary>
     [Benchmark(Baseline = true)]
-    [BenchmarkCategory("FourPropertiesUpdate")]
-    public void DirectFourPropertiesUpdate() => _directFourUpdateSource.Value1 = ++_value;
+    [BenchmarkCategory("FourU")]
+    public void CoreFourUpdate() => _coreFourUpdateSource.Value1 = ++_value;
     #endregion
 
     #region HKW
     /// <summary>
-/// 测量单属性 WhenAnyValue 的创建和释放.
-/// </summary>
+    /// 测量单属性 WhenAnyValue 的创建和释放.
+    /// </summary>
     [Benchmark]
-    [BenchmarkCategory("OnePropertyCreateAndDispose")]
-    public void WhenAnyValueOnePropertyCreateAndDispose()
+    [BenchmarkCategory("OneCAD")]
+    public void WhenAnyValueOneCreateAndDispose()
     {
         using var subscription = _whenAnyOneCreateSource
             .WhenAnyValue(source => source.Value1)
@@ -208,11 +208,11 @@ public class MultiPropertyWhenAnyValueBenchmarks
     }
 
     /// <summary>
-/// 测量双属性 WhenAnyValue 的创建和释放.
-/// </summary>
+    /// 测量双属性 WhenAnyValue 的创建和释放.
+    /// </summary>
     [Benchmark]
-    [BenchmarkCategory("TwoPropertiesCreateAndDispose")]
-    public void WhenAnyValueTwoPropertiesCreateAndDispose()
+    [BenchmarkCategory("TwoCAD")]
+    public void WhenAnyValueTwoCreateAndDispose()
     {
         using var subscription = _whenAnyTwoCreateSource
             .WhenAnyValue(
@@ -224,11 +224,11 @@ public class MultiPropertyWhenAnyValueBenchmarks
     }
 
     /// <summary>
-/// 测量四属性 WhenAnyValue 的创建和释放.
-/// </summary>
+    /// 测量四属性 WhenAnyValue 的创建和释放.
+    /// </summary>
     [Benchmark]
-    [BenchmarkCategory("FourPropertiesCreateAndDispose")]
-    public void WhenAnyValueFourPropertiesCreateAndDispose()
+    [BenchmarkCategory("FourCAD")]
+    public void WhenAnyValueFourCreateAndDispose()
     {
         using var subscription = _whenAnyFourCreateSource
             .WhenAnyValue(
@@ -242,34 +242,34 @@ public class MultiPropertyWhenAnyValueBenchmarks
     }
 
     /// <summary>
-/// 测量单属性 WhenAnyValue 的更新.
-/// </summary>
+    /// 测量单属性 WhenAnyValue 的更新.
+    /// </summary>
     [Benchmark]
-    [BenchmarkCategory("OnePropertyUpdate")]
-    public void WhenAnyValueOnePropertyUpdate() => _whenAnyOneUpdateSource.Value1 = ++_value;
+    [BenchmarkCategory("OneU")]
+    public void WhenAnyValueOneUpdate() => _whenAnyOneUpdateSource.Value1 = ++_value;
 
     /// <summary>
-/// 测量由双属性 WhenAnyValue 观察到的更新.
-/// </summary>
+    /// 测量由双属性 WhenAnyValue 观察到的更新.
+    /// </summary>
     [Benchmark]
-    [BenchmarkCategory("TwoPropertiesUpdate")]
-    public void WhenAnyValueTwoPropertiesUpdate() => _whenAnyTwoUpdateSource.Value1 = ++_value;
+    [BenchmarkCategory("TwoU")]
+    public void WhenAnyValueTwoUpdate() => _whenAnyTwoUpdateSource.Value1 = ++_value;
 
     /// <summary>
-/// 测量由四属性 WhenAnyValue 观察到的更新.
-/// </summary>
+    /// 测量由四属性 WhenAnyValue 观察到的更新.
+    /// </summary>
     [Benchmark]
-    [BenchmarkCategory("FourPropertiesUpdate")]
-    public void WhenAnyValueFourPropertiesUpdate() => _whenAnyFourUpdateSource.Value1 = ++_value;
+    [BenchmarkCategory("FourU")]
+    public void WhenAnyValueFourUpdate() => _whenAnyFourUpdateSource.Value1 = ++_value;
     #endregion
     #region ReactiveUI
 
     /// <summary>
-/// 测量 ReactiveUI 单属性 WhenAnyValue 的创建和释放.
-/// </summary>
+    /// 测量 ReactiveUI 单属性 WhenAnyValue 的创建和释放.
+    /// </summary>
     [Benchmark]
-    [BenchmarkCategory("OnePropertyCreateAndDispose")]
-    public void ReactiveUIOnePropertyCreateAndDispose()
+    [BenchmarkCategory("OneCAD")]
+    public void ReactiveUIOneCreateAndDispose()
     {
         using var subscription = ReactiveUI
             .WhenAnyMixins.WhenAnyValue(_reactiveUIOneCreateSource, source => source.Value1)
@@ -277,11 +277,11 @@ public class MultiPropertyWhenAnyValueBenchmarks
     }
 
     /// <summary>
-/// 测量 ReactiveUI 双属性 WhenAnyValue 的创建和释放.
-/// </summary>
+    /// 测量 ReactiveUI 双属性 WhenAnyValue 的创建和释放.
+    /// </summary>
     [Benchmark]
-    [BenchmarkCategory("TwoPropertiesCreateAndDispose")]
-    public void ReactiveUITwoPropertiesCreateAndDispose()
+    [BenchmarkCategory("TwoCAD")]
+    public void ReactiveUITwoCreateAndDispose()
     {
         using var subscription = ReactiveUI
             .WhenAnyMixins.WhenAnyValue(
@@ -294,11 +294,11 @@ public class MultiPropertyWhenAnyValueBenchmarks
     }
 
     /// <summary>
-/// 测量 ReactiveUI 四属性 WhenAnyValue 的创建和释放.
-/// </summary>
+    /// 测量 ReactiveUI 四属性 WhenAnyValue 的创建和释放.
+    /// </summary>
     [Benchmark]
-    [BenchmarkCategory("FourPropertiesCreateAndDispose")]
-    public void ReactiveUIFourPropertiesCreateAndDispose()
+    [BenchmarkCategory("FourCAD")]
+    public void ReactiveUIFourCreateAndDispose()
     {
         using var subscription = ReactiveUI
             .WhenAnyMixins.WhenAnyValue(
@@ -313,25 +313,25 @@ public class MultiPropertyWhenAnyValueBenchmarks
     }
 
     /// <summary>
-/// 测量 ReactiveUI 单属性 WhenAnyValue 的更新.
-/// </summary>
+    /// 测量 ReactiveUI 单属性 WhenAnyValue 的更新.
+    /// </summary>
     [Benchmark]
-    [BenchmarkCategory("OnePropertyUpdate")]
-    public void ReactiveUIOnePropertyUpdate() => _reactiveUIOneUpdateSource.Value1 = ++_value;
+    [BenchmarkCategory("OneU")]
+    public void ReactiveUIOneUpdate() => _reactiveUIOneUpdateSource.Value1 = ++_value;
 
     /// <summary>
-/// 测量由 ReactiveUI 双属性 WhenAnyValue 观察到的更新.
-/// </summary>
+    /// 测量由 ReactiveUI 双属性 WhenAnyValue 观察到的更新.
+    /// </summary>
     [Benchmark]
-    [BenchmarkCategory("TwoPropertiesUpdate")]
-    public void ReactiveUITwoPropertiesUpdate() => _reactiveUITwoUpdateSource.Value1 = ++_value;
+    [BenchmarkCategory("TwoU")]
+    public void ReactiveUITwoUpdate() => _reactiveUITwoUpdateSource.Value1 = ++_value;
 
     /// <summary>
-/// 测量由 ReactiveUI 四属性 WhenAnyValue 观察到的更新.
-/// </summary>
+    /// 测量由 ReactiveUI 四属性 WhenAnyValue 观察到的更新.
+    /// </summary>
     [Benchmark]
-    [BenchmarkCategory("FourPropertiesUpdate")]
-    public void ReactiveUIFourPropertiesUpdate() => _reactiveUIFourUpdateSource.Value1 = ++_value;
+    [BenchmarkCategory("FourU")]
+    public void ReactiveUIFourUpdate() => _reactiveUIFourUpdateSource.Value1 = ++_value;
 
     #endregion
 
@@ -393,7 +393,7 @@ public class MultiPropertyWhenAnyValueBenchmarks
         }
     }
 
-    private sealed class DirectCombinedSubscription : IDisposable
+    private sealed class CoreCombinedSubscription : IDisposable
     {
         private readonly Values _source;
         private readonly int _propertyCount;
@@ -402,7 +402,7 @@ public class MultiPropertyWhenAnyValueBenchmarks
         private bool _hasValue;
         private bool _disposed;
 
-        public DirectCombinedSubscription(Values source, int propertyCount, Action<int> onNext)
+        public CoreCombinedSubscription(Values source, int propertyCount, Action<int> onNext)
         {
             _source = source;
             _propertyCount = propertyCount;

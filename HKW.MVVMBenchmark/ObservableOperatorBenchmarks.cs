@@ -13,39 +13,39 @@ namespace HKW.MVVMBenchmark;
 [CategoriesColumn]
 public class ObservableOperatorBenchmarks
 {
-    private readonly BenchmarkObservable<int> _directCreateSource = new();
+    private readonly BenchmarkObservable<int> _coreCreateSource = new();
     private readonly BenchmarkObservable<int> _operatorCreateSource = new();
     private readonly BenchmarkObservable<int> _reactiveUICreateSource = new();
-    private readonly BenchmarkObservable<int> _directUpdateSource = new();
+    private readonly BenchmarkObservable<int> _coreUpdateSource = new();
     private readonly BenchmarkObservable<int> _operatorUpdateSource = new();
     private readonly BenchmarkObservable<int> _reactiveUIUpdateSource = new();
-    private IDisposable? _directSubscription;
+    private IDisposable? _coreSubscription;
     private IDisposable? _operatorSubscription;
     private IDisposable? _reactiveUISubscription;
-    private int _directResult;
+    private int _coreResult;
     private int _operatorResult;
     private int _reactiveUIResult;
     private int _value;
 
     /// <summary>
-/// 获取当前基准用例所使用的管道形态.
-/// </summary>
+    /// 获取当前基准用例所使用的管道形态.
+    /// </summary>
     [Params(PipelineKind.Select, PipelineKind.WhereSelect, PipelineKind.WhereSelectDistinct)]
     public PipelineKind Pipeline { get; set; }
 
     /// <summary>
-/// 创建消息传递基准测试所使用的长期订阅.
-/// </summary>
+    /// 创建消息传递基准测试所使用的长期订阅.
+    /// </summary>
     [GlobalSetup]
     public void SetupUpdateSubscriptions()
     {
         ReactiveUI.Builder.BuilderMixins.BuildApp(
             ReactiveUI.Builder.RxAppBuilder.CreateReactiveUIBuilder().WithCoreServices()
         );
-        _directSubscription = SubscribeDirect(
-            _directUpdateSource,
+        _coreSubscription = SubscribeCore(
+            _coreUpdateSource,
             Pipeline,
-            value => _directResult = value
+            value => _coreResult = value
         );
         _operatorSubscription = SubscribeOperators(
             _operatorUpdateSource,
@@ -60,50 +60,50 @@ public class ObservableOperatorBenchmarks
     }
 
     /// <summary>
-/// 释放消息传递基准测试所使用的订阅.
-/// </summary>
+    /// 释放消息传递基准测试所使用的订阅.
+    /// </summary>
     [GlobalCleanup]
     public void CleanupUpdateSubscriptions()
     {
-        _directSubscription?.Dispose();
+        _coreSubscription?.Dispose();
         _operatorSubscription?.Dispose();
         _reactiveUISubscription?.Dispose();
     }
 
     #region Core
     /// <summary>
-/// 测量直接观察者的创建,订阅和释放.
-/// </summary>
+    /// 测量直接观察者的创建,订阅和释放.
+    /// </summary>
     [Benchmark(Baseline = true)]
-    [BenchmarkCategory("CreateAndDispose")]
-    public void DirectCreateAndDispose()
+    [BenchmarkCategory("CAD")]
+    public void CoreCreateAndDispose()
     {
-        using var subscription = SubscribeDirect(
-            _directCreateSource,
+        using var subscription = SubscribeCore(
+            _coreCreateSource,
             Pipeline,
-            value => _directResult = value
+            value => _coreResult = value
         );
     }
 
     /// <summary>
-/// 测量通过等效的直接观察者逻辑传递的两条消息.
-/// </summary>
+    /// 测量通过等效的直接观察者逻辑传递的两条消息.
+    /// </summary>
     [Benchmark(Baseline = true)]
-    [BenchmarkCategory("Update")]
-    public void DirectUpdate()
+    [BenchmarkCategory("U")]
+    public void CoreUpdate()
     {
         var value = _value += 2;
-        _directUpdateSource.Emit(value - 1);
-        _directUpdateSource.Emit(value);
+        _coreUpdateSource.Emit(value - 1);
+        _coreUpdateSource.Emit(value);
     }
     #endregion
 
     #region HKW
     /// <summary>
-/// 测量操作符管道的创建,订阅和释放.
-/// </summary>
+    /// 测量操作符管道的创建,订阅和释放.
+    /// </summary>
     [Benchmark]
-    [BenchmarkCategory("CreateAndDispose")]
+    [BenchmarkCategory("CAD")]
     public void OperatorCreateAndDispose()
     {
         using var subscription = SubscribeOperators(
@@ -114,10 +114,10 @@ public class ObservableOperatorBenchmarks
     }
 
     /// <summary>
-/// 测量通过所选可观察操作符管道传递的两条消息.
-/// </summary>
+    /// 测量通过所选可观察操作符管道传递的两条消息.
+    /// </summary>
     [Benchmark]
-    [BenchmarkCategory("Update")]
+    [BenchmarkCategory("U")]
     public void OperatorUpdate()
     {
         var value = _value += 2;
@@ -128,10 +128,10 @@ public class ObservableOperatorBenchmarks
 
     #region ReactiveUI
     /// <summary>
-/// 测量 ReactiveUI 操作符管道的创建,订阅和释放.
-/// </summary>
+    /// 测量 ReactiveUI 操作符管道的创建,订阅和释放.
+    /// </summary>
     [Benchmark]
-    [BenchmarkCategory("CreateAndDispose")]
+    [BenchmarkCategory("CAD")]
     public void ReactiveUIOperatorCreateAndDispose()
     {
         using var subscription = SubscribeReactiveUIOperators(
@@ -142,10 +142,10 @@ public class ObservableOperatorBenchmarks
     }
 
     /// <summary>
-/// 测量通过等效 ReactiveUI 操作符管道传递的两条消息.
-/// </summary>
+    /// 测量通过等效 ReactiveUI 操作符管道传递的两条消息.
+    /// </summary>
     [Benchmark]
-    [BenchmarkCategory("Update")]
+    [BenchmarkCategory("U")]
     public void ReactiveUIOperatorUpdate()
     {
         var value = _value += 2;
@@ -155,11 +155,11 @@ public class ObservableOperatorBenchmarks
     #endregion
 
 
-    private static IDisposable SubscribeDirect(
+    private static IDisposable SubscribeCore(
         BenchmarkObservable<int> source,
         PipelineKind pipeline,
         Action<int> onNext
-    ) => source.Subscribe(new DirectPipelineObserver(pipeline, onNext));
+    ) => source.Subscribe(new CorePipelineObserver(pipeline, onNext));
 
     private static IDisposable SubscribeOperators(
         BenchmarkObservable<int> source,
@@ -213,27 +213,27 @@ public class ObservableOperatorBenchmarks
     private static int Transform(int value) => value * 2;
 
     /// <summary>
-/// 标识当前所测量的可观察管道.
-/// </summary>
+    /// 标识当前所测量的可观察管道.
+    /// </summary>
     public enum PipelineKind
     {
         /// <summary>
-/// 单个 Select 操作符.
-/// </summary>
+        /// 单个 Select 操作符.
+        /// </summary>
         Select,
 
         /// <summary>
-/// Where 操作符后接 Select.
-/// </summary>
+        /// Where 操作符后接 Select.
+        /// </summary>
         WhereSelect,
 
         /// <summary>
-/// Where 和 Select 后接 DistinctUntilChanged.
-/// </summary>
+        /// Where 和 Select 后接 DistinctUntilChanged.
+        /// </summary>
         WhereSelectDistinct,
     }
 
-    private sealed class DirectPipelineObserver(PipelineKind pipeline, Action<int> onNext)
+    private sealed class CorePipelineObserver(PipelineKind pipeline, Action<int> onNext)
         : IObserver<int>
     {
         private int _lastValue;

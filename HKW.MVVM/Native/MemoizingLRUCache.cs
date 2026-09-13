@@ -1,3 +1,5 @@
+using System.Collections.Concurrent;
+
 namespace HKW.MVVM;
 
 /// <summary>
@@ -13,6 +15,7 @@ internal sealed class MemoizingLRUCache<TKey, TValue>
     private readonly int _maximumSize;
     private readonly Dictionary<TKey, CacheEntry> _entries;
     private readonly LinkedList<TKey> _mostRecentlyUsedKeys = new();
+    private readonly ConcurrentDictionary<TKey, Lazy<TValue>> _inflight = new();
 
     /// <summary>
     /// 初始化新缓存.
@@ -35,7 +38,7 @@ internal sealed class MemoizingLRUCache<TKey, TValue>
     /// <param name="key">要返回其值的键.</param>
     /// <returns>已缓存或新创建的值.</returns>
     /// <remarks>
-    /// 值创建过程与缓存更新串行执行,因此针对同一键的并发请求只会调用一次
+    /// 缓存更新受锁保护;不同键的值可以并行创建,而针对同一键的并发请求只会调用一次
     /// 值工厂.
     /// </remarks>
     public TValue Get(TKey key)
@@ -49,8 +52,33 @@ internal sealed class MemoizingLRUCache<TKey, TValue>
                 Refresh(entry.Node);
                 return entry.Value;
             }
+        }
 
-            var value = _valueFactory(key);
+        var pending = new Lazy<TValue>(
+            () => _valueFactory(key),
+            LazyThreadSafetyMode.ExecutionAndPublication
+        );
+        var actual = _inflight.GetOrAdd(key, pending);
+        TValue value;
+        try
+        {
+            value = actual.Value;
+        }
+        catch
+        {
+            _inflight.TryRemove(new KeyValuePair<TKey, Lazy<TValue>>(key, actual));
+            throw;
+        }
+
+        lock (_gate)
+        {
+            if (_entries.TryGetValue(key, out var existingEntry))
+            {
+                Refresh(existingEntry.Node);
+                _inflight.TryRemove(new KeyValuePair<TKey, Lazy<TValue>>(key, actual));
+                return existingEntry.Value;
+            }
+
             var node = _mostRecentlyUsedKeys.AddFirst(key);
             _entries.Add(key, new CacheEntry(node, value));
 
@@ -61,6 +89,7 @@ internal sealed class MemoizingLRUCache<TKey, TValue>
                 _mostRecentlyUsedKeys.RemoveLast();
             }
 
+            _inflight.TryRemove(new KeyValuePair<TKey, Lazy<TValue>>(key, actual));
             return value;
         }
     }

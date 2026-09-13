@@ -106,6 +106,30 @@ public sealed class WhenAnyValueTests
     }
 
     [TestMethod]
+    public void DeepNestedProperty_RebindsEveryIntermediateNode()
+    {
+        var firstAddress = new Address { Country = new Country { Name = "UK" } };
+        var secondAddress = new Address { Country = new Country { Name = "Japan" } };
+        var person = new Person { Address = firstAddress };
+        var countries = new List<string?>();
+
+        using var subscription = person
+            .WhenAnyValue(x => x.Address!.Country!.Name)
+            .Subscribe(countries.Add);
+
+        firstAddress.Country!.Name = "England";
+        firstAddress.Country = new Country { Name = "Scotland" };
+        person.Address = secondAddress;
+        firstAddress.Country.Name = "Ignored";
+        secondAddress.Country!.Name = "Japan (updated)";
+
+        CollectionAssert.AreEqual(
+            new string?[] { "UK", "England", "Scotland", "Japan", "Japan (updated)" },
+            countries
+        );
+    }
+
+    [TestMethod]
     public void NestedProperty_WhenIntermediateIsNull_SuppressesUntilPathRecovers()
     {
         var person = new Person { Address = new Address { City = "London" } };

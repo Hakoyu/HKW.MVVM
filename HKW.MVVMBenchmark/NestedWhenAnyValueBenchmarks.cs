@@ -14,44 +14,44 @@ namespace HKW.MVVMBenchmark;
 [CategoriesColumn]
 public class NestedWhenAnyValueBenchmarks
 {
-    private readonly Root _directCreateRoot = new();
+    private readonly Root _coreCreateRoot = new();
     private readonly Root _whenAnyCreateRoot = new();
     private readonly Root _reactiveUICreateRoot = new();
-    private readonly Root _directUpdateRoot = new();
+    private readonly Root _coreUpdateRoot = new();
     private readonly Root _whenAnyUpdateRoot = new();
     private readonly Root _reactiveUIUpdateRoot = new();
-    private readonly Child _directAlternativeChild = new();
+    private readonly Child _coreAlternativeChild = new();
     private readonly Child _whenAnyAlternativeChild = new();
     private readonly Child _reactiveUIAlternativeChild = new();
-    private IDisposable? _directSubscription;
+    private IDisposable? _coreSubscription;
     private IDisposable? _whenAnySubscription;
     private IDisposable? _reactiveUISubscription;
-    private Child? _directOriginalChild;
+    private Child? _coreOriginalChild;
     private Child? _whenAnyOriginalChild;
     private Child? _reactiveUIOriginalChild;
-    private bool _useDirectAlternative;
+    private bool _useCoreAlternative;
     private bool _useWhenAnyAlternative;
     private bool _useReactiveUIAlternative;
-    private int _directResult;
+    private int _coreResult;
     private int _whenAnyResult;
     private int _reactiveUIResult;
     private int _value;
 
     /// <summary>
-/// 创建叶级更新与重新绑定基准测试所使用的订阅.
-/// </summary>
+    /// 创建叶级更新与重新绑定基准测试所使用的订阅.
+    /// </summary>
     [GlobalSetup]
     public void SetupUpdateSubscriptions()
     {
         ReactiveUI.Builder.BuilderMixins.BuildApp(
             ReactiveUI.Builder.RxAppBuilder.CreateReactiveUIBuilder().WithCoreServices()
         );
-        _directOriginalChild = _directUpdateRoot.Child;
+        _coreOriginalChild = _coreUpdateRoot.Child;
         _whenAnyOriginalChild = _whenAnyUpdateRoot.Child;
         _reactiveUIOriginalChild = _reactiveUIUpdateRoot.Child;
-        _directSubscription = new DirectNestedSubscription(
-            _directUpdateRoot,
-            value => _directResult = value
+        _coreSubscription = new CoreNestedSubscription(
+            _coreUpdateRoot,
+            value => _coreResult = value
         );
         _whenAnySubscription = _whenAnyUpdateRoot
             .WhenAnyValue(root => root.Child.Value)
@@ -62,57 +62,57 @@ public class NestedWhenAnyValueBenchmarks
     }
 
     /// <summary>
-/// 释放更新基准测试所使用的订阅.
-/// </summary>
+    /// 释放更新基准测试所使用的订阅.
+    /// </summary>
     [GlobalCleanup]
     public void CleanupUpdateSubscriptions()
     {
-        _directSubscription?.Dispose();
+        _coreSubscription?.Dispose();
         _whenAnySubscription?.Dispose();
         _reactiveUISubscription?.Dispose();
     }
 
     #region Core
     /// <summary>
-/// 测量直接嵌套订阅的创建,初始发布和释放.
-/// </summary>
+    /// 测量直接嵌套订阅的创建,初始发布和释放.
+    /// </summary>
     [Benchmark(Baseline = true)]
-    [BenchmarkCategory("CreateAndDispose")]
-    public void DirectCreateAndDispose()
+    [BenchmarkCategory("CAD")]
+    public void CoreCreateAndDispose()
     {
-        using var subscription = new DirectNestedSubscription(
-            _directCreateRoot,
-            value => _directResult = value
+        using var subscription = new CoreNestedSubscription(
+            _coreCreateRoot,
+            value => _coreResult = value
         );
     }
 
     /// <summary>
-/// 测量通过直接嵌套订阅进行的叶级更新.
-/// </summary>
+    /// 测量通过直接嵌套订阅进行的叶级更新.
+    /// </summary>
     [Benchmark(Baseline = true)]
-    [BenchmarkCategory("LeafUpdate")]
-    public void DirectLeafUpdate() => _directUpdateRoot.Child.Value = ++_value;
+    [BenchmarkCategory("LU")]
+    public void CoreLeafUpdate() => _coreUpdateRoot.Child.Value = ++_value;
 
     /// <summary>
-/// 测量替换中间对象后的直接解绑与重新绑定.
-/// </summary>
+    /// 测量替换中间对象后的直接解绑与重新绑定.
+    /// </summary>
     [Benchmark(Baseline = true)]
-    [BenchmarkCategory("IntermediateRebind")]
-    public void DirectIntermediateRebind()
+    [BenchmarkCategory("IR")]
+    public void CoreIntermediateRebind()
     {
-        _useDirectAlternative = !_useDirectAlternative;
-        var child = _useDirectAlternative ? _directAlternativeChild : _directOriginalChild!;
+        _useCoreAlternative = !_useCoreAlternative;
+        var child = _useCoreAlternative ? _coreAlternativeChild : _coreOriginalChild!;
         child.Value = ++_value;
-        _directUpdateRoot.Child = child;
+        _coreUpdateRoot.Child = child;
     }
     #endregion
 
     #region HKW
     /// <summary>
-/// 测量嵌套路径解析,反射订阅,初始发布和释放.
-/// </summary>
+    /// 测量嵌套路径解析,反射订阅,初始发布和释放.
+    /// </summary>
     [Benchmark]
-    [BenchmarkCategory("CreateAndDispose")]
+    [BenchmarkCategory("CAD")]
     public void WhenAnyValueCreateAndDispose()
     {
         using var subscription = _whenAnyCreateRoot
@@ -121,17 +121,17 @@ public class NestedWhenAnyValueBenchmarks
     }
 
     /// <summary>
-/// 测量通过嵌套 WhenAnyValue 进行的叶级更新.
-/// </summary>
+    /// 测量通过嵌套 WhenAnyValue 进行的叶级更新.
+    /// </summary>
     [Benchmark]
-    [BenchmarkCategory("LeafUpdate")]
+    [BenchmarkCategory("LU")]
     public void WhenAnyValueLeafUpdate() => _whenAnyUpdateRoot.Child.Value = ++_value;
 
     /// <summary>
-/// 测量替换中间对象后 WhenAnyValue 的解绑与重新绑定.
-/// </summary>
+    /// 测量替换中间对象后 WhenAnyValue 的解绑与重新绑定.
+    /// </summary>
     [Benchmark]
-    [BenchmarkCategory("IntermediateRebind")]
+    [BenchmarkCategory("IR")]
     public void WhenAnyValueIntermediateRebind()
     {
         _useWhenAnyAlternative = !_useWhenAnyAlternative;
@@ -143,11 +143,11 @@ public class NestedWhenAnyValueBenchmarks
 
     #region ReactiveUI
     /// <summary>
-/// 测量 ReactiveUI 嵌套 WhenAnyValue 的创建和释放.
-/// </summary>
+    /// 测量 ReactiveUI 嵌套 WhenAnyValue 的创建和释放.
+    /// </summary>
     [Benchmark]
-    [BenchmarkCategory("CreateAndDispose")]
-    public void ReactiveUIWhenAnyValueCreateAndDispose()
+    [BenchmarkCategory("CAD")]
+    public void ReactiveUICreateAndDispose()
     {
         using var subscription = ReactiveUI
             .WhenAnyMixins.WhenAnyValue(_reactiveUICreateRoot, root => root.Child.Value)
@@ -155,18 +155,18 @@ public class NestedWhenAnyValueBenchmarks
     }
 
     /// <summary>
-/// 测量通过 ReactiveUI 嵌套 WhenAnyValue 进行的叶级更新.
-/// </summary>
+    /// 测量通过 ReactiveUI 嵌套 WhenAnyValue 进行的叶级更新.
+    /// </summary>
     [Benchmark]
-    [BenchmarkCategory("LeafUpdate")]
-    public void ReactiveUIWhenAnyValueLeafUpdate() => _reactiveUIUpdateRoot.Child.Value = ++_value;
+    [BenchmarkCategory("LU")]
+    public void ReactiveUILeafUpdate() => _reactiveUIUpdateRoot.Child.Value = ++_value;
 
     /// <summary>
-/// 测量替换中间对象后的 ReactiveUI 重新订阅.
-/// </summary>
+    /// 测量替换中间对象后的 ReactiveUI 重新订阅.
+    /// </summary>
     [Benchmark]
-    [BenchmarkCategory("IntermediateRebind")]
-    public void ReactiveUIWhenAnyValueIntermediateRebind()
+    [BenchmarkCategory("IR")]
+    public void ReactiveUIIntermediateRebind()
     {
         _useReactiveUIAlternative = !_useReactiveUIAlternative;
         var child = _useReactiveUIAlternative
@@ -224,7 +224,7 @@ public class NestedWhenAnyValueBenchmarks
         }
     }
 
-    private sealed class DirectNestedSubscription : IDisposable
+    private sealed class CoreNestedSubscription : IDisposable
     {
         private readonly Root _root;
         private readonly Action<int> _onNext;
@@ -233,7 +233,7 @@ public class NestedWhenAnyValueBenchmarks
         private bool _hasValue;
         private bool _disposed;
 
-        public DirectNestedSubscription(Root root, Action<int> onNext)
+        public CoreNestedSubscription(Root root, Action<int> onNext)
         {
             _root = root;
             _onNext = onNext;

@@ -17,40 +17,37 @@ namespace HKW.MVVMBenchmark;
 [CategoriesColumn]
 public class ToPropertyBenchmarks
 {
-    private readonly BenchmarkObservable<int> _directFastCreateSource = new();
+    private readonly BenchmarkObservable<int> _coreFastCreateSource = new();
     private readonly BenchmarkObservable<int> _toPropertyFastCreateSource = new();
     private readonly BenchmarkObservable<int> _toPropertyPlainCreateSource = new();
     private readonly BenchmarkObservable<int> _reactiveUICreateSource = new();
-    private readonly BenchmarkObservable<int> _directFastUpdateSource = new();
+    private readonly BenchmarkObservable<int> _coreFastUpdateSource = new();
     private readonly BenchmarkObservable<int> _toPropertyFastUpdateSource = new();
     private readonly BenchmarkObservable<int> _toPropertyPlainUpdateSource = new();
     private readonly BenchmarkObservable<int> _reactiveUIUpdateSource = new();
-    private readonly BenchmarkObservable<int> _directDeferredSource = new();
+    private readonly BenchmarkObservable<int> _coreDeferredSource = new();
     private readonly BenchmarkObservable<int> _toPropertyDeferredSource = new();
     private readonly BenchmarkObservable<int> _reactiveUIDeferredSource = new();
-    private readonly FastOwner _directOwner = new();
+    private readonly FastOwner _coreOwner = new();
     private readonly FastOwner _toPropertyFastOwner = new();
     private readonly PlainOwner _toPropertyPlainOwner = new();
     private readonly ReactiveUIOwner _reactiveUIOwner = new();
-    private DirectStoredProperty? _directFastProperty;
+    private CoreStoredProperty? _coreFastProperty;
     private HkwObservableAsPropertyHelper? _toPropertyFastProperty;
     private HkwObservableAsPropertyHelper? _toPropertyPlainProperty;
     private ReactiveObservableAsPropertyHelper? _reactiveUIProperty;
     private int _value;
 
     /// <summary>
-/// 创建更新基准测试所使用的长期属性.
-/// </summary>
+    /// 创建更新基准测试所使用的长期属性.
+    /// </summary>
     [GlobalSetup]
     public void SetupUpdateProperties()
     {
         ReactiveUI.Builder.BuilderMixins.BuildApp(
             ReactiveUI.Builder.RxAppBuilder.CreateReactiveUIBuilder().WithCoreServices()
         );
-        _directFastProperty = new DirectStoredProperty(
-            _directFastUpdateSource,
-            _directOwner.SetResult
-        );
+        _coreFastProperty = new CoreStoredProperty(_coreFastUpdateSource, _coreOwner.SetResult);
         _toPropertyFastProperty = _toPropertyFastUpdateSource.ToProperty(
             _toPropertyFastOwner,
             owner => owner.Result
@@ -67,12 +64,12 @@ public class ToPropertyBenchmarks
     }
 
     /// <summary>
-/// 释放更新基准测试所使用的长期属性.
-/// </summary>
+    /// 释放更新基准测试所使用的长期属性.
+    /// </summary>
     [GlobalCleanup]
     public void CleanupUpdateProperties()
     {
-        _directFastProperty?.Dispose();
+        _coreFastProperty?.Dispose();
         _toPropertyFastProperty?.Dispose();
         _toPropertyPlainProperty?.Dispose();
         _reactiveUIProperty?.Dispose();
@@ -81,35 +78,32 @@ public class ToPropertyBenchmarks
     #region Core
 
     /// <summary>
-/// 测量使用直接 IPropertyNotifier 通知的手写属性.
-/// </summary>
+    /// 测量使用直接 IPropertyNotifier 通知的手写属性.
+    /// </summary>
     [Benchmark(Baseline = true)]
-    [BenchmarkCategory("FastOwnerCreateAndDispose")]
-    public void DirectFastOwnerCreateAndDispose()
+    [BenchmarkCategory("FOCAD")]
+    public void CoreFastOwnerCreateAndDispose()
     {
-        using var property = new DirectStoredProperty(
-            _directFastCreateSource,
-            _directOwner.SetResult
-        );
+        using var property = new CoreStoredProperty(_coreFastCreateSource, _coreOwner.SetResult);
     }
 
     /// <summary>
-/// 测量通过手写的,由 IPropertyNotifier 支持的属性发生的一次值变更.
-/// </summary>
+    /// 测量通过手写的,由 IPropertyNotifier 支持的属性发生的一次值变更.
+    /// </summary>
     [Benchmark(Baseline = true)]
-    [BenchmarkCategory("FastOwnerUpdate")]
-    public void DirectFastOwnerUpdate() => _directFastUpdateSource.Emit(++_value);
+    [BenchmarkCategory("FOU")]
+    public void CoreFastOwnerUpdate() => _coreFastUpdateSource.Emit(++_value);
 
     /// <summary>
-/// 测量对等效的延迟手写属性的首次访问.
-/// </summary>
+    /// 测量对等效的延迟手写属性的首次访问.
+    /// </summary>
     [Benchmark(Baseline = true)]
-    [BenchmarkCategory("DeferredFirstRead")]
-    public int DirectDeferredFirstRead()
+    [BenchmarkCategory("DFR")]
+    public int CoreDeferredFirstRead()
     {
-        using var property = new DirectStoredProperty(
-            _directDeferredSource,
-            _directOwner.SetResult,
+        using var property = new CoreStoredProperty(
+            _coreDeferredSource,
+            _coreOwner.SetResult,
             deferSubscription: true
         );
         return property.Value;
@@ -118,11 +112,11 @@ public class ToPropertyBenchmarks
 
     #region HKW
     /// <summary>
-/// 测量使用其 IPropertyNotifier 通知路径的 ToProperty 创建.
-/// </summary>
+    /// 测量使用其 IPropertyNotifier 通知路径的 ToProperty 创建.
+    /// </summary>
     [Benchmark]
-    [BenchmarkCategory("FastOwnerCreateAndDispose")]
-    public void ToPropertyFastOwnerCreateAndDispose()
+    [BenchmarkCategory("FOCAD")]
+    public void HKWFastOwnerCreateAndDispose()
     {
         using var property = _toPropertyFastCreateSource.ToProperty(
             _toPropertyFastOwner,
@@ -131,11 +125,11 @@ public class ToPropertyBenchmarks
     }
 
     /// <summary>
-/// 测量使用缓存的 ObservableObject 通知委托的 ToProperty 创建.
-/// </summary>
+    /// 测量使用缓存的 ObservableObject 通知委托的 ToProperty 创建.
+    /// </summary>
     [Benchmark]
-    [BenchmarkCategory("PlainOwnerCreateAndDispose")]
-    public void ToPropertyPlainOwnerCreateAndDispose()
+    [BenchmarkCategory("POCAD")]
+    public void HKWPlainOwnerCreateAndDispose()
     {
         using var property = _toPropertyPlainCreateSource.ToProperty(
             _toPropertyPlainOwner,
@@ -144,25 +138,25 @@ public class ToPropertyBenchmarks
     }
 
     /// <summary>
-/// 测量通过 ToProperty 的 IPropertyNotifier 路径发生的一次值变更.
-/// </summary>
+    /// 测量通过 ToProperty 的 IPropertyNotifier 路径发生的一次值变更.
+    /// </summary>
     [Benchmark]
-    [BenchmarkCategory("FastOwnerUpdate")]
-    public void ToPropertyFastOwnerUpdate() => _toPropertyFastUpdateSource.Emit(++_value);
+    [BenchmarkCategory("FOU")]
+    public void HKWFastOwnerUpdate() => _toPropertyFastUpdateSource.Emit(++_value);
 
     /// <summary>
-/// 测量通过 ToProperty 的普通 ObservableObject 路径发生的一次值变更.
-/// </summary>
+    /// 测量通过 ToProperty 的普通 ObservableObject 路径发生的一次值变更.
+    /// </summary>
     [Benchmark]
-    [BenchmarkCategory("PlainOwnerUpdate")]
-    public void ToPropertyPlainOwnerUpdate() => _toPropertyPlainUpdateSource.Emit(++_value);
+    [BenchmarkCategory("POU")]
+    public void HKWPlainOwnerUpdate() => _toPropertyPlainUpdateSource.Emit(++_value);
 
     /// <summary>
-/// 测量 ToProperty 创建及其延迟的首次订阅与读取.
-/// </summary>
+    /// 测量 ToProperty 创建及其延迟的首次订阅与读取.
+    /// </summary>
     [Benchmark]
-    [BenchmarkCategory("DeferredFirstRead")]
-    public int ToPropertyDeferredFirstRead()
+    [BenchmarkCategory("DFR")]
+    public int HKWDeferredFirstRead()
     {
         using var property = _toPropertyDeferredSource.ToProperty(
             _toPropertyFastOwner,
@@ -175,10 +169,10 @@ public class ToPropertyBenchmarks
 
     #region ReactiveUI
     /// <summary>
-/// 测量 ReactiveUI ToProperty 的创建和释放.
-/// </summary>
+    /// 测量 ReactiveUI ToProperty 的创建和释放.
+    /// </summary>
     [Benchmark]
-    [BenchmarkCategory("PlainOwnerCreateAndDispose")]
+    [BenchmarkCategory("POCAD")]
     public void ReactiveUICreateAndDispose()
     {
         using var property = ReactiveUI.OAPHCreationHelperMixins.ToProperty(
@@ -189,17 +183,17 @@ public class ToPropertyBenchmarks
     }
 
     /// <summary>
-/// 测量通过 ReactiveUI ToProperty 发生的一次值变更.
-/// </summary>
+    /// 测量通过 ReactiveUI ToProperty 发生的一次值变更.
+    /// </summary>
     [Benchmark]
-    [BenchmarkCategory("PlainOwnerUpdate")]
+    [BenchmarkCategory("POU")]
     public void ReactiveUIUpdate() => _reactiveUIUpdateSource.Emit(++_value);
 
     /// <summary>
-/// 测量 ReactiveUI ToProperty 创建及其延迟的首次订阅与读取.
-/// </summary>
+    /// 测量 ReactiveUI ToProperty 创建及其延迟的首次订阅与读取.
+    /// </summary>
     [Benchmark]
-    [BenchmarkCategory("DeferredFirstRead")]
+    [BenchmarkCategory("DFR")]
     public int ReactiveUIDeferredFirstRead()
     {
         using var property = ReactiveUI.OAPHCreationHelperMixins.ToProperty(
@@ -242,7 +236,7 @@ public class ToPropertyBenchmarks
         public int Result => 0;
     }
 
-    private sealed class DirectStoredProperty : IDisposable, IObserver<int>
+    private sealed class CoreStoredProperty : IDisposable, IObserver<int>
     {
         private readonly BenchmarkObservable<int> _source;
         private readonly Action<int> _setOwnerValue;
@@ -251,7 +245,7 @@ public class ToPropertyBenchmarks
         private bool _started;
         private bool _disposed;
 
-        public DirectStoredProperty(
+        public CoreStoredProperty(
             BenchmarkObservable<int> source,
             Action<int> setOwnerValue,
             bool deferSubscription = false

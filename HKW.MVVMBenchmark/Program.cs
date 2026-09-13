@@ -11,7 +11,7 @@ internal static class Program
     private static void Main(string[] args)
     {
         var config = DefaultConfig.Instance.AddJob(
-            Job.Default.WithWarmupCount(5).WithIterationCount(20)
+            Job.Default.WithWarmupCount(10).WithIterationCount(10)
         );
 
         BenchmarkRunner.Run<BindToBenchmarks>(config);

@@ -14,19 +14,19 @@ namespace HKW.MVVMBenchmark;
 [CategoriesColumn]
 public class BindToBenchmarks
 {
-    private readonly BenchmarkObservable<int> _directSource = new();
+    private readonly BenchmarkObservable<int> _subscribeSource = new();
     private readonly BenchmarkObservable<int> _expressionSource = new();
     private readonly BenchmarkObservable<int> _assignmentSource = new();
     private readonly BenchmarkObservable<int> _reactiveUISource = new();
-    private readonly BindingTarget _directTarget = new();
+    private readonly BindingTarget _coreTarget = new();
     private readonly BindingTarget _expressionTarget = new();
     private readonly BindingTarget _assignmentTarget = new();
     private readonly BindingTarget _reactiveUITarget = new();
     private readonly BindingObject _propertyChangedCreateSource = new();
     private readonly BindingTarget _propertyChangedCreateTarget = new();
-    private readonly BindingObject _propertyChangedUpdateSource = new();
+    private readonly BindingObject _coreSource = new();
     private readonly BindingTarget _propertyChangedUpdateTarget = new();
-    private IDisposable? _directBinding;
+    private IDisposable? _coreBinding;
     private IDisposable? _expressionBinding;
     private IDisposable? _assignmentBinding;
     private IDisposable? _reactiveUIBinding;
@@ -34,15 +34,15 @@ public class BindToBenchmarks
     private int _value;
 
     /// <summary>
-/// 创建更新基准测试所使用的长期绑定.
-/// </summary>
+    /// 创建更新基准测试所使用的长期绑定.
+    /// </summary>
     [GlobalSetup]
     public void SetupUpdateBindings()
     {
         ReactiveUI.Builder.BuilderMixins.BuildApp(
             ReactiveUI.Builder.RxAppBuilder.CreateReactiveUIBuilder().WithCoreServices()
         );
-        _directBinding = _directSource.Subscribe(new AssignmentObserver(_directTarget));
+        _coreBinding = _subscribeSource.Subscribe(new AssignmentObserver(_coreTarget));
         _expressionBinding = _expressionSource.BindTo(_expressionTarget, target => target.Value);
         _assignmentBinding = _assignmentSource.BindTo(
             _assignmentTarget,
@@ -54,18 +54,18 @@ public class BindToBenchmarks
             target => target.Value
         );
         _propertyChangedBinding = new PropertyChangedBinding(
-            _propertyChangedUpdateSource,
+            _coreSource,
             _propertyChangedUpdateTarget
         );
     }
 
     /// <summary>
-/// 释放更新基准测试所使用的长期绑定.
-/// </summary>
+    /// 释放更新基准测试所使用的长期绑定.
+    /// </summary>
     [GlobalCleanup]
     public void CleanupUpdateBindings()
     {
-        _directBinding?.Dispose();
+        _coreBinding?.Dispose();
         _expressionBinding?.Dispose();
         _assignmentBinding?.Dispose();
         _reactiveUIBinding?.Dispose();
@@ -74,11 +74,11 @@ public class BindToBenchmarks
 
     #region Core
     /// <summary>
-/// 测量传统 PropertyChanged 处理程序的注册与移除.
-/// </summary>
+    /// 测量传统 PropertyChanged 处理程序的注册与移除.
+    /// </summary>
     [Benchmark]
-    [BenchmarkCategory("CreateAndDispose")]
-    public void PropertyChangedCreateAndDispose()
+    [BenchmarkCategory("CAD")]
+    public void CoreCreateAndDispose()
     {
         using var binding = new PropertyChangedBinding(
             _propertyChangedCreateSource,
@@ -87,53 +87,53 @@ public class BindToBenchmarks
     }
 
     /// <summary>
-/// 测量通过传统 PropertyChanged 处理程序进行的一次值传递.
-/// </summary>
+    /// 测量通过传统 PropertyChanged 处理程序进行的一次值传递.
+    /// </summary>
     [Benchmark]
-    [BenchmarkCategory("Update")]
-    public void PropertyChangedUpdate() => _propertyChangedUpdateSource.Value = ++_value;
+    [BenchmarkCategory("U")]
+    public void CoreUpdate() => _coreSource.Value = ++_value;
     #endregion
 
     #region HKW
     /// <summary>
-/// 测量直接观察者的创建,订阅和释放.
-/// </summary>
+    /// 测量直接观察者的创建,订阅和释放.
+    /// </summary>
     [Benchmark(Baseline = true)]
-    [BenchmarkCategory("CreateAndDispose")]
-    public void DirectCreateAndDispose()
+    [BenchmarkCategory("CAD")]
+    public void SubscribeCreateAndDispose()
     {
-        using var binding = _directSource.Subscribe(new AssignmentObserver(_directTarget));
+        using var binding = _subscribeSource.Subscribe(new AssignmentObserver(_coreTarget));
     }
 
     /// <summary>
-/// 测量通过现有直接观察者订阅进行的一次值传递.
-/// </summary>
+    /// 测量通过现有直接观察者订阅进行的一次值传递.
+    /// </summary>
     [Benchmark(Baseline = true)]
-    [BenchmarkCategory("Update")]
-    public void DirectUpdate() => _directSource.Emit(++_value);
+    [BenchmarkCategory("U")]
+    public void SubscribeUpdate() => _subscribeSource.Emit(++_value);
 
     /// <summary>
-/// 测量表达式解析,setter 编译,订阅和释放.
-/// </summary>
+    /// 测量表达式解析,setter 编译,订阅和释放.
+    /// </summary>
     [Benchmark]
-    [BenchmarkCategory("CreateAndDispose")]
+    [BenchmarkCategory("CAD")]
     public void ExpressionCreateAndDispose()
     {
         using var binding = _expressionSource.BindTo(_expressionTarget, target => target.Value);
     }
 
     /// <summary>
-/// 测量通过现有表达式绑定进行的一次值传递.
-/// </summary>
+    /// 测量通过现有表达式绑定进行的一次值传递.
+    /// </summary>
     [Benchmark]
-    [BenchmarkCategory("Update")]
+    [BenchmarkCategory("U")]
     public void ExpressionUpdate() => _expressionSource.Emit(++_value);
 
     /// <summary>
-/// 测量赋值操作的订阅和释放.
-/// </summary>
+    /// 测量赋值操作的订阅和释放.
+    /// </summary>
     [Benchmark]
-    [BenchmarkCategory("CreateAndDispose")]
+    [BenchmarkCategory("CAD")]
     public void AssignmentCreateAndDispose()
     {
         using var binding = _assignmentSource.BindTo(
@@ -143,19 +143,19 @@ public class BindToBenchmarks
     }
 
     /// <summary>
-/// 测量通过现有赋值操作绑定进行的一次值传递.
-/// </summary>
+    /// 测量通过现有赋值操作绑定进行的一次值传递.
+    /// </summary>
     [Benchmark]
-    [BenchmarkCategory("Update")]
+    [BenchmarkCategory("U")]
     public void AssignmentUpdate() => _assignmentSource.Emit(++_value);
     #endregion
 
     #region ReactiveUI
     /// <summary>
-/// 测量 ReactiveUI 表达式绑定的创建和释放.
-/// </summary>
+    /// 测量 ReactiveUI 表达式绑定的创建和释放.
+    /// </summary>
     [Benchmark]
-    [BenchmarkCategory("CreateAndDispose")]
+    [BenchmarkCategory("CAD")]
     public void ReactiveUICreateAndDispose()
     {
         using var binding = ReactiveUI.PropertyBindingMixins.BindTo(
@@ -166,10 +166,10 @@ public class BindToBenchmarks
     }
 
     /// <summary>
-/// 测量通过现有 ReactiveUI 绑定进行的一次值传递.
-/// </summary>
+    /// 测量通过现有 ReactiveUI 绑定进行的一次值传递.
+    /// </summary>
     [Benchmark]
-    [BenchmarkCategory("Update")]
+    [BenchmarkCategory("U")]
     public void ReactiveUIUpdate() => _reactiveUISource.Emit(++_value);
     #endregion
 

@@ -14,38 +14,38 @@ namespace HKW.MVVMBenchmark;
 [CategoriesColumn]
 public class TwoWayBindBenchmarks
 {
-    private readonly BindingObject _directCreateSource = new();
-    private readonly BindingObject _directCreateTarget = new();
+    private readonly BindingObject _coreCreateSource = new();
+    private readonly BindingObject _coreCreateTarget = new();
     private readonly BindingObject _expressionCreateSource = new();
     private readonly BindingObject _expressionCreateTarget = new();
     private readonly BindingObject _assignmentCreateSource = new();
     private readonly BindingObject _assignmentCreateTarget = new();
     private readonly BindingObject _reactiveUICreateSource = new();
     private readonly ReactiveUIView _reactiveUICreateTarget = new();
-    private readonly BindingObject _directUpdateSource = new();
-    private readonly BindingObject _directUpdateTarget = new();
+    private readonly BindingObject _coreUpdateSource = new();
+    private readonly BindingObject _coreUpdateTarget = new();
     private readonly BindingObject _expressionUpdateSource = new();
     private readonly BindingObject _expressionUpdateTarget = new();
     private readonly BindingObject _assignmentUpdateSource = new();
     private readonly BindingObject _assignmentUpdateTarget = new();
     private readonly BindingObject _reactiveUIUpdateSource = new();
     private readonly ReactiveUIView _reactiveUIUpdateTarget = new();
-    private IDisposable? _directBinding;
+    private IDisposable? _coreBinding;
     private IDisposable? _expressionBinding;
     private IDisposable? _assignmentBinding;
     private IDisposable? _reactiveUIBinding;
     private int _value;
 
     /// <summary>
-/// 创建更新基准测试所使用的长期绑定.
-/// </summary>
+    /// 创建更新基准测试所使用的长期绑定.
+    /// </summary>
     [GlobalSetup]
     public void SetupUpdateBindings()
     {
         ReactiveUI.Builder.BuilderMixins.BuildApp(
             ReactiveUI.Builder.RxAppBuilder.CreateReactiveUIBuilder().WithCoreServices()
         );
-        _directBinding = new DirectTwoWayBinding(_directUpdateSource, _directUpdateTarget);
+        _coreBinding = new CoreTwoWayBinding(_coreUpdateSource, _coreUpdateTarget);
         _expressionBinding = _expressionUpdateTarget.TwoWayBind(
             _expressionUpdateSource,
             source => source.Value,
@@ -67,12 +67,12 @@ public class TwoWayBindBenchmarks
     }
 
     /// <summary>
-/// 释放更新基准测试所使用的长期绑定.
-/// </summary>
+    /// 释放更新基准测试所使用的长期绑定.
+    /// </summary>
     [GlobalCleanup]
     public void CleanupUpdateBindings()
     {
-        _directBinding?.Dispose();
+        _coreBinding?.Dispose();
         _expressionBinding?.Dispose();
         _assignmentBinding?.Dispose();
         _reactiveUIBinding?.Dispose();
@@ -80,35 +80,35 @@ public class TwoWayBindBenchmarks
 
     #region Core
     /// <summary>
-/// 测量直接事件处理程序绑定的创建,初始同步和释放.
-/// </summary>
+    /// 测量直接事件处理程序绑定的创建,初始同步和释放.
+    /// </summary>
     [Benchmark(Baseline = true)]
-    [BenchmarkCategory("CreateAndDispose")]
-    public void DirectCreateAndDispose()
+    [BenchmarkCategory("CAD")]
+    public void CoreCreateAndDispose()
     {
-        using var binding = new DirectTwoWayBinding(_directCreateSource, _directCreateTarget);
+        using var binding = new CoreTwoWayBinding(_coreCreateSource, _coreCreateTarget);
     }
 
     /// <summary>
-/// 测量通过直接事件处理程序进行的一次源到目标更新.
-/// </summary>
+    /// 测量通过直接事件处理程序进行的一次源到目标更新.
+    /// </summary>
     [Benchmark(Baseline = true)]
-    [BenchmarkCategory("SourceToTargetUpdate")]
-    public void DirectSourceToTargetUpdate() => _directUpdateSource.Value = ++_value;
+    [BenchmarkCategory("STTU")]
+    public void CoreSourceToTargetUpdate() => _coreUpdateSource.Value = ++_value;
 
     /// <summary>
-/// 测量通过直接事件处理程序进行的一次目标到源更新.
-/// </summary>
+    /// 测量通过直接事件处理程序进行的一次目标到源更新.
+    /// </summary>
     [Benchmark(Baseline = true)]
-    [BenchmarkCategory("TargetToSourceUpdate")]
-    public void DirectTargetToSourceUpdate() => _directUpdateTarget.Value = ++_value;
+    [BenchmarkCategory("TTSU")]
+    public void CoreTargetToSourceUpdate() => _coreUpdateTarget.Value = ++_value;
     #endregion
     #region HKW
     /// <summary>
-/// 测量绑定创建,两次 setter 编译,订阅和释放.
-/// </summary>
+    /// 测量绑定创建,两次 setter 编译,订阅和释放.
+    /// </summary>
     [Benchmark]
-    [BenchmarkCategory("CreateAndDispose")]
+    [BenchmarkCategory("CAD")]
     public void ExpressionCreateAndDispose()
     {
         using var binding = _expressionCreateTarget.TwoWayBind(
@@ -119,10 +119,10 @@ public class TwoWayBindBenchmarks
     }
 
     /// <summary>
-/// 测量赋值操作绑定的创建,订阅和释放.
-/// </summary>
+    /// 测量赋值操作绑定的创建,订阅和释放.
+    /// </summary>
     [Benchmark]
-    [BenchmarkCategory("CreateAndDispose")]
+    [BenchmarkCategory("CAD")]
     public void AssignmentCreateAndDispose()
     {
         using var binding = _assignmentCreateTarget.TwoWayBind(
@@ -135,40 +135,40 @@ public class TwoWayBindBenchmarks
     }
 
     /// <summary>
-/// 测量通过现有表达式绑定进行的一次源到目标更新.
-/// </summary>
+    /// 测量通过现有表达式绑定进行的一次源到目标更新.
+    /// </summary>
     [Benchmark]
-    [BenchmarkCategory("SourceToTargetUpdate")]
+    [BenchmarkCategory("STTU")]
     public void ExpressionSourceToTargetUpdate() => _expressionUpdateSource.Value = ++_value;
 
     /// <summary>
-/// 测量通过现有赋值绑定进行的一次源到目标更新.
-/// </summary>
+    /// 测量通过现有赋值绑定进行的一次源到目标更新.
+    /// </summary>
     [Benchmark]
-    [BenchmarkCategory("SourceToTargetUpdate")]
+    [BenchmarkCategory("STTU")]
     public void AssignmentSourceToTargetUpdate() => _assignmentUpdateSource.Value = ++_value;
 
     /// <summary>
-/// 测量通过现有表达式绑定进行的一次目标到源更新.
-/// </summary>
+    /// 测量通过现有表达式绑定进行的一次目标到源更新.
+    /// </summary>
     [Benchmark]
-    [BenchmarkCategory("TargetToSourceUpdate")]
+    [BenchmarkCategory("TTSU")]
     public void ExpressionTargetToSourceUpdate() => _expressionUpdateTarget.Value = ++_value;
 
     /// <summary>
-/// 测量通过现有赋值绑定进行的一次目标到源更新.
-/// </summary>
+    /// 测量通过现有赋值绑定进行的一次目标到源更新.
+    /// </summary>
     [Benchmark]
-    [BenchmarkCategory("TargetToSourceUpdate")]
+    [BenchmarkCategory("TTSU")]
     public void AssignmentTargetToSourceUpdate() => _assignmentUpdateTarget.Value = ++_value;
     #endregion
 
     #region ReactiveUI
     /// <summary>
-/// 测量 ReactiveUI 双向绑定的创建和释放.
-/// </summary>
+    /// 测量 ReactiveUI 双向绑定的创建和释放.
+    /// </summary>
     [Benchmark]
-    [BenchmarkCategory("CreateAndDispose")]
+    [BenchmarkCategory("CAD")]
     public void ReactiveUICreateAndDispose()
     {
         using var binding = ReactiveUI.PropertyBindingMixins.Bind(
@@ -180,17 +180,17 @@ public class TwoWayBindBenchmarks
     }
 
     /// <summary>
-/// 测量通过现有 ReactiveUI 绑定进行的一次源到目标更新.
-/// </summary>
+    /// 测量通过现有 ReactiveUI 绑定进行的一次源到目标更新.
+    /// </summary>
     [Benchmark]
-    [BenchmarkCategory("SourceToTargetUpdate")]
+    [BenchmarkCategory("STTU")]
     public void ReactiveUISourceToTargetUpdate() => _reactiveUIUpdateSource.Value = ++_value;
 
     /// <summary>
-/// 测量通过现有 ReactiveUI 绑定进行的一次目标到源更新.
-/// </summary>
+    /// 测量通过现有 ReactiveUI 绑定进行的一次目标到源更新.
+    /// </summary>
     [Benchmark]
-    [BenchmarkCategory("TargetToSourceUpdate")]
+    [BenchmarkCategory("TTSU")]
     public void ReactiveUITargetToSourceUpdate() => _reactiveUIUpdateTarget.Value = ++_value;
     #endregion
 
@@ -249,7 +249,7 @@ public class TwoWayBindBenchmarks
         }
     }
 
-    private sealed class DirectTwoWayBinding : IDisposable
+    private sealed class CoreTwoWayBinding : IDisposable
     {
         private readonly BindingObject _source;
         private readonly BindingObject _target;
@@ -257,7 +257,7 @@ public class TwoWayBindBenchmarks
         private bool _updatingTarget;
         private bool _disposed;
 
-        public DirectTwoWayBinding(BindingObject source, BindingObject target)
+        public CoreTwoWayBinding(BindingObject source, BindingObject target)
         {
             _source = source;
             _target = target;

@@ -847,6 +847,29 @@ public static class WhenAnyExtensions
         }
     }
 
+    private static class PropertyPathGetterCache
+    {
+        public static readonly MemoizingLRUCache<PropertyInfo, Func<object, object?>> Getters = new(
+            Compile,
+            64
+        );
+
+        private static Func<object, object?> Compile(PropertyInfo property)
+        {
+            var owner = Expression.Parameter(typeof(object), "owner");
+            Expression body = Expression.Property(
+                Expression.Convert(owner, property.DeclaringType!),
+                property
+            );
+            if (body.Type.IsValueType)
+            {
+                body = Expression.Convert(body, typeof(object));
+            }
+
+            return Expression.Lambda<Func<object, object?>>(body, owner).Compile();
+        }
+    }
+
     private sealed class DirectPropertyObservable<TSource, TValue>(
         TSource source,
         Func<TSource, TValue> getter,
@@ -950,12 +973,18 @@ public static class WhenAnyExtensions
     {
         private readonly TSource _source;
         private readonly PropertyInfo[] _path;
+        private readonly Func<object, object?>[] _pathGetters;
         private readonly Func<object, TValue> _leafGetter;
 
         public PropertyPathObservable(TSource source, Expression<Func<TSource, TValue>> expression)
         {
             _source = source;
             _path = PropertyPath.Parse(expression);
+            _pathGetters = new Func<object, object?>[_path.Length - 1];
+            for (var index = 0; index < _pathGetters.Length; index++)
+            {
+                _pathGetters[index] = PropertyPathGetterCache.Getters.Get(_path[index]);
+            }
             _leafGetter = PropertyPathLeafGetterCache<TValue>.Getters.Get(_path[^1]);
         }
 
@@ -965,6 +994,7 @@ public static class WhenAnyExtensions
             return new PropertyPathSubscription<TSource, TValue>(
                 _source,
                 _path,
+                _pathGetters,
                 _leafGetter,
                 observer
             );
@@ -977,11 +1007,15 @@ public static class WhenAnyExtensions
         private readonly Lock _gate = new();
         private readonly TSource _source;
         private readonly PropertyInfo[] _path;
+        private readonly Func<object, object?>[] _pathGetters;
         private readonly Func<object, TValue> _leafGetter;
         private readonly IObserver<TValue> _observer;
         private readonly object?[] _owners;
         private readonly INotifyPropertyChanged?[] _notifiers;
         private readonly PropertyChangedEventHandler[] _handlers;
+        private readonly int _pathLength;
+        private readonly int _lastPathIndex;
+        private readonly IEqualityComparer<TValue> _valueComparer = EqualityComparer<TValue>.Default;
         private bool _hasValue;
         private TValue? _lastValue;
         private bool _disposed;
@@ -989,18 +1023,22 @@ public static class WhenAnyExtensions
         public PropertyPathSubscription(
             TSource source,
             PropertyInfo[] path,
+            Func<object, object?>[] pathGetters,
             Func<object, TValue> leafGetter,
             IObserver<TValue> observer
         )
         {
             _source = source;
             _path = path;
+            _pathGetters = pathGetters;
+            _pathLength = path.Length;
+            _lastPathIndex = _pathLength - 1;
             _leafGetter = leafGetter;
             _observer = observer;
-            _owners = new object?[path.Length];
-            _notifiers = new INotifyPropertyChanged?[path.Length];
-            _handlers = new PropertyChangedEventHandler[path.Length];
-            for (var index = 0; index < path.Length; index++)
+            _owners = new object?[_pathLength];
+            _notifiers = new INotifyPropertyChanged?[_pathLength];
+            _handlers = new PropertyChangedEventHandler[_pathLength];
+            for (var index = 0; index < _pathLength; index++)
             {
                 var capturedIndex = index;
                 _handlers[index] = (sender, eventArgs) =>
@@ -1061,7 +1099,7 @@ public static class WhenAnyExtensions
                     }
 
                     DetachHandlersFrom(changedPathIndex + 1);
-                    for (var index = changedPathIndex; index < _path.Length; index++)
+                    for (var index = changedPathIndex; index < _pathLength; index++)
                     {
                         if (owner is null)
                         {
@@ -1078,19 +1116,19 @@ public static class WhenAnyExtensions
                             }
                         }
 
-                        if (index == _path.Length - 1)
+                        if (index == _lastPathIndex)
                         {
                             value = _leafGetter(owner);
                         }
                         else
                         {
-                            owner = _path[index].GetValue(owner);
+                            owner = _pathGetters[index](owner);
                         }
                     }
 
                     if (
                         _hasValue is false
-                        || EqualityComparer<TValue>.Default.Equals(_lastValue!, value!) is false
+                        || _valueComparer.Equals(_lastValue!, value!) is false
                     )
                     {
                         _hasValue = true;
@@ -1124,7 +1162,7 @@ public static class WhenAnyExtensions
 
         private void DetachHandlersFrom(int startIndex)
         {
-            for (var index = startIndex; index < _path.Length; index++)
+            for (var index = startIndex; index < _pathLength; index++)
             {
                 var notifier = _notifiers[index];
                 if (notifier is not null)
