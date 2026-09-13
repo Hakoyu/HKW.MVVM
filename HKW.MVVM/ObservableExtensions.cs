@@ -19,7 +19,7 @@ public enum ObservableSchedulers
 }
 
 /// <summary>
-/// 不依赖 System.Reactive 实现的常用可观察操作符.
+/// 常用可观察操作符.
 /// </summary>
 public static class ObservableExtensions
 {

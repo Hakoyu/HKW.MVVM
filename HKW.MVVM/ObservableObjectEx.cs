@@ -25,6 +25,31 @@ public interface IPropertyChangeNotifier : INotifyPropertyChanging, INotifyPrope
 /// </summary>
 public class ObservableObjectEx : ObservableObject, IPropertyChangeNotifier
 {
+    private readonly PropertyChangeSubject<
+        IPropertyChangedEventArgs<ObservableObjectEx>
+    > _changing = new();
+    private readonly PropertyChangeSubject<IPropertyChangedEventArgs<ObservableObjectEx>> _changed =
+        new();
+
+    /// <summary>
+    /// 在属性值更改之前发出通知.
+    /// </summary>
+    public IObservable<IPropertyChangedEventArgs<ObservableObjectEx>> Changing => _changing;
+
+    /// <summary>
+    /// 在属性值更改之后发出通知.
+    /// </summary>
+    public IObservable<IPropertyChangedEventArgs<ObservableObjectEx>> Changed => _changed;
+
+    /// <summary>
+    /// 创建对象并连接标准属性通知与响应式属性通知流.
+    /// </summary>
+    public ObservableObjectEx()
+    {
+        PropertyChanging += OnPropertyChanging;
+        PropertyChanged += OnPropertyChanged;
+    }
+
     /// <inheritdoc />
     public void NotifyPropertyChanging([CallerMemberName] string? propertyName = null) =>
         OnPropertyChanging(propertyName);
@@ -32,4 +57,10 @@ public class ObservableObjectEx : ObservableObject, IPropertyChangeNotifier
     /// <inheritdoc />
     public void NotifyPropertyChanged([CallerMemberName] string? propertyName = null) =>
         OnPropertyChanged(propertyName);
+
+    private void OnPropertyChanging(object? sender, PropertyChangingEventArgs args) =>
+        _changing.OnNext(new PropertyChangedEventArgs<ObservableObjectEx>(this, args.PropertyName));
+
+    private void OnPropertyChanged(object? sender, PropertyChangedEventArgs args) =>
+        _changed.OnNext(new PropertyChangedEventArgs<ObservableObjectEx>(this, args.PropertyName));
 }
