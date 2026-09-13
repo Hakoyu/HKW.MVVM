@@ -23,6 +23,8 @@ public enum ObservableSchedulers
 /// </summary>
 public static class ObservableExtensions
 {
+    private static readonly IDisposable _emptyDisposable = new ActionDisposable(static () => { });
+
     /// <summary>
     /// 记录可观察序列的每个通知,并原样转发该序列.
     /// </summary>
@@ -87,7 +89,7 @@ public static class ObservableExtensions
     }
 
     /// <summary>
-    /// 以指定级别记录可观察序列的每个通知,并原样转发.
+    /// 以指定级别记录可 observable 序列的每个通知,并原样转发.
     /// </summary>
     /// <typeparam name="TSource">源值类型.</typeparam>
     /// <param name="source">要记录日志的可观察序列.</param>
@@ -166,7 +168,7 @@ public static class ObservableExtensions
     }
 
     /// <summary>
-    /// 使用谓词筛选可观察序列.
+    /// 使用谓词筛选可 observable 序列.
     /// </summary>
     /// <typeparam name="TSource">源值类型.</typeparam>
     /// <param name="source">要筛选的可观察序列.</param>
@@ -277,7 +279,7 @@ public static class ObservableExtensions
             return Create<TSource>(observer =>
             {
                 observer.OnCompleted();
-                return new ActionDisposable(() => { });
+                return _emptyDisposable;
             });
         }
 
@@ -524,11 +526,46 @@ public static class ObservableExtensions
         return Create<TSource>(observer =>
         {
             var subscriptions = new MultipleDisposable();
+            var stopped = 0;
+
+            void OnCompleted()
+            {
+                if (Interlocked.Exchange(ref stopped, 1) != 0)
+                {
+                    return;
+                }
+
+                observer.OnCompleted();
+            }
+
+            void OnError(Exception exception)
+            {
+                if (Interlocked.Exchange(ref stopped, 1) != 0)
+                {
+                    return;
+                }
+
+                observer.OnError(exception);
+            }
+
             subscriptions.Add(
                 source.Subscribe(
-                    observer.OnNext,
+                    value =>
+                    {
+                        if (Volatile.Read(ref stopped) != 0)
+                        {
+                            return;
+                        }
+
+                        observer.OnNext(value);
+                    },
                     error =>
                     {
+                        if (Volatile.Read(ref stopped) != 0)
+                        {
+                            return;
+                        }
+
                         IObservable<TSource> replacement;
                         try
                         {
@@ -540,15 +577,37 @@ public static class ObservableExtensions
                         }
                         catch (Exception exception)
                         {
-                            observer.OnError(exception);
+                            OnError(exception);
                             return;
                         }
 
-                        subscriptions.Add(replacement.Subscribe(observer));
+                        try
+                        {
+                            subscriptions.Add(
+                                replacement.Subscribe(
+                                    value =>
+                                    {
+                                        if (Volatile.Read(ref stopped) != 0)
+                                        {
+                                            return;
+                                        }
+
+                                        observer.OnNext(value);
+                                    },
+                                    OnError,
+                                    OnCompleted
+                                )
+                            );
+                        }
+                        catch (Exception exception)
+                        {
+                            OnError(exception);
+                        }
                     },
-                    observer.OnCompleted
+                    OnCompleted
                 )
             );
+
             return subscriptions;
         });
     }
@@ -564,7 +623,7 @@ public static class ObservableExtensions
         {
             observer.OnNext(value);
             observer.OnCompleted();
-            return new ActionDisposable(() => { });
+            return _emptyDisposable;
         });
 
     /// <summary>
@@ -576,7 +635,7 @@ public static class ObservableExtensions
         Create<TSource>(observer =>
         {
             observer.OnCompleted();
-            return new ActionDisposable(() => { });
+            return _emptyDisposable;
         });
 
     private static IObservable<T> Create<T>(Func<IObserver<T>, IDisposable> subscribe) =>

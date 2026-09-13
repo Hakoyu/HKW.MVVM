@@ -10,13 +10,13 @@ namespace HKW.MVVM;
 public interface IPropertyChangeNotifier : INotifyPropertyChanging, INotifyPropertyChanged
 {
     /// <summary>
-/// 引发 <see cref="INotifyPropertyChanging.PropertyChanging"/>.
-/// </summary>
+    /// 引发 <see cref="INotifyPropertyChanging.PropertyChanging"/>.
+    /// </summary>
     void NotifyPropertyChanging([CallerMemberName] string? propertyName = null);
 
     /// <summary>
-/// 引发 <see cref="INotifyPropertyChanged.PropertyChanged"/>.
-/// </summary>
+    /// 引发 <see cref="INotifyPropertyChanged.PropertyChanged"/>.
+    /// </summary>
     void NotifyPropertyChanged([CallerMemberName] string? propertyName = null);
 }
 
