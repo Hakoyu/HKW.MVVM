@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <Version>0.1.0</Version>
+    <Version>0.1.1</Version>
     <Company>HKW</Company>
     <Authors>HKW</Authors>
     <PackageDescription>Lightweight .NET MVVM reactive helpers for property observation, derived properties, observable operators, scheduling, and disposable resource management without ReactiveUI or System.Reactive.</PackageDescription>

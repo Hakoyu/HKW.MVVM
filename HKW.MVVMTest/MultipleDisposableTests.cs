@@ -47,13 +47,30 @@ public sealed class MultipleDisposableTests
     }
 
     [TestMethod]
-    public void Clear_DisposesCurrentResourcesAndAllowsNewResources()
+    public void Clear_CleanCurrentResourcesAndAllowsNewResources()
     {
         var first = new TrackingDisposable();
         var second = new TrackingDisposable();
         var disposables = new MultipleDisposable { first };
 
         disposables.Clear();
+        disposables.Add(second);
+
+        Assert.AreEqual(0, first.DisposeCount);
+        Assert.AreEqual(0, second.DisposeCount);
+        Assert.AreEqual(1, disposables.Count);
+        disposables.Dispose();
+        Assert.AreEqual(1, second.DisposeCount);
+    }
+
+    [TestMethod]
+    public void DisposeAndClear_DisposesCurrentResourcesAndAllowsNewResources()
+    {
+        var first = new TrackingDisposable();
+        var second = new TrackingDisposable();
+        var disposables = new MultipleDisposable { first };
+
+        disposables.DisposeAndClear();
         disposables.Add(second);
 
         Assert.AreEqual(1, first.DisposeCount);

@@ -63,6 +63,22 @@ public sealed class MultipleDisposable : ICollection<IDisposable>, IDisposable
     /// </summary>
     public void Clear()
     {
+        lock (_gate)
+        {
+            if (_items is null || _items.Count == 0)
+            {
+                return;
+            }
+
+            _items.Clear();
+        }
+    }
+
+    /// <summary>
+    /// 移除此容器当前持有的全部资源.
+    /// </summary>
+    public void DisposeAndClear()
+    {
         IDisposable[] items;
         lock (_gate)
         {
