@@ -14,7 +14,7 @@ internal static class Program
             Job.Default.WithWarmupCount(10).WithIterationCount(10)
         );
 
-        BenchmarkRunner.Run<BindToBenchmarks>(config);
+        //BenchmarkRunner.Run<BindToBenchmarks>(config);
         //BenchmarkRunner.Run<TwoWayBindBenchmarks>(config);
         //BenchmarkRunner.Run<WhenAnyValueBenchmarks>(config);
         //BenchmarkRunner.Run<NestedWhenAnyValueBenchmarks>(config);

@@ -1,9 +1,10 @@
 ﻿using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.DependencyInjection;
+using HKW.MVVM;
 using Microsoft.Extensions.Logging;
 
-namespace HKW.MVVM;
+namespace HKW.MVVMTest;
 
 internal static class Program
 {

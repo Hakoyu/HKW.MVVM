@@ -6,7 +6,7 @@
     <PackageDescription>Lightweight .NET MVVM reactive helpers for property observation, derived properties, observable operators, scheduling, and disposable resource management without ReactiveUI or System.Reactive.</PackageDescription>
     <PackageTags>mvvm;reactive;observable;property-changed;viewmodel;communitytoolkit;dotnet</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <OutputType>Exe</OutputType>
+    <OutputType>Library</OutputType>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
@@ -38,6 +38,6 @@
 
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
-    <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.12" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.12" />
   </ItemGroup>
 </Project>

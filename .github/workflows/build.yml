@@ -1,0 +1,39 @@
+name: build-and-publish
+on:
+  push:
+    tags:
+      - 'v*'   # 例如推送 v1.0.0 时触发
+
+jobs:
+  publish-nuget:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write   # 启用 OIDC Token
+      contents: read    # 读取仓库内容
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --configuration Release ./HKW.MVVM/HKW.MVVM.csproj
+
+      # 登录并获取临时 API Key
+      - name: NuGet login (OIDC → temp API key)
+        uses: NuGet/login@v1
+        id: login
+        with:
+          user: Hakoyu   # NuGet.org 用户名
+          token-service-url: https://www.nuget.org/api/v2/token
+          audience: https://www.nuget.org
+
+      # 推送到 NuGet.org
+      - name: NuGet push
+        run: dotnet nuget push "./HKW.MVVM/bin/Release/*.nupkg" --api-key ${{ steps.login.outputs.NUGET_API_KEY }} --source "https://api.nuget.org/v3/index.json" --skip-duplicate
