@@ -84,8 +84,8 @@ public sealed class ObservableAsPropertyHelperTests
             helper = source.ToProperty(
                 owner,
                 owner => owner.Result,
-                ObservableSchedulers.Current,
-                initialValue: "Initial"
+                initialValue: "Initial",
+                ObservableSchedulers.Current
             );
         }
         finally
@@ -112,8 +112,8 @@ public sealed class ObservableAsPropertyHelperTests
         using var helper = source.ToProperty(
             owner,
             nameof(PropertyOwner.Result),
-            ObservableSchedulers.ThreadPool,
-            initialValue: "Initial"
+            initialValue: "Initial",
+            ObservableSchedulers.ThreadPool
         );
         var notification = new TaskCompletionSource<string>(
             TaskCreationOptions.RunContinuationsAsynchronously

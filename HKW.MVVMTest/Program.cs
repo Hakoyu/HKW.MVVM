@@ -36,6 +36,7 @@ internal class TestModel : ObservableObject, IEnableLogger
         this.Log().LogInformation("Info");
     }
 
+    public string NameOAPH => this.WhenAnyValue(x => x.Name).ToProperty(this, nameof(Name)).Value;
     public string Name
     {
         get => field;
