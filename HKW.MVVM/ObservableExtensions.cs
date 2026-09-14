@@ -13,7 +13,7 @@ public enum ObservableSchedulers
     Current,
 
     /// <summary>
-    /// 使用 .NET 线程池.
+    /// 使用 .NET 线程池 <see cref="System.Threading.ThreadPool"/>.
     /// </summary>
     ThreadPool,
 }

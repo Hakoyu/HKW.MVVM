@@ -29,8 +29,7 @@ public static class WhenAnyExtensions
     /// <param name="property">以 <paramref name="source"/> 为根的属性路径,例如 <c>x =&gt; x.Address.City</c>.</param>
     /// <returns>由最终属性值构成的冷可观察序列.</returns>
     /// <remarks>
-    /// <b>反射:有条件.</b>直接属性通过已编译的 getter 读取.
-    /// 嵌套路径则回退到基于反射的路径观察与重新绑定.
+    /// <b>反射: 仅嵌套属性.</b>
     /// </remarks>
     public static IObservable<TValue> WhenAnyValue<TSource, TValue>(
         this TSource source,
@@ -41,9 +40,8 @@ public static class WhenAnyExtensions
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(property);
 
-        // 直接属性只需 INotifyPropertyChanged.让嵌套路径继续走
-        // 重新绑定实现,但对占绝大多数的单属性情形避免反射
-        // 以及事件处理程序的重建.
+        // 直接属性只需 INotifyPropertyChanged.
+        // 让嵌套路径继续则重新绑定实现,但对占绝大多数的单属性情形避免反射以及事件处理程序的重建.
         if (PropertyPath.TryGetDirectProperty(property, out var directProperty))
         {
             return new DirectPropertyObservable<TSource, TValue>(
@@ -67,9 +65,7 @@ public static class WhenAnyExtensions
     /// <param name="property2">第二条属性路径.</param>
     /// <returns>由包含最新属性值的元组构成的冷可观察序列.</returns>
     /// <remarks>
-    /// <b>反射:有条件.</b>每个属性都委托给单属性的
-    /// <see cref="WhenAnyValue{TSource,TValue}(TSource, Expression{Func{TSource,TValue}})"/> 实现,
-    /// 该实现对直接属性使用已编译的 getter,对嵌套路径回退到反射.
+    /// <b>反射: 仅嵌套属性.</b>
     /// </remarks>
     public static IObservable<(T1, T2)> WhenAnyValue<TSource, T1, T2>(
         this TSource source,
@@ -95,6 +91,9 @@ public static class WhenAnyExtensions
     /// <param name="property2">第二条属性路径.</param>
     /// <param name="selector">用于组合各项最新属性值的函数.</param>
     /// <returns>由投影结果构成的冷可观察序列.</returns>
+    /// <remarks>
+    /// <b>反射: 仅嵌套属性.</b>
+    /// </remarks>
     public static IObservable<TResult> WhenAnyValue<TSource, T1, T2, TResult>(
         this TSource source,
         Expression<Func<TSource, T1>> property1,
@@ -120,9 +119,7 @@ public static class WhenAnyExtensions
     /// <param name="property3">第三条属性路径.</param>
     /// <returns>由包含最新属性值的元组构成的冷可观察序列.</returns>
     /// <remarks>
-    /// <b>反射:有条件.</b>所有属性都委托给单属性的
-    /// <see cref="WhenAnyValue{TSource,TValue}(TSource, Expression{Func{TSource,TValue}})"/> 实现,
-    /// 该实现对直接属性使用已编译的 getter,对嵌套路径回退到反射.
+    /// <b>反射: 仅嵌套属性.</b>
     /// </remarks>
     public static IObservable<(T1, T2, T3)> WhenAnyValue<TSource, T1, T2, T3>(
         this TSource source,
@@ -152,6 +149,9 @@ public static class WhenAnyExtensions
     /// <param name="property3">第三条属性路径.</param>
     /// <param name="selector">用于组合各项最新属性值的函数.</param>
     /// <returns>由投影结果构成的冷可观察序列.</returns>
+    /// <remarks>
+    /// <b>反射: 仅嵌套属性.</b>
+    /// </remarks>
     public static IObservable<TResult> WhenAnyValue<TSource, T1, T2, T3, TResult>(
         this TSource source,
         Expression<Func<TSource, T1>> property1,
@@ -185,9 +185,7 @@ public static class WhenAnyExtensions
     /// <param name="property4">第四条属性路径.</param>
     /// <returns>由包含最新属性值的元组构成的冷可观察序列.</returns>
     /// <remarks>
-    /// <b>反射:有条件.</b>所有属性都委托给单属性的
-    /// <see cref="WhenAnyValue{TSource,TValue}(TSource, Expression{Func{TSource,TValue}})"/> 实现,
-    /// 该实现对直接属性使用已编译的 getter,对嵌套路径回退到反射.
+    /// <b>反射: 仅嵌套属性.</b>
     /// </remarks>
     public static IObservable<(T1, T2, T3, T4)> WhenAnyValue<TSource, T1, T2, T3, T4>(
         this TSource source,
@@ -221,6 +219,9 @@ public static class WhenAnyExtensions
     /// <param name="property4">第四条属性路径.</param>
     /// <param name="selector">用于组合各项最新属性值的函数.</param>
     /// <returns>由投影结果构成的冷可观察序列.</returns>
+    /// <remarks>
+    /// <b>反射: 仅嵌套属性.</b>
+    /// </remarks>
     public static IObservable<TResult> WhenAnyValue<TSource, T1, T2, T3, T4, TResult>(
         this TSource source,
         Expression<Func<TSource, T1>> property1,
@@ -252,9 +253,7 @@ public static class WhenAnyExtensions
     /// <param name="selector">用于投影每个属性观察结果的函数.</param>
     /// <returns>由投影后的观察结果构成的冷可观察序列.</returns>
     /// <remarks>
-    /// <b>反射:有条件.</b>该方法将值观察委托给
-    /// <see cref="WhenAnyValue{TSource,TValue}(TSource, Expression{Func{TSource,TValue}})"/>,后者对直接属性
-    /// 优先使用已编译的 getter,对嵌套路径回退到反射.
+    /// <b>反射: 仅嵌套属性.</b>
     /// </remarks>
     public static IObservable<TResult> WhenAny<TSource, TValue, TResult>(
         this TSource source,
@@ -283,6 +282,9 @@ public static class WhenAnyExtensions
     /// <param name="property2">第二条属性路径.</param>
     /// <param name="selector">用于组合两个属性观察结果的函数.</param>
     /// <returns>由投影后的观察结果构成的冷可观察序列.</returns>
+    /// <remarks>
+    /// <b>反射: 仅嵌套属性.</b>
+    /// </remarks>
     public static IObservable<TResult> WhenAny<TSource, T1, T2, TResult>(
         this TSource source,
         Expression<Func<TSource, T1>> property1,
@@ -319,6 +321,9 @@ public static class WhenAnyExtensions
     /// <param name="property3">第三条属性路径.</param>
     /// <param name="selector">用于组合三个属性观察结果的函数.</param>
     /// <returns>由投影后的观察结果构成的冷可观察序列.</returns>
+    /// <remarks>
+    /// <b>反射: 仅嵌套属性.</b>
+    /// </remarks>
     public static IObservable<TResult> WhenAny<TSource, T1, T2, T3, TResult>(
         this TSource source,
         Expression<Func<TSource, T1>> property1,
@@ -366,6 +371,9 @@ public static class WhenAnyExtensions
     /// <param name="property4">第四条属性路径.</param>
     /// <param name="selector">用于组合四个属性观察结果的函数.</param>
     /// <returns>由投影后的观察结果构成的冷可观察序列.</returns>
+    /// <remarks>
+    /// <b>反射: 仅嵌套属性.</b>
+    /// </remarks>
     public static IObservable<TResult> WhenAny<TSource, T1, T2, T3, T4, TResult>(
         this TSource source,
         Expression<Func<TSource, T1>> property1,
@@ -1015,7 +1023,8 @@ public static class WhenAnyExtensions
         private readonly PropertyChangedEventHandler[] _handlers;
         private readonly int _pathLength;
         private readonly int _lastPathIndex;
-        private readonly IEqualityComparer<TValue> _valueComparer = EqualityComparer<TValue>.Default;
+        private readonly IEqualityComparer<TValue> _valueComparer =
+            EqualityComparer<TValue>.Default;
         private bool _hasValue;
         private TValue? _lastValue;
         private bool _disposed;
@@ -1126,10 +1135,7 @@ public static class WhenAnyExtensions
                         }
                     }
 
-                    if (
-                        _hasValue is false
-                        || _valueComparer.Equals(_lastValue!, value!) is false
-                    )
+                    if (_hasValue is false || _valueComparer.Equals(_lastValue!, value!) is false)
                     {
                         _hasValue = true;
                         _lastValue = value;

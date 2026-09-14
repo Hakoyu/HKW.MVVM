@@ -16,7 +16,7 @@ internal static class Program
 
         //BenchmarkRunner.Run<BindToBenchmarks>(config);
         //BenchmarkRunner.Run<TwoWayBindBenchmarks>(config);
-        //BenchmarkRunner.Run<WhenAnyValueBenchmarks>(config);
+        BenchmarkRunner.Run<WhenAnyValueBenchmarks>(config);
         //BenchmarkRunner.Run<NestedWhenAnyValueBenchmarks>(config);
         //BenchmarkRunner.Run<MultiPropertyWhenAnyValueBenchmarks>(config);
         //BenchmarkRunner.Run<ToPropertyBenchmarks>(config);

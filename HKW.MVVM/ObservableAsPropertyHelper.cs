@@ -159,7 +159,7 @@ public sealed class ObservableAsPropertyHelper<T>
     public IObservable<Exception> ThrownExceptions => _exceptions;
 
     /// <summary>
-    /// 获取一个值,指示是否已开始订阅源序列.
+    /// 指示是否已开始订阅源序列.
     /// </summary>
     public bool IsSubscribed
     {
@@ -173,7 +173,7 @@ public sealed class ObservableAsPropertyHelper<T>
     }
 
     /// <summary>
-    /// 停止观察源并释放所有已占用的资源.
+    /// 停止观察源并释放资源.
     /// </summary>
     public void Dispose()
     {
