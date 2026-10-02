@@ -84,7 +84,7 @@ public sealed class ObservableLoggingTests
     }
 
     [TestMethod]
-    public void Log_WithIEnableLogger_UsesConfiguredFactory()
+    public void Log_FromWhenAnyValue_UsesConfiguredFactory()
     {
         var originalFactory = LogHost.LoggerFactory;
         var logger = new RecordingLogger();
@@ -92,14 +92,16 @@ public sealed class ObservableLoggingTests
         try
         {
             LogHost.LoggerFactory = factory;
-            var source = new ManualObservable<int>();
             var owner = new LoggerOwner();
-            using var subscription = source.Log(owner, "Owned").Subscribe(_ => { });
+            using var subscription = owner
+                .WhenAnyValue(x => x.Value)
+                .Log("Owned")
+                .Subscribe(_ => { });
 
-            source.Emit(1);
+            owner.Value = 1;
 
             Assert.AreEqual(typeof(LoggerOwner).FullName, factory.CategoryName);
-            Assert.HasCount(1, logger.Entries);
+            Assert.HasCount(2, logger.Entries);
         }
         finally
         {
@@ -108,17 +110,44 @@ public sealed class ObservableLoggingTests
     }
 
     [TestMethod]
-    public void Log_WithIEnableLoggerAndLogLevel_UsesSpecifiedLevel()
+    public void Log_FromWhenAnyValueWithOwnedLogger_UsesSpecifiedLevel()
     {
         var logger = new RecordingLogger();
-        var source = new ManualObservable<int>();
         var owner = new LoggerOwnerWithLogger(logger);
-        using var subscription = source.Log(owner, LogLevel.Trace).Subscribe(_ => { });
+        using var subscription = owner
+            .WhenAnyValue(x => x.Value)
+            .Log(LogLevel.Trace)
+            .Subscribe(_ => { });
 
-        source.Emit(1);
+        owner.Value = 1;
 
-        Assert.HasCount(1, logger.Entries);
-        Assert.AreEqual(LogLevel.Trace, logger.Entries[0].Level);
+        Assert.HasCount(2, logger.Entries);
+        Assert.IsTrue(logger.Entries.All(entry => entry.Level == LogLevel.Trace));
+    }
+
+    [TestMethod]
+    public void Log_FromCombinedWhenAnyValue_PreservesLogger()
+    {
+        var logger = new RecordingLogger();
+        var owner = new LoggerOwnerWithLogger(logger);
+        using var subscription = owner
+            .WhenAnyValue(x => x.Value, x => x.OtherValue)
+            .Log()
+            .Subscribe(_ => { });
+
+        owner.OtherValue = 1;
+
+        Assert.HasCount(2, logger.Entries);
+    }
+
+    [TestMethod]
+    public void Log_WithoutAutomaticLogger_Throws()
+    {
+        var source = new ManualObservable<int>();
+
+        var exception = Assert.ThrowsExactly<InvalidOperationException>(() => source.Log());
+
+        StringAssert.Contains(exception.Message, "Pass an ILogger explicitly");
     }
 
     [TestMethod]
@@ -132,14 +161,34 @@ public sealed class ObservableLoggingTests
         Assert.ThrowsExactly<ArgumentNullException>(() =>
             source.Log((ILogger)null!));
         Assert.ThrowsExactly<ArgumentNullException>(() =>
-            source.Log((IEnableLogger)null!));
+            ObservableExtensions.Log<int>(null!));
     }
 
-    private sealed class LoggerOwner : IEnableLogger;
+    private sealed class LoggerOwner : ObservableObjectEx, IEnableLogger
+    {
+        public int Value
+        {
+            get => field;
+            set => SetProperty(ref field, value);
+        }
+    }
 
-    private sealed class LoggerOwnerWithLogger(ILogger logger) : IEnableLoggerWithLogger
+    private sealed class LoggerOwnerWithLogger(ILogger logger)
+        : ObservableObjectEx, IEnableLoggerWithLogger
     {
         public ILogger Logger { get; } = logger;
+
+        public int Value
+        {
+            get => field;
+            set => SetProperty(ref field, value);
+        }
+
+        public int OtherValue
+        {
+            get => field;
+            set => SetProperty(ref field, value);
+        }
     }
 
     private sealed class SingleLoggerFactory(ILogger logger) : ILoggerFactory

@@ -18,6 +18,19 @@ public enum ObservableSchedulers
     ThreadPool,
 }
 
+internal interface IObservableWithLogger
+{
+    ILogger Logger { get; }
+}
+
+internal sealed class ObservableWithLogger<T>(IObservable<T> source, ILogger logger)
+    : IObservable<T>, IObservableWithLogger
+{
+    public ILogger Logger { get; } = logger;
+
+    public IDisposable Subscribe(IObserver<T> observer) => source.Subscribe(observer);
+}
+
 /// <summary>
 /// 常用可观察操作符.
 /// </summary>
@@ -26,46 +39,36 @@ public static class ObservableExtensions
     private static readonly IDisposable _emptyDisposable = new ActionDisposable(static () => { });
 
     /// <summary>
-    /// 记录可观察序列的每个通知,并原样转发该序列.
+    /// 使用可观察序列携带的日志记录器记录每个通知,并原样转发该序列.
     /// </summary>
     /// <typeparam name="TSource">源值类型.</typeparam>
-    /// <param name="source">要记录日志的可观察序列.</param>
-    /// <param name="loggerOwner">其运行时类型用于提供日志记录器类别的对象.</param>
+    /// <param name="source">由实现 <see cref="IEnableLogger"/> 的对象通过 <c>WhenAnyValue</c> 创建的可观察序列.</param>
     /// <param name="message">用于在日志条目中标识该序列的标签.</param>
     /// <returns>记录并转发每个源通知的冷可观察序列.</returns>
+    /// <exception cref="InvalidOperationException">序列未携带日志记录器.</exception>
     /// <remarks>
     /// 值与成功完成以 <see cref="LogLevel.Debug"/> 级别记录.
-    /// 错误以<see cref="LogLevel.Error"/> 级别记录并保留原始异常.
+    /// 错误以 <see cref="LogLevel.Error"/> 级别记录并保留原始异常.
     /// </remarks>
     public static IObservable<TSource> Log<TSource>(
         this IObservable<TSource> source,
-        IEnableLogger loggerOwner,
         string? message = null
-    )
-    {
-        ArgumentNullException.ThrowIfNull(loggerOwner);
-        return Log(source, loggerOwner.Log(), message);
-    }
+    ) => Log(source, GetLogger(source), message);
 
     /// <summary>
-    /// 使用启用了日志记录器的所有者,以指定级别记录可观察序列的每个通知.
+    /// 使用可观察序列携带的日志记录器,以指定级别记录每个通知.
     /// </summary>
     /// <typeparam name="TSource">源值类型.</typeparam>
-    /// <param name="source">要记录日志的可观察序列.</param>
-    /// <param name="loggerOwner">其运行时类型用于提供日志记录器类别的对象.</param>
+    /// <param name="source">由实现 <see cref="IEnableLogger"/> 的对象通过 <c>WhenAnyValue</c> 创建的可观察序列.</param>
     /// <param name="logLevel">用于记录每个序列通知的级别.</param>
     /// <param name="message">用于在日志条目中标识该序列的标签.</param>
     /// <returns>记录并转发每个源通知的冷可观察序列.</returns>
+    /// <exception cref="InvalidOperationException">序列未携带日志记录器.</exception>
     public static IObservable<TSource> Log<TSource>(
         this IObservable<TSource> source,
-        IEnableLogger loggerOwner,
         LogLevel logLevel,
         string? message = null
-    )
-    {
-        ArgumentNullException.ThrowIfNull(loggerOwner);
-        return Log(source, loggerOwner.Log(), logLevel, message);
-    }
+    ) => Log(source, GetLogger(source), logLevel, message);
 
     /// <summary>
     /// 使用指定的日志记录器记录可观察序列的每个通知,并原样转发.
@@ -108,6 +111,16 @@ public static class ObservableExtensions
     )
     {
         return Log(source, logger, logLevel, logLevel, message);
+    }
+
+    private static ILogger GetLogger<TSource>(IObservable<TSource> source)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        return source is IObservableWithLogger observableWithLogger
+            ? observableWithLogger.Logger
+            : throw new InvalidOperationException(
+                "The observable does not provide a logger. Pass an ILogger explicitly."
+            );
     }
 
     private static IObservable<TSource> Log<TSource>(
