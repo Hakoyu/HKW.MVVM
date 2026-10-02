@@ -301,7 +301,7 @@ public static class BindingExtensions
                         propertyExpression.Parameters[0],
                         value
                     )
-                    .Compile();
+                    .Compile(preferInterpretation: true);
             }
             catch (Exception exception)
                 when (exception is ArgumentException or InvalidOperationException)

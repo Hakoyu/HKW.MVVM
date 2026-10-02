@@ -576,7 +576,9 @@ public static class WhenAnyExtensions
                 body = Expression.Convert(body, typeof(TValue));
             }
 
-            return Expression.Lambda<Func<TSource, TValue>>(body, source).Compile();
+            return Expression
+                .Lambda<Func<TSource, TValue>>(body, source)
+                .Compile(preferInterpretation: true);
         }
     }
 
@@ -599,7 +601,9 @@ public static class WhenAnyExtensions
                 body = Expression.Convert(body, typeof(TValue));
             }
 
-            return Expression.Lambda<Func<object, TValue>>(body, owner).Compile();
+            return Expression
+                .Lambda<Func<object, TValue>>(body, owner)
+                .Compile(preferInterpretation: true);
         }
     }
 
@@ -622,7 +626,9 @@ public static class WhenAnyExtensions
                 body = Expression.Convert(body, typeof(object));
             }
 
-            return Expression.Lambda<Func<object, object?>>(body, owner).Compile();
+            return Expression
+                .Lambda<Func<object, object?>>(body, owner)
+                .Compile(preferInterpretation: true);
         }
     }
 

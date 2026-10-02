@@ -1,6 +1,6 @@
 using System.ComponentModel;
 using System.Linq.Expressions;
-using System.Reflection;
+using System.Runtime.CompilerServices;
 using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace HKW.MVVM;
@@ -377,9 +377,8 @@ public static class ObservableAsPropertyHelperExtensions
     /// <param name="synchronizationContext">用于派发值变更和通知的可选上下文.</param>
     /// <returns>存储最新值并通知拥有者的可观察属性辅助对象.</returns>
     /// <remarks>
-    /// <b>反射:有条件.</b>属性名称从表达式中提取.拥有者通知
-    /// 优先使用 <see cref="IPropertyChangeNotifier"/>,否则通过由 <see cref="MethodInfo"/> 实例
-    /// 创建的缓存委托来调用 CommunityToolkit 的受保护方法.
+    /// 属性名称从表达式中提取.拥有者通知优先使用 <see cref="IPropertyChangeNotifier"/>,
+    /// 否则通过 AOT 兼容的静态访问器调用 <see cref="CommunityToolkit.Mvvm.ComponentModel.ObservableObject"/> 的受保护通知方法.
     /// </remarks>
     public static ObservableAsPropertyHelper<TValue> ToProperty<TOwner, TValue>(
         this IObservable<TValue> source,
@@ -452,8 +451,8 @@ public static class ObservableAsPropertyHelperExtensions
     /// <param name="synchronizationContext">用于派发值变更和通知的可选上下文.</param>
     /// <returns>存储最新值并通知拥有者的可观察属性辅助对象.</returns>
     /// <remarks>
-    /// <b>反射:有条件.</b>拥有者通知优先使用 <see cref="IPropertyChangeNotifier"/>,
-    /// 否则通过仅使用一次反射创建的缓存委托来调用 CommunityToolkit 的受保护方法.
+    /// 拥有者通知优先使用 <see cref="IPropertyChangeNotifier"/>,
+    /// 否则通过 AOT 兼容的静态访问器调用 <see cref="CommunityToolkit.Mvvm.ComponentModel.ObservableObject"/> 的受保护通知方法.
     /// </remarks>
     public static ObservableAsPropertyHelper<TValue> ToProperty<TOwner, TValue>(
         this IObservable<TValue> source,
@@ -528,9 +527,8 @@ public static class ObservableAsPropertyHelperExtensions
     /// <param name="synchronizationContext">用于派发值变更和通知的可选上下文.</param>
     /// <returns>存储最新值并通知拥有者的可观察属性辅助对象.</returns>
     /// <remarks>
-    /// <b>反射:有条件.</b>属性名称从表达式中提取.拥有者通知
-    /// 优先使用 <see cref="IPropertyChangeNotifier"/>,否则通过由 <see cref="MethodInfo"/> 实例
-    /// 创建的缓存委托来调用 CommunityToolkit 的受保护方法.
+    /// 属性名称从表达式中提取.拥有者通知优先使用<see cref="IPropertyChangeNotifier"/>,
+    /// 否则通过 AOT 兼容的静态访问器调用 <see cref="CommunityToolkit.Mvvm.ComponentModel.ObservableObject"/> 的受保护通知方法.
     /// </remarks>
     public static ObservableAsPropertyHelper<TValue> ToProperty<TOwner, TValue>(
         this IObservable<TValue> source,
@@ -607,8 +605,8 @@ public static class ObservableAsPropertyHelperExtensions
     /// <param name="synchronizationContext">用于派发值变更和通知的可选上下文.</param>
     /// <returns>存储最新值并通知拥有者的可观察属性辅助对象.</returns>
     /// <remarks>
-    /// <b>反射:有条件.</b>拥有者通知优先使用 <see cref="IPropertyChangeNotifier"/>,
-    /// 否则通过仅使用一次反射创建的缓存委托来调用 CommunityToolkit 的受保护方法.
+    /// 拥有者通知优先使用 <see cref="IPropertyChangeNotifier"/>,
+    /// 否则通过 AOT 兼容的静态访问器调用 <see cref="CommunityToolkit.Mvvm.ComponentModel.ObservableObject"/> 的受保护通知方法.
     /// </remarks>
     public static ObservableAsPropertyHelper<TValue> ToProperty<TOwner, TValue>(
         this IObservable<TValue> source,
@@ -636,16 +634,6 @@ public static class ObservableAsPropertyHelperExtensions
 
 internal static class PropertyNotificationDispatcher
 {
-    private static readonly Action<
-        ObservableObject,
-        PropertyChangingEventArgs
-    > PropertyChangingDelegate = CreateDelegate<PropertyChangingEventArgs>("OnPropertyChanging");
-
-    private static readonly Action<
-        ObservableObject,
-        PropertyChangedEventArgs
-    > PropertyChangedDelegate = CreateDelegate<PropertyChangedEventArgs>("OnPropertyChanged");
-
     public static void NotifyPropertyChanging(
         ObservableObject owner,
         PropertyChangingEventArgs args
@@ -657,7 +645,7 @@ internal static class PropertyNotificationDispatcher
             return;
         }
 
-        PropertyChangingDelegate(owner, args);
+        OnPropertyChanging(owner, args);
     }
 
     public static void NotifyPropertyChanged(ObservableObject owner, PropertyChangedEventArgs args)
@@ -668,23 +656,18 @@ internal static class PropertyNotificationDispatcher
             return;
         }
 
-        PropertyChangedDelegate(owner, args);
+        OnPropertyChanged(owner, args);
     }
 
-    private static Action<ObservableObject, TEventArgs> CreateDelegate<TEventArgs>(
-        string methodName
-    )
-        where TEventArgs : EventArgs =>
-        typeof(ObservableObject)
-            .GetMethod(
-                methodName,
-                BindingFlags.Instance | BindingFlags.NonPublic,
-                binder: null,
-                types: [typeof(TEventArgs)],
-                modifiers: null
-            )
-            ?.CreateDelegate<Action<ObservableObject, TEventArgs>>()
-        ?? throw new InvalidOperationException(
-            $"{typeof(ObservableObject).FullName} does not expose {methodName}({typeof(TEventArgs).Name})."
-        );
+    [UnsafeAccessor(UnsafeAccessorKind.Method, Name = "OnPropertyChanging")]
+    private static extern void OnPropertyChanging(
+        ObservableObject owner,
+        PropertyChangingEventArgs args
+    );
+
+    [UnsafeAccessor(UnsafeAccessorKind.Method, Name = "OnPropertyChanged")]
+    private static extern void OnPropertyChanged(
+        ObservableObject owner,
+        PropertyChangedEventArgs args
+    );
 }

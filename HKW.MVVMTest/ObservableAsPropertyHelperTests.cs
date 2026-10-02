@@ -319,7 +319,7 @@ public sealed class ObservableAsPropertyHelperTests
     }
 
     [TestMethod]
-    public void PlainObservableObject_UsesCachedDelegatesForNotifications()
+    public void PlainObservableObject_UsesStaticAccessorsForNotifications()
     {
         var source = new ManualObservable<string>();
         var owner = new PlainPropertyOwner();
