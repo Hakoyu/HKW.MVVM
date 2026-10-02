@@ -18,17 +18,59 @@ public enum ObservableSchedulers
     ThreadPool,
 }
 
-internal interface IObservableWithLogger
+/// <summary>
+/// 指定可观察序列日志通知的类型.
+/// </summary>
+public enum ObservableLogAction
 {
-    ILogger Logger { get; }
+    /// <summary>
+    /// 序列发出了一个值.
+    /// </summary>
+    OnNext,
+
+    /// <summary>
+    /// 序列因错误而终止.
+    /// </summary>
+    OnError,
+
+    /// <summary>
+    /// 序列成功完成.
+    /// </summary>
+    OnCompleted,
 }
 
-internal sealed class ObservableWithLogger<T>(IObservable<T> source, ILogger logger)
-    : IObservable<T>, IObservableWithLogger
-{
-    public ILogger Logger { get; } = logger;
+/// <summary>
+/// 表示传递给可观察序列日志消息工厂的通知.
+/// </summary>
+/// <typeparam name="T">序列值类型.</typeparam>
+/// <param name="Action">通知类型.</param>
+/// <param name="Value">当 <paramref name="Action"/> 为 <see cref="ObservableLogAction.OnNext"/> 时的序列值;其他通知为默认值.</param>
+/// <param name="Exception">当 <paramref name="Action"/> 为 <see cref="ObservableLogAction.OnError"/> 时的源异常;其他通知为 <see langword="null"/>.</param>
+public readonly record struct ObservableLogNotification<T>(
+    ObservableLogAction Action,
+    T? Value,
+    Exception? Exception
+);
 
-    public IDisposable Subscribe(IObserver<T> observer) => source.Subscribe(observer);
+internal interface IObservableWithLogger
+{
+    ILogger GetLogger();
+}
+
+internal sealed class ObservableWithLogger<T> : IObservable<T>, IObservableWithLogger
+{
+    private readonly IObservable<T> _source;
+    private readonly Lazy<ILogger> _logger;
+
+    public ObservableWithLogger(IObservable<T> source, Func<ILogger> loggerFactory)
+    {
+        _source = source;
+        _logger = new Lazy<ILogger>(loggerFactory, LazyThreadSafetyMode.ExecutionAndPublication);
+    }
+
+    public ILogger GetLogger() => _logger.Value;
+
+    public IDisposable Subscribe(IObserver<T> observer) => _source.Subscribe(observer);
 }
 
 /// <summary>
@@ -42,7 +84,7 @@ public static class ObservableExtensions
     /// 使用可观察序列携带的日志记录器记录每个通知,并原样转发该序列.
     /// </summary>
     /// <typeparam name="TSource">源值类型.</typeparam>
-    /// <param name="source">由实现 <see cref="IEnableLogger"/> 的对象通过 <c>WhenAnyValue</c> 创建的可观察序列.</param>
+    /// <param name="source">携带日志记录器的可观察序列,例如由实现 <see cref="IEnableLogger"/> 的对象通过 <c>WhenAnyValue</c> 创建并经内置操作符转换的序列.</param>
     /// <param name="message">用于在日志条目中标识该序列的标签.</param>
     /// <returns>记录并转发每个源通知的冷可观察序列.</returns>
     /// <exception cref="InvalidOperationException">序列未携带日志记录器.</exception>
@@ -59,7 +101,7 @@ public static class ObservableExtensions
     /// 使用可观察序列携带的日志记录器,以指定级别记录每个通知.
     /// </summary>
     /// <typeparam name="TSource">源值类型.</typeparam>
-    /// <param name="source">由实现 <see cref="IEnableLogger"/> 的对象通过 <c>WhenAnyValue</c> 创建的可观察序列.</param>
+    /// <param name="source">携带日志记录器的可观察序列,例如由实现 <see cref="IEnableLogger"/> 的对象通过 <c>WhenAnyValue</c> 创建并经内置操作符转换的序列.</param>
     /// <param name="logLevel">用于记录每个序列通知的级别.</param>
     /// <param name="message">用于在日志条目中标识该序列的标签.</param>
     /// <returns>记录并转发每个源通知的冷可观察序列.</returns>
@@ -69,6 +111,83 @@ public static class ObservableExtensions
         LogLevel logLevel,
         string? message = null
     ) => Log(source, GetLogger(source), logLevel, message);
+
+    /// <summary>
+    /// 使用可观察序列携带的日志记录器记录通知,并使用工厂生成每个值的完整日志消息.
+    /// </summary>
+    /// <typeparam name="TSource">源值类型.</typeparam>
+    /// <param name="source">携带日志记录器的可观察序列.</param>
+    /// <param name="messageFactory">根据每个源值生成完整日志消息的函数.</param>
+    /// <returns>记录并转发每个源通知的冷可观察序列.</returns>
+    /// <remarks>
+    /// 值与成功完成以 <see cref="LogLevel.Debug"/> 级别记录,错误以
+    /// <see cref="LogLevel.Error"/> 级别记录.错误和完成使用标准消息格式.
+    /// </remarks>
+    public static IObservable<TSource> Log<TSource>(
+        this IObservable<TSource> source,
+        Func<TSource, string> messageFactory
+    )
+    {
+        ArgumentNullException.ThrowIfNull(messageFactory);
+        return LogWithMessageFactory(
+            source,
+            GetLogger(source),
+            notification =>
+                notification.Action == ObservableLogAction.OnNext
+                    ? messageFactory(notification.Value!)
+                    : GetStandardLogMessage(notification),
+            LogLevel.Debug,
+            LogLevel.Error
+        );
+    }
+
+    /// <summary>
+    /// 使用可观察序列携带的日志记录器和指定级别记录通知,
+    /// 并使用工厂生成每个值的完整日志消息.
+    /// </summary>
+    /// <typeparam name="TSource">源值类型.</typeparam>
+    /// <param name="source">携带日志记录器的可观察序列.</param>
+    /// <param name="messageFactory">根据每个源值生成完整日志消息的函数.</param>
+    /// <param name="logLevel">用于记录值,错误和完成通知的级别.</param>
+    /// <returns>记录并转发每个源通知的冷可观察序列.</returns>
+    public static IObservable<TSource> Log<TSource>(
+        this IObservable<TSource> source,
+        Func<TSource, string> messageFactory,
+        LogLevel logLevel
+    )
+    {
+        ArgumentNullException.ThrowIfNull(messageFactory);
+        return LogWithMessageFactory(
+            source,
+            GetLogger(source),
+            notification =>
+                notification.Action == ObservableLogAction.OnNext
+                    ? messageFactory(notification.Value!)
+                    : GetStandardLogMessage(notification),
+            logLevel,
+            logLevel
+        );
+    }
+
+    /// <summary>
+    /// 使用可观察序列携带的日志记录器记录通知,
+    /// 并使用工厂为值,错误和完成通知生成完整日志消息.
+    /// </summary>
+    /// <typeparam name="TSource">源值类型.</typeparam>
+    /// <param name="source">携带日志记录器的可观察序列.</param>
+    /// <param name="messageFactory">根据通知上下文生成完整日志消息的函数.</param>
+    /// <returns>记录并转发每个源通知的冷可观察序列.</returns>
+    public static IObservable<TSource> LogNotifications<TSource>(
+        this IObservable<TSource> source,
+        Func<ObservableLogNotification<TSource>, string> messageFactory
+    ) =>
+        LogWithMessageFactory(
+            source,
+            GetLogger(source),
+            messageFactory,
+            LogLevel.Debug,
+            LogLevel.Error
+        );
 
     /// <summary>
     /// 使用指定的日志记录器记录可观察序列的每个通知,并原样转发.
@@ -117,10 +236,152 @@ public static class ObservableExtensions
     {
         ArgumentNullException.ThrowIfNull(source);
         return source is IObservableWithLogger observableWithLogger
-            ? observableWithLogger.Logger
+            ? observableWithLogger.GetLogger()
             : throw new InvalidOperationException(
                 "The observable does not provide a logger. Pass an ILogger explicitly."
             );
+    }
+
+    internal static IObservable<T> WithLogger<T>(IObservable<T> observable, object source) =>
+        source is IEnableLogger loggerOwner
+            ? new ObservableWithLogger<T>(observable, () => loggerOwner.Log())
+            : observable;
+
+    internal static IObservable<TResult> PreserveLogger<TSource, TResult>(
+        IObservable<TSource> source,
+        IObservable<TResult> result
+    ) =>
+        source is IObservableWithLogger observableWithLogger
+            ? new ObservableWithLogger<TResult>(result, observableWithLogger.GetLogger)
+            : result;
+
+    private static string GetStandardLogMessage<TSource>(
+        ObservableLogNotification<TSource> notification
+    ) =>
+        notification.Action switch
+        {
+            ObservableLogAction.OnError =>
+                $"Observable: OnError({notification.Exception!.Message})",
+            ObservableLogAction.OnCompleted => "Observable: OnCompleted()",
+            _ => $"Observable: OnNext({notification.Value})",
+        };
+
+    private static IObservable<TSource> LogWithMessageFactory<TSource>(
+        IObservable<TSource> source,
+        ILogger logger,
+        Func<ObservableLogNotification<TSource>, string> messageFactory,
+        LogLevel notificationLogLevel,
+        LogLevel errorLogLevel
+    )
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(logger);
+        ArgumentNullException.ThrowIfNull(messageFactory);
+
+        return Create(source, observer =>
+        {
+            var stopped = 0;
+            var subscription = new SingleAssignmentDisposable();
+
+            void Fail(Exception error)
+            {
+                if (Interlocked.Exchange(ref stopped, 1) != 0)
+                {
+                    return;
+                }
+
+                observer.OnError(error);
+                subscription.Dispose();
+            }
+
+            bool TryCreateMessage(
+                ObservableLogNotification<TSource> notification,
+                out string message
+            )
+            {
+                try
+                {
+                    message = messageFactory(notification);
+                    return true;
+                }
+                catch (Exception exception)
+                {
+                    message = string.Empty;
+                    Fail(exception);
+                    return false;
+                }
+            }
+
+            subscription.Disposable = source.Subscribe(
+                value =>
+                {
+                    if (Volatile.Read(ref stopped) != 0)
+                    {
+                        return;
+                    }
+
+                    var notification = new ObservableLogNotification<TSource>(
+                        ObservableLogAction.OnNext,
+                        value,
+                        null
+                    );
+                    if (TryCreateMessage(notification, out var message) is false)
+                    {
+                        return;
+                    }
+
+                    logger.Log(notificationLogLevel, "{Message}", message);
+                    observer.OnNext(value);
+                },
+                error =>
+                {
+                    if (Volatile.Read(ref stopped) != 0)
+                    {
+                        return;
+                    }
+
+                    var notification = new ObservableLogNotification<TSource>(
+                        ObservableLogAction.OnError,
+                        default,
+                        error
+                    );
+                    if (TryCreateMessage(notification, out var message) is false)
+                    {
+                        return;
+                    }
+
+                    if (Interlocked.Exchange(ref stopped, 1) == 0)
+                    {
+                        logger.Log(errorLogLevel, error, "{Message}", message);
+                        observer.OnError(error);
+                    }
+                },
+                () =>
+                {
+                    if (Volatile.Read(ref stopped) != 0)
+                    {
+                        return;
+                    }
+
+                    var notification = new ObservableLogNotification<TSource>(
+                        ObservableLogAction.OnCompleted,
+                        default,
+                        null
+                    );
+                    if (TryCreateMessage(notification, out var message) is false)
+                    {
+                        return;
+                    }
+
+                    if (Interlocked.Exchange(ref stopped, 1) == 0)
+                    {
+                        logger.Log(notificationLogLevel, "{Message}", message);
+                        observer.OnCompleted();
+                    }
+                }
+            );
+            return subscription;
+        });
     }
 
     private static IObservable<TSource> Log<TSource>(
@@ -135,7 +396,7 @@ public static class ObservableExtensions
         ArgumentNullException.ThrowIfNull(logger);
         var label = string.IsNullOrWhiteSpace(message) ? "Observable" : message;
 
-        return Create<TSource>(observer =>
+        return Create(source, observer =>
             source.Subscribe(
                 value =>
                 {
@@ -177,7 +438,7 @@ public static class ObservableExtensions
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(selector);
-        return new SelectObservable<TSource, TResult>(source, selector);
+        return PreserveLogger(source, new SelectObservable<TSource, TResult>(source, selector));
     }
 
     /// <summary>
@@ -194,7 +455,7 @@ public static class ObservableExtensions
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(predicate);
-        return new WhereObservable<TSource>(source, predicate);
+        return PreserveLogger(source, new WhereObservable<TSource>(source, predicate));
     }
 
     /// <summary>
@@ -221,7 +482,10 @@ public static class ObservableExtensions
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(comparer);
-        return new DistinctUntilChangedObservable<TSource>(source, comparer);
+        return PreserveLogger(
+            source,
+            new DistinctUntilChangedObservable<TSource>(source, comparer)
+        );
     }
 
     /// <summary>
@@ -237,7 +501,7 @@ public static class ObservableExtensions
     )
     {
         ArgumentNullException.ThrowIfNull(source);
-        return Create<TSource>(observer =>
+        return Create(source, observer =>
         {
             observer.OnNext(value);
             return source.Subscribe(observer);
@@ -255,7 +519,7 @@ public static class ObservableExtensions
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentOutOfRangeException.ThrowIfNegative(count);
-        return Create<TSource>(observer =>
+        return Create(source, observer =>
         {
             var remaining = count;
             return source.Subscribe(
@@ -289,14 +553,14 @@ public static class ObservableExtensions
         ArgumentOutOfRangeException.ThrowIfNegative(count);
         if (count == 0)
         {
-            return Create<TSource>(observer =>
+            return Create(source, observer =>
             {
                 observer.OnCompleted();
                 return _emptyDisposable;
             });
         }
 
-        return Create<TSource>(observer =>
+        return Create(source, observer =>
         {
             var remaining = count;
             var stopped = false;
@@ -339,7 +603,7 @@ public static class ObservableExtensions
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(onNext);
-        return Create<TSource>(observer =>
+        return Create(source, observer =>
         {
             var stopped = false;
             var subscription = new SingleAssignmentDisposable();
@@ -384,7 +648,7 @@ public static class ObservableExtensions
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(synchronizationContext);
-        return Create<TSource>(observer =>
+        return Create(source, observer =>
         {
             var dispatcher = new NotificationDispatcher<TSource>(observer, synchronizationContext);
             var subscription = source.Subscribe(
@@ -417,7 +681,7 @@ public static class ObservableExtensions
         ArgumentNullException.ThrowIfNull(source);
         var synchronizationContext = GetSynchronizationContext(scheduler);
 
-        return Create<TSource>(observer =>
+        return Create(source, observer =>
         {
             var dispatcher = new NotificationDispatcher<TSource>(observer, synchronizationContext);
             var subscription = source.Subscribe(
@@ -514,7 +778,7 @@ public static class ObservableExtensions
         ArgumentNullException.ThrowIfNull(timeProvider);
         ArgumentOutOfRangeException.ThrowIfLessThan(dueTime, TimeSpan.Zero);
 
-        return Create<TSource>(observer => new ThrottleSubscription<TSource>(
+        return Create(source, observer => new ThrottleSubscription<TSource>(
             source,
             observer,
             dueTime,
@@ -536,7 +800,7 @@ public static class ObservableExtensions
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(handler);
-        return Create<TSource>(observer =>
+        return Create(source, observer =>
         {
             var subscriptions = new MultipleDisposable();
             var stopped = 0;
@@ -654,11 +918,16 @@ public static class ObservableExtensions
     private static IObservable<T> Create<T>(Func<IObserver<T>, IDisposable> subscribe) =>
         new AnonymousObservable<T>(subscribe);
 
+    private static IObservable<TSource> Create<TSource>(
+        IObservable<TSource> source,
+        Func<IObserver<TSource>, IDisposable> subscribe
+    ) => PreserveLogger(source, Create(subscribe));
+
     private static IObservable<TSource> SubscribeOnCore<TSource>(
         IObservable<TSource> source,
         SynchronizationContext? synchronizationContext
     ) =>
-        Create<TSource>(observer =>
+        Create(source, observer =>
         {
             var scheduledSubscription = new ScheduledSubscription();
             Schedule(

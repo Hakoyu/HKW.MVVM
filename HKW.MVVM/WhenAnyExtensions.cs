@@ -44,7 +44,7 @@ public static class WhenAnyExtensions
         // 让嵌套路径继续则重新绑定实现,但对占绝大多数的单属性情形避免反射以及事件处理程序的重建.
         if (PropertyPath.TryGetDirectProperty(property, out var directProperty))
         {
-            return WithLogger(
+            return ObservableExtensions.WithLogger(
                 new DirectPropertyObservable<TSource, TValue>(
                     source,
                     DirectPropertyGetterCache<TSource, TValue>.Getters.Get(directProperty),
@@ -54,7 +54,10 @@ public static class WhenAnyExtensions
             );
         }
 
-        return WithLogger(new PropertyPathObservable<TSource, TValue>(source, property), source);
+        return ObservableExtensions.WithLogger(
+            new PropertyPathObservable<TSource, TValue>(source, property),
+            source
+        );
     }
 
     /// <summary>
@@ -418,7 +421,7 @@ public static class WhenAnyExtensions
         IObservable<T2> source2,
         Func<T1, T2, TResult> selector
     ) =>
-        PreserveLogger(
+        ObservableExtensions.PreserveLogger(
             source1,
             new AnonymousObservable<TResult>(observer =>
             {
@@ -533,138 +536,10 @@ public static class WhenAnyExtensions
         IObservable<T3> source3,
         Func<T1, T2, T3, TResult> selector
     ) =>
-        PreserveLogger(
-            source1,
-            new AnonymousObservable<TResult>(observer =>
-            {
-                var gate = new Lock();
-                var value1 = default(T1)!;
-                var value2 = default(T2)!;
-                var value3 = default(T3)!;
-                var hasValue1 = false;
-                var hasValue2 = false;
-                var hasValue3 = false;
-                var stopped = false;
-                var completedSources = 0;
-                var subscriptions = new MultipleDisposable();
-
-                void Publish()
-                {
-                    T1 current1;
-                    T2 current2;
-                    T3 current3;
-                    lock (gate)
-                    {
-                        if (
-                            stopped
-                            || hasValue1 is false
-                            || hasValue2 is false
-                            || hasValue3 is false
-                        )
-                        {
-                            return;
-                        }
-
-                        current1 = value1;
-                        current2 = value2;
-                        current3 = value3;
-                    }
-
-                    try
-                    {
-                        observer.OnNext(selector(current1, current2, current3));
-                    }
-                    catch (Exception exception)
-                    {
-                        Fail(exception);
-                    }
-                }
-
-                void Fail(Exception error)
-                {
-                    lock (gate)
-                    {
-                        if (stopped)
-                        {
-                            return;
-                        }
-
-                        stopped = true;
-                    }
-
-                    observer.OnError(error);
-                    subscriptions.Dispose();
-                }
-
-                void Complete()
-                {
-                    var shouldComplete = false;
-                    lock (gate)
-                    {
-                        if (stopped)
-                            return;
-                        completedSources++;
-                        shouldComplete = completedSources == 3;
-                        if (shouldComplete)
-                            stopped = true;
-                    }
-                    if (shouldComplete)
-                    {
-                        observer.OnCompleted();
-                        subscriptions.Dispose();
-                    }
-                }
-                subscriptions.Add(
-                    source1.Subscribe(
-                        value =>
-                        {
-                            lock (gate)
-                            {
-                                value1 = value;
-                                hasValue1 = true;
-                            }
-
-                            Publish();
-                        },
-                        Fail,
-                        Complete
-                    )
-                );
-                subscriptions.Add(
-                    source2.Subscribe(
-                        value =>
-                        {
-                            lock (gate)
-                            {
-                                value2 = value;
-                                hasValue2 = true;
-                            }
-
-                            Publish();
-                        },
-                        Fail,
-                        Complete
-                    )
-                );
-                subscriptions.Add(
-                    source3.Subscribe(
-                        value =>
-                        {
-                            lock (gate)
-                            {
-                                value3 = value;
-                                hasValue3 = true;
-                            }
-
-                            Publish();
-                        },
-                        Fail,
-                        Complete
-                    )
-                );
-
-                return subscriptions;
-            })
+        Combine(
+            Combine(source1, source2, static (value1, value2) => (value1, value2)),
+            source3,
+            (values, value3) => selector(values.Item1, values.Item2, value3)
         );
 
     private static IObservable<TResult> Combine<T1, T2, T3, T4, TResult>(
@@ -674,173 +549,16 @@ public static class WhenAnyExtensions
         IObservable<T4> source4,
         Func<T1, T2, T3, T4, TResult> selector
     ) =>
-        PreserveLogger(
-            source1,
-            new AnonymousObservable<TResult>(observer =>
-            {
-                var gate = new Lock();
-                var value1 = default(T1)!;
-                var value2 = default(T2)!;
-                var value3 = default(T3)!;
-                var value4 = default(T4)!;
-                var hasValue1 = false;
-                var hasValue2 = false;
-                var hasValue3 = false;
-                var hasValue4 = false;
-                var stopped = false;
-                var completedSources = 0;
-                var subscriptions = new MultipleDisposable();
-
-                void Publish()
-                {
-                    T1 current1;
-                    T2 current2;
-                    T3 current3;
-                    T4 current4;
-                    lock (gate)
-                    {
-                        if (
-                            stopped
-                            || hasValue1 is false
-                            || hasValue2 is false
-                            || hasValue3 is false
-                            || hasValue4 is false
-                        )
-                        {
-                            return;
-                        }
-
-                        current1 = value1;
-                        current2 = value2;
-                        current3 = value3;
-                        current4 = value4;
-                    }
-
-                    try
-                    {
-                        observer.OnNext(selector(current1, current2, current3, current4));
-                    }
-                    catch (Exception exception)
-                    {
-                        Fail(exception);
-                    }
-                }
-
-                void Fail(Exception error)
-                {
-                    lock (gate)
-                    {
-                        if (stopped)
-                        {
-                            return;
-                        }
-
-                        stopped = true;
-                    }
-
-                    observer.OnError(error);
-                    subscriptions.Dispose();
-                }
-
-                void Complete()
-                {
-                    var shouldComplete = false;
-                    lock (gate)
-                    {
-                        if (stopped)
-                            return;
-                        completedSources++;
-                        shouldComplete = completedSources == 4;
-                        if (shouldComplete)
-                            stopped = true;
-                    }
-                    if (shouldComplete)
-                    {
-                        observer.OnCompleted();
-                        subscriptions.Dispose();
-                    }
-                }
-                subscriptions.Add(
-                    source1.Subscribe(
-                        value =>
-                        {
-                            lock (gate)
-                            {
-                                value1 = value;
-                                hasValue1 = true;
-                            }
-
-                            Publish();
-                        },
-                        Fail,
-                        Complete
-                    )
-                );
-                subscriptions.Add(
-                    source2.Subscribe(
-                        value =>
-                        {
-                            lock (gate)
-                            {
-                                value2 = value;
-                                hasValue2 = true;
-                            }
-
-                            Publish();
-                        },
-                        Fail,
-                        Complete
-                    )
-                );
-                subscriptions.Add(
-                    source3.Subscribe(
-                        value =>
-                        {
-                            lock (gate)
-                            {
-                                value3 = value;
-                                hasValue3 = true;
-                            }
-
-                            Publish();
-                        },
-                        Fail,
-                        Complete
-                    )
-                );
-                subscriptions.Add(
-                    source4.Subscribe(
-                        value =>
-                        {
-                            lock (gate)
-                            {
-                                value4 = value;
-                                hasValue4 = true;
-                            }
-
-                            Publish();
-                        },
-                        Fail,
-                        Complete
-                    )
-                );
-
-                return subscriptions;
-            })
+        Combine(
+            Combine(
+                source1,
+                source2,
+                source3,
+                static (value1, value2, value3) => (value1, value2, value3)
+            ),
+            source4,
+            (values, value4) => selector(values.Item1, values.Item2, values.Item3, value4)
         );
-
-    private static IObservable<T> WithLogger<T>(IObservable<T> observable, object source) =>
-        source is IEnableLogger loggerOwner
-            ? new ObservableWithLogger<T>(observable, loggerOwner.Log())
-            : observable;
-
-    private static IObservable<TResult> PreserveLogger<TSource, TResult>(
-        IObservable<TSource> source,
-        IObservable<TResult> result
-    ) =>
-        source is IObservableWithLogger observableWithLogger
-            ? new ObservableWithLogger<TResult>(result, observableWithLogger.Logger)
-            : result;
 
     private static class DirectPropertyGetterCache<TSource, TValue>
     {
