@@ -168,4 +168,123 @@ public static class LoggerMixins
         ArgumentNullException.ThrowIfNull(logger);
         return logger;
     }
+
+    /// <summary>
+    /// 代表启用了日志记录器的实例, 使用指定的日志记录器检查日志等级是否启用
+    /// </summary>
+    /// <param name="instance">启用了日志记录器的实例.</param>
+    /// <param name="logLevel">启用的日志等级</param>
+    /// <returns>
+    /// 日志等级启用时, 返回日志记录器及日志等级；否则返回 <see langword="null"/>
+    /// </returns>
+    public static (ILogger logger, LogLevel logLevel)? LogIfEnabled(
+        this IEnableLogger instance,
+        LogLevel logLevel
+    )
+    {
+        ArgumentNullException.ThrowIfNull(instance);
+
+        if (
+            instance is IEnableLoggerWithLogger loggerOwner
+            && loggerOwner.Logger.IsEnabled(logLevel)
+        )
+        {
+            return (instance.Log(loggerOwner.Logger), logLevel);
+        }
+        else
+        {
+            var logger = LogHost.GetLogger(instance.GetType());
+
+            return logger.IsEnabled(logLevel) ? (logger, logLevel) : null;
+        }
+    }
+
+    /// <summary>
+    /// 代表启用了日志记录器的实例, 使用指定的日志记录器检查日志等级是否启用
+    /// </summary>
+    /// <param name="instance">启用了日志记录器的实例</param>
+    /// <param name="logger">要使用的日志记录器</param>
+    /// <param name="logLevel">要检查的日志等级</param>
+    /// <returns>
+    /// 日志等级启用时, 返回日志记录器及日志等级；否则返回 <see langword="null"/>
+    /// </returns>
+    public static (ILogger logger, LogLevel logLevel)? LogIfEnabled(
+        this IEnableLogger instance,
+        ILogger logger,
+        LogLevel logLevel
+    )
+    {
+        ArgumentNullException.ThrowIfNull(instance);
+        ArgumentNullException.ThrowIfNull(logger);
+
+        return logger.IsEnabled(logLevel) ? (logger, logLevel) : null;
+    }
+
+    /// <summary>
+    /// 使用元组中指定的日志等级格式化并写入日志消息
+    /// </summary>
+    /// <param name="log">日志记录器及其日志等级</param>
+    /// <param name="message">日志消息的格式字符串</param>
+    /// <param name="args">用于格式化日志消息的参数</param>
+    public static void Log(
+        this (ILogger logger, LogLevel logLevel) log,
+        string? message,
+        params object?[] args
+    )
+    {
+        log.logger.Log(log.logLevel, message, args);
+    }
+
+    /// <summary>
+    /// 使用元组中指定的日志等级格式化并写入日志消息
+    /// </summary>
+    /// <param name="log">日志记录器及其日志等级</param>
+    /// <param name="eventId">与日志关联的事件标识</param>
+    /// <param name="message">日志消息的格式字符串</param>
+    /// <param name="args">用于格式化日志消息的参数</param>
+    public static void Log(
+        this (ILogger logger, LogLevel logLevel) log,
+        EventId eventId,
+        string? message,
+        params object?[] args
+    )
+    {
+        log.logger.Log(log.logLevel, eventId, message, args);
+    }
+
+    /// <summary>
+    /// 使用元组中指定的日志等级格式化并写入日志消息
+    /// </summary>
+    /// <param name="log">日志记录器及其日志等级</param>
+    /// <param name="exception">要记录的异常</param>
+    /// <param name="message">日志消息的格式字符串</param>
+    /// <param name="args">用于格式化日志消息的参数</param>
+    public static void Log(
+        this (ILogger logger, LogLevel logLevel) log,
+        Exception? exception,
+        string? message,
+        params object?[] args
+    )
+    {
+        log.logger.Log(log.logLevel, exception, message, args);
+    }
+
+    /// <summary>
+    /// 使用元组中指定的日志等级格式化并写入日志消息
+    /// </summary>
+    /// <param name="log">日志记录器及其日志等级</param>
+    /// <param name="eventId">与日志关联的事件标识</param>
+    /// <param name="exception">要记录的异常</param>
+    /// <param name="message">日志消息的格式字符串</param>
+    /// <param name="args">用于格式化日志消息的参数</param>
+    public static void Log(
+        this (ILogger logger, LogLevel logLevel) log,
+        EventId eventId,
+        Exception? exception,
+        string? message,
+        params object?[] args
+    )
+    {
+        log.logger.Log(log.logLevel, eventId, exception, message, args);
+    }
 }

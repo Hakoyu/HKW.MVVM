@@ -19,13 +19,6 @@ internal static class Program
         Ioc.Default.ConfigureServices(new LoggerFactoryServiceProvider(loggerFactory));
 
         _ = new TestModel();
-        //var c = new ObservableCollection<int>();
-        //c.WhenAnyValue(x => x.Count).Log(LogHost.Default).Subscribe(x => Console.WriteLine(x));
-        //c.Add(1);
-        //c.Add(2);
-        //c.Add(3);
-        //c.Add(4);
-        //c.Add(5);
     }
 }
 
@@ -36,7 +29,11 @@ internal class TestModel : ObservableObject, IEnableLogger
         this.Log().LogInformation("Info");
     }
 
-    public string NameOAPH => this.WhenAnyValue(x => x.Name).ToProperty(this, nameof(Name)).Value;
+    public string UpperName =>
+        this.WhenAnyValue(x => x.Name)
+            .Select(x => x.ToUpperInvariant())
+            .ToProperty(this, nameof(UpperName))
+            .Value;
     public string Name
     {
         get => field;
