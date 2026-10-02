@@ -5,7 +5,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using HKW.MVVM;
 using ReactiveUI;
 using HkwObservableAsPropertyHelper = HKW.MVVM.ObservableAsPropertyHelper<int>;
-using ReactiveObservableAsPropertyHelper = ReactiveUI.ObservableAsPropertyHelper<int>;
+using ReactiveObservableAsPropertyHelper = ReactiveUI.Binding.ObservableAsPropertyHelper<int>;
 
 namespace HKW.MVVMBenchmark;
 
@@ -48,15 +48,17 @@ public class ToPropertyBenchmarks
             ReactiveUI.Builder.RxAppBuilder.CreateReactiveUIBuilder().WithCoreServices()
         );
         _coreFastProperty = new CoreStoredProperty(_coreFastUpdateSource, _coreOwner.SetResult);
-        _toPropertyFastProperty = _toPropertyFastUpdateSource.ToProperty(
+        _toPropertyFastProperty = HKW.MVVM.ObservableAsPropertyHelperExtensions.ToProperty(
+            _toPropertyFastUpdateSource,
             _toPropertyFastOwner,
             owner => owner.Result
         );
-        _toPropertyPlainProperty = _toPropertyPlainUpdateSource.ToProperty(
+        _toPropertyPlainProperty = HKW.MVVM.ObservableAsPropertyHelperExtensions.ToProperty(
+            _toPropertyPlainUpdateSource,
             _toPropertyPlainOwner,
             owner => owner.Result
         );
-        _reactiveUIProperty = ReactiveUI.OAPHCreationHelperMixins.ToProperty(
+        _reactiveUIProperty = ReactiveUI.Binding.ReactiveUIBindingExtensions.ToProperty(
             _reactiveUIUpdateSource,
             _reactiveUIOwner,
             owner => owner.Result
@@ -118,7 +120,8 @@ public class ToPropertyBenchmarks
     [BenchmarkCategory("FOCAD")]
     public void HKWFastOwnerCreateAndDispose()
     {
-        using var property = _toPropertyFastCreateSource.ToProperty(
+        using var property = HKW.MVVM.ObservableAsPropertyHelperExtensions.ToProperty(
+            _toPropertyFastCreateSource,
             _toPropertyFastOwner,
             owner => owner.Result
         );
@@ -131,7 +134,8 @@ public class ToPropertyBenchmarks
     [BenchmarkCategory("POCAD")]
     public void HKWPlainOwnerCreateAndDispose()
     {
-        using var property = _toPropertyPlainCreateSource.ToProperty(
+        using var property = HKW.MVVM.ObservableAsPropertyHelperExtensions.ToProperty(
+            _toPropertyPlainCreateSource,
             _toPropertyPlainOwner,
             owner => owner.Result
         );
@@ -158,7 +162,8 @@ public class ToPropertyBenchmarks
     [BenchmarkCategory("DFR")]
     public int HKWDeferredFirstRead()
     {
-        using var property = _toPropertyDeferredSource.ToProperty(
+        using var property = HKW.MVVM.ObservableAsPropertyHelperExtensions.ToProperty(
+            _toPropertyDeferredSource,
             _toPropertyFastOwner,
             owner => owner.Result,
             deferSubscription: true
@@ -175,7 +180,7 @@ public class ToPropertyBenchmarks
     [BenchmarkCategory("POCAD")]
     public void ReactiveUICreateAndDispose()
     {
-        using var property = ReactiveUI.OAPHCreationHelperMixins.ToProperty(
+        using var property = ReactiveUI.Binding.ReactiveUIBindingExtensions.ToProperty(
             _reactiveUICreateSource,
             _reactiveUIOwner,
             owner => owner.Result
@@ -196,7 +201,7 @@ public class ToPropertyBenchmarks
     [BenchmarkCategory("DFR")]
     public int ReactiveUIDeferredFirstRead()
     {
-        using var property = ReactiveUI.OAPHCreationHelperMixins.ToProperty(
+        using var property = ReactiveUI.Binding.ReactiveUIBindingExtensions.ToProperty(
             _reactiveUIDeferredSource,
             _reactiveUIOwner,
             owner => owner.Result,

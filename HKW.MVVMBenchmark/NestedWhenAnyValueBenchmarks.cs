@@ -57,7 +57,10 @@ public class NestedWhenAnyValueBenchmarks
             .WhenAnyValue(root => root.Child.Value)
             .Subscribe(value => _whenAnyResult = value);
         _reactiveUISubscription = ReactiveUI
-            .WhenAnyMixins.WhenAnyValue(_reactiveUIUpdateRoot, root => root.Child.Value)
+            .Binding.ReactiveUIBindingExtensions.WhenAnyValue(
+                _reactiveUIUpdateRoot,
+                root => root.Child.Value
+            )
             .Subscribe(value => _reactiveUIResult = value);
     }
 
@@ -150,7 +153,10 @@ public class NestedWhenAnyValueBenchmarks
     public void ReactiveUICreateAndDispose()
     {
         using var subscription = ReactiveUI
-            .WhenAnyMixins.WhenAnyValue(_reactiveUICreateRoot, root => root.Child.Value)
+            .Binding.ReactiveUIBindingExtensions.WhenAnyValue(
+                _reactiveUICreateRoot,
+                root => root.Child.Value
+            )
             .Subscribe(value => _reactiveUIResult = value);
     }
 

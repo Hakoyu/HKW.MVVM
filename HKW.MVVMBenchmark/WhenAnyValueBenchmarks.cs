@@ -47,7 +47,10 @@ public class WhenAnyValueBenchmarks
             .WhenAnyValue(source => source.Value)
             .Subscribe(value => _whenAnyValue = value);
         _reactiveUISubscription = ReactiveUI
-            .WhenAnyMixins.WhenAnyValue(_reactiveUIUpdateSource, source => source.Value)
+            .Binding.ReactiveUIBindingExtensions.WhenAnyValue(
+                _reactiveUIUpdateSource,
+                source => source.Value
+            )
             .Subscribe(value => _reactiveUIValue = value);
     }
 
@@ -115,7 +118,10 @@ public class WhenAnyValueBenchmarks
     public void ReactiveUIWhenAnyValueCreateAndDispose()
     {
         using var subscription = ReactiveUI
-            .WhenAnyMixins.WhenAnyValue(_reactiveUICreateSource, source => source.Value)
+            .Binding.ReactiveUIBindingExtensions.WhenAnyValue(
+                _reactiveUICreateSource,
+                source => source.Value
+            )
             .Subscribe(value => _reactiveUIValue = value);
     }
 

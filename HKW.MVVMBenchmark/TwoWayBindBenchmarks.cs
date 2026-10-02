@@ -58,7 +58,7 @@ public class TwoWayBindBenchmarks
             static (value, target) => target.Value = value,
             static (value, source) => source.Value = value
         );
-        _reactiveUIBinding = ReactiveUI.PropertyBindingMixins.Bind(
+        _reactiveUIBinding = ReactiveUI.Binding.ReactiveUIBindingExtensions.Bind(
             _reactiveUIUpdateTarget,
             _reactiveUIUpdateSource,
             source => source.Value,
@@ -171,7 +171,7 @@ public class TwoWayBindBenchmarks
     [BenchmarkCategory("CAD")]
     public void ReactiveUICreateAndDispose()
     {
-        using var binding = ReactiveUI.PropertyBindingMixins.Bind(
+        using var binding = ReactiveUI.Binding.ReactiveUIBindingExtensions.Bind(
             _reactiveUICreateTarget,
             _reactiveUICreateSource,
             source => source.Value,
@@ -219,7 +219,7 @@ public class TwoWayBindBenchmarks
 
     private sealed class ReactiveUIView
         : ReactiveUI.ReactiveObject,
-            ReactiveUI.IViewFor<BindingObject>
+            ReactiveUI.Binding.IViewFor<BindingObject>
     {
         private BindingObject? _viewModel;
         private int _value;
@@ -235,7 +235,7 @@ public class TwoWayBindBenchmarks
                 );
         }
 
-        object? ReactiveUI.IViewFor.ViewModel
+        object? ReactiveUI.Binding.IViewFor.ViewModel
         {
             get => ViewModel;
             set => ViewModel = (BindingObject?)value;

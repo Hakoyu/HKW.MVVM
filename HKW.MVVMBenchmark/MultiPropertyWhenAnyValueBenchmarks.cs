@@ -64,7 +64,10 @@ public class MultiPropertyWhenAnyValueBenchmarks
             .WhenAnyValue(source => source.Value1)
             .Subscribe(value => _whenAnyResult = value);
         _reactiveUIOneSubscription = ReactiveUI
-            .WhenAnyMixins.WhenAnyValue(_reactiveUIOneUpdateSource, source => source.Value1)
+            .Binding.ReactiveUIBindingExtensions.WhenAnyValue(
+                _reactiveUIOneUpdateSource,
+                source => source.Value1
+            )
             .Subscribe(value => _reactiveUIResult = value);
         _coreTwoSubscription = new CoreCombinedSubscription(
             _coreTwoUpdateSource,
@@ -79,7 +82,7 @@ public class MultiPropertyWhenAnyValueBenchmarks
             )
             .Subscribe(value => _whenAnyResult = value);
         _reactiveUITwoSubscription = ReactiveUI
-            .WhenAnyMixins.WhenAnyValue(
+            .Binding.ReactiveUIBindingExtensions.WhenAnyValue(
                 _reactiveUITwoUpdateSource,
                 source => source.Value1,
                 source => source.Value2,
@@ -101,7 +104,7 @@ public class MultiPropertyWhenAnyValueBenchmarks
             )
             .Subscribe(value => _whenAnyResult = value);
         _reactiveUIFourSubscription = ReactiveUI
-            .WhenAnyMixins.WhenAnyValue(
+            .Binding.ReactiveUIBindingExtensions.WhenAnyValue(
                 _reactiveUIFourUpdateSource,
                 source => source.Value1,
                 source => source.Value2,
@@ -272,7 +275,10 @@ public class MultiPropertyWhenAnyValueBenchmarks
     public void ReactiveUIOneCreateAndDispose()
     {
         using var subscription = ReactiveUI
-            .WhenAnyMixins.WhenAnyValue(_reactiveUIOneCreateSource, source => source.Value1)
+            .Binding.ReactiveUIBindingExtensions.WhenAnyValue(
+                _reactiveUIOneCreateSource,
+                source => source.Value1
+            )
             .Subscribe(value => _reactiveUIResult = value);
     }
 
@@ -284,7 +290,7 @@ public class MultiPropertyWhenAnyValueBenchmarks
     public void ReactiveUITwoCreateAndDispose()
     {
         using var subscription = ReactiveUI
-            .WhenAnyMixins.WhenAnyValue(
+            .Binding.ReactiveUIBindingExtensions.WhenAnyValue(
                 _reactiveUITwoCreateSource,
                 source => source.Value1,
                 source => source.Value2,
@@ -301,7 +307,7 @@ public class MultiPropertyWhenAnyValueBenchmarks
     public void ReactiveUIFourCreateAndDispose()
     {
         using var subscription = ReactiveUI
-            .WhenAnyMixins.WhenAnyValue(
+            .Binding.ReactiveUIBindingExtensions.WhenAnyValue(
                 _reactiveUIFourCreateSource,
                 source => source.Value1,
                 source => source.Value2,

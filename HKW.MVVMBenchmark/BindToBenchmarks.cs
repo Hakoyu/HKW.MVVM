@@ -48,7 +48,7 @@ public class BindToBenchmarks
             _assignmentTarget,
             static (value, target) => target.Value = value
         );
-        _reactiveUIBinding = ReactiveUI.PropertyBindingMixins.BindTo(
+        _reactiveUIBinding = ReactiveUI.Binding.ReactiveUIBindingExtensions.BindTo(
             _reactiveUISource,
             _reactiveUITarget,
             target => target.Value
@@ -158,7 +158,7 @@ public class BindToBenchmarks
     [BenchmarkCategory("CAD")]
     public void ReactiveUICreateAndDispose()
     {
-        using var binding = ReactiveUI.PropertyBindingMixins.BindTo(
+        using var binding = ReactiveUI.Binding.ReactiveUIBindingExtensions.BindTo(
             _reactiveUISource,
             _reactiveUITarget,
             target => target.Value
