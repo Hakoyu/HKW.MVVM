@@ -387,6 +387,12 @@ public class MultiPropertyWhenAnyValueBenchmarks
         public void NotifyPropertyChanged(string? propertyName = null) =>
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 
+        public void NotifyPropertyChanging(PropertyChangingEventArgs args) =>
+            PropertyChanging?.Invoke(this, args);
+
+        public void NotifyPropertyChanged(PropertyChangedEventArgs args) =>
+            PropertyChanged?.Invoke(this, args);
+
         private void SetValue(ref int field, int value, PropertyChangedEventArgs eventArgs)
         {
             if (field == value)

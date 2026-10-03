@@ -6,19 +6,19 @@ namespace HKW.MVVM;
 
 #pragma warning disable S2436
 /// <summary>
-/// 提供单向和双向属性绑定辅助方法.
+/// 提供单向和双向属性绑定辅助方法
 /// </summary>
 public static class BindingExtensions
 {
     /// <summary>
-    /// 使用调用方提供的赋值操作绑定可观察序列产生的值.
+    /// 使用调用方提供的赋值操作绑定可观察序列产生的值
     /// </summary>
-    /// <typeparam name="TValue">源产生的值类型.</typeparam>
-    /// <typeparam name="TTarget">目标对象的类型.</typeparam>
-    /// <param name="source">提供值的可观察序列.</param>
-    /// <param name="target">传递给 <paramref name="assignment"/> 的目标对象.</param>
-    /// <param name="assignment">接收每个源值和目标对象的操作.</param>
-    /// <returns>可停止绑定的可释放对象.</returns>
+    /// <typeparam name="TValue">源产生的值类型</typeparam>
+    /// <typeparam name="TTarget">目标对象的类型</typeparam>
+    /// <param name="source">提供值的可观察序列</param>
+    /// <param name="target">传递给 <paramref name="assignment"/> 的目标对象</param>
+    /// <param name="assignment">接收每个源值和目标对象的操作</param>
+    /// <returns>可停止绑定的可释放对象</returns>
     public static IDisposable BindTo<TValue, TTarget>(
         this IObservable<TValue> source,
         TTarget target,
@@ -32,14 +32,14 @@ public static class BindingExtensions
     }
 
     /// <summary>
-    /// 将可观察序列产生的值绑定到可写的目标属性.
+    /// 将可观察序列产生的值绑定到可写的目标属性
     /// </summary>
-    /// <typeparam name="TTarget">目标对象的类型.</typeparam>
-    /// <typeparam name="TValue">源和目标的值的类型.</typeparam>
-    /// <param name="source">提供值的可观察序列.</param>
-    /// <param name="target">接收值的属性所属对象.</param>
-    /// <param name="targetProperty">以 <paramref name="target"/> 为根的,可写的属性路径.</param>
-    /// <returns>可停止绑定的可释放对象.</returns>
+    /// <typeparam name="TTarget">目标对象的类型</typeparam>
+    /// <typeparam name="TValue">源和目标的值的类型</typeparam>
+    /// <param name="source">提供值的可观察序列</param>
+    /// <param name="target">接收值的属性所属对象</param>
+    /// <param name="targetProperty">以 <paramref name="target"/> 为根的,可写的属性路径</param>
+    /// <returns>可停止绑定的可释放对象</returns>
     public static IDisposable BindTo<TTarget, TValue>(
         this IObservable<TValue> source,
         TTarget target,
@@ -48,16 +48,16 @@ public static class BindingExtensions
         where TTarget : class => BindTo(source, target, targetProperty, static value => value);
 
     /// <summary>
-    /// 将可观察序列产生的,经过转换的值绑定到可写的目标属性.
+    /// 将可观察序列产生的,经过转换的值绑定到可写的目标属性
     /// </summary>
-    /// <typeparam name="TSourceValue">源产生的值类型.</typeparam>
-    /// <typeparam name="TTarget">目标对象的类型.</typeparam>
-    /// <typeparam name="TTargetValue">目标属性的值类型.</typeparam>
-    /// <param name="source">提供值的可观察序列.</param>
-    /// <param name="target">接收值的属性所属对象.</param>
-    /// <param name="targetProperty">以 <paramref name="target"/> 为根的,可写的属性路径.</param>
-    /// <param name="converter">将源值转换为目标值的函数.</param>
-    /// <returns>可停止绑定的可释放对象.</returns>
+    /// <typeparam name="TSourceValue">源产生的值类型</typeparam>
+    /// <typeparam name="TTarget">目标对象的类型</typeparam>
+    /// <typeparam name="TTargetValue">目标属性的值类型</typeparam>
+    /// <param name="source">提供值的可观察序列</param>
+    /// <param name="target">接收值的属性所属对象</param>
+    /// <param name="targetProperty">以 <paramref name="target"/> 为根的,可写的属性路径</param>
+    /// <param name="converter">将源值转换为目标值的函数</param>
+    /// <returns>可停止绑定的可释放对象</returns>
     public static IDisposable BindTo<TSourceValue, TTarget, TTargetValue>(
         this IObservable<TSourceValue> source,
         TTarget target,
@@ -76,16 +76,16 @@ public static class BindingExtensions
     }
 
     /// <summary>
-    /// 在类型相同的源属性和目标属性之间创建双向绑定.
+    /// 在类型相同的源属性和目标属性之间创建双向绑定
     /// </summary>
-    /// <typeparam name="TSource">源对象的类型.</typeparam>
-    /// <typeparam name="TTarget">目标对象的类型.</typeparam>
-    /// <typeparam name="TValue">所绑定属性的值类型.</typeparam>
-    /// <param name="target">调用此扩展方法的目标对象.</param>
-    /// <param name="source">提供初始值的源对象.</param>
-    /// <param name="sourceProperty">被观察的,可写的源属性路径.</param>
-    /// <param name="targetProperty">被观察的,可写的目标属性路径.</param>
-    /// <returns>可停止双向更新的可释放对象.</returns>
+    /// <typeparam name="TSource">源对象的类型</typeparam>
+    /// <typeparam name="TTarget">目标对象的类型</typeparam>
+    /// <typeparam name="TValue">所绑定属性的值类型</typeparam>
+    /// <param name="target">调用此扩展方法的目标对象</param>
+    /// <param name="source">提供初始值的源对象</param>
+    /// <param name="sourceProperty">被观察的,可写的源属性路径</param>
+    /// <param name="targetProperty">被观察的,可写的目标属性路径</param>
+    /// <returns>可停止双向更新的可释放对象</returns>
     public static IDisposable TwoWayBind<TSource, TTarget, TValue>(
         this TSource source,
         TTarget target,
@@ -104,19 +104,19 @@ public static class BindingExtensions
         );
 
     /// <summary>
-    /// 在源属性和目标属性之间创建经过转换的双向绑定.
+    /// 在源属性和目标属性之间创建经过转换的双向绑定
     /// </summary>
-    /// <typeparam name="TSource">源对象的类型.</typeparam>
-    /// <typeparam name="TTarget">目标对象的类型.</typeparam>
-    /// <typeparam name="TSourceValue">源属性的值类型.</typeparam>
-    /// <typeparam name="TTargetValue">目标属性的值类型.</typeparam>
-    /// <param name="target">调用此扩展方法的目标对象.</param>
-    /// <param name="source">提供初始值的源对象.</param>
-    /// <param name="sourceProperty">被观察的,可写的源属性路径.</param>
-    /// <param name="targetProperty">被观察的,可写的目标属性路径.</param>
-    /// <param name="sourceToTarget">在将源值赋给目标之前对其进行转换.</param>
-    /// <param name="targetToSource">在将目标值赋给源之前对其进行转换.</param>
-    /// <returns>可停止双向更新的可释放对象.</returns>
+    /// <typeparam name="TSource">源对象的类型</typeparam>
+    /// <typeparam name="TTarget">目标对象的类型</typeparam>
+    /// <typeparam name="TSourceValue">源属性的值类型</typeparam>
+    /// <typeparam name="TTargetValue">目标属性的值类型</typeparam>
+    /// <param name="target">调用此扩展方法的目标对象</param>
+    /// <param name="source">提供初始值的源对象</param>
+    /// <param name="sourceProperty">被观察的,可写的源属性路径</param>
+    /// <param name="targetProperty">被观察的,可写的目标属性路径</param>
+    /// <param name="sourceToTarget">在将源值赋给目标之前对其进行转换</param>
+    /// <param name="targetToSource">在将目标值赋给源之前对其进行转换</param>
+    /// <returns>可停止双向更新的可释放对象</returns>
     public static IDisposable TwoWayBind<TSource, TTarget, TSourceValue, TTargetValue>(
         this TSource source,
         TTarget target,
@@ -148,21 +148,21 @@ public static class BindingExtensions
     }
 
     /// <summary>
-    /// 使用调用方为两个方向提供的赋值操作创建双向绑定.
+    /// 使用调用方为两个方向提供的赋值操作创建双向绑定
     /// </summary>
-    /// <typeparam name="TSource">源对象的类型.</typeparam>
-    /// <typeparam name="TTarget">目标对象的类型.</typeparam>
-    /// <typeparam name="TSourceValue">被观察的源值类型.</typeparam>
-    /// <typeparam name="TTargetValue">被观察的目标值类型.</typeparam>
-    /// <param name="target">调用此扩展方法的目标对象.</param>
-    /// <param name="source">提供初始值的源对象.</param>
-    /// <param name="sourceProperty">要观察的源属性路径.</param>
-    /// <param name="targetProperty">要观察的目标属性路径.</param>
-    /// <param name="assignTarget">将源值赋给目标.</param>
-    /// <param name="assignSource">将目标值赋给源.</param>
-    /// <returns>可停止双向更新的可释放对象.</returns>
+    /// <typeparam name="TSource">源对象的类型</typeparam>
+    /// <typeparam name="TTarget">目标对象的类型</typeparam>
+    /// <typeparam name="TSourceValue">被观察的源值类型</typeparam>
+    /// <typeparam name="TTargetValue">被观察的目标值类型</typeparam>
+    /// <param name="target">调用此扩展方法的目标对象</param>
+    /// <param name="source">提供初始值的源对象</param>
+    /// <param name="sourceProperty">要观察的源属性路径</param>
+    /// <param name="targetProperty">要观察的目标属性路径</param>
+    /// <param name="assignTarget">将源值赋给目标</param>
+    /// <param name="assignSource">将目标值赋给源</param>
+    /// <returns>可停止双向更新的可释放对象</returns>
     /// <remarks>
-    /// 反射: 否.
+    /// 反射: 否
     /// </remarks>
     public static IDisposable TwoWayBind<TSource, TTarget, TSourceValue, TTargetValue>(
         this TSource source,
@@ -228,7 +228,7 @@ public static class BindingExtensions
         public void UpdateTarget(TSourceValue value)
         {
             // 源到目标具有更高优先级:它可以替换 UpdatingSource,而
-            // UpdateSource 只允许从 Idle 状态进入.
+            // UpdateSource 只允许从 Idle 状态进入
             int state;
             do
             {

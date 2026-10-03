@@ -97,7 +97,7 @@ internal sealed class SingleAssignmentDisposable : IDisposable
 }
 
 /// <summary>
-/// 串行化已调度的回调,同时保持其入队顺序.
+/// 串行化已调度的回调,同时保持其入队顺序
 /// </summary>
 internal sealed class SerialActionQueue(Action<Action> schedule) : IDisposable
 {

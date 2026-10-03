@@ -41,4 +41,14 @@
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.12" />
   </ItemGroup>
+  <Target Name="DisableMvvmToolkitSourceGenerators" BeforeTargets="CoreCompile">
+    <ItemGroup>
+      <_MvvmToolkitAnalyzers
+        Include="@(Analyzer)"
+        Condition="$([System.String]::Copy('%(Analyzer.Filename)').Contains('CommunityToolkit.Mvvm.SourceGenerators'))"
+      />
+
+      <Analyzer Remove="@(_MvvmToolkitAnalyzers)" />
+    </ItemGroup>
+  </Target>
 </Project>

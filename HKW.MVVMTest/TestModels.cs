@@ -142,6 +142,10 @@ internal sealed class TrackingPropertyOwner : ObservableObject, IPropertyChangeN
         ChangedNotificationCount++;
         OnPropertyChanged(propertyName);
     }
+
+    public void NotifyPropertyChanging(PropertyChangingEventArgs args) => OnPropertyChanging(args);
+
+    public void NotifyPropertyChanged(PropertyChangedEventArgs args) => OnPropertyChanged(args);
 }
 
 internal sealed class PlainPropertyOwner : ObservableObject
