@@ -19,40 +19,6 @@ public enum ObservableSchedulers
     ThreadPool,
 }
 
-/// <summary>
-/// 指定可观察序列日志通知的类型
-/// </summary>
-public enum ObservableLogAction
-{
-    /// <summary>
-    /// 序列发出了一个值
-    /// </summary>
-    OnNext,
-
-    /// <summary>
-    /// 序列因错误而终止
-    /// </summary>
-    OnError,
-
-    /// <summary>
-    /// 序列成功完成
-    /// </summary>
-    OnCompleted,
-}
-
-/// <summary>
-/// 表示传递给可观察序列日志消息工厂的通知
-/// </summary>
-/// <typeparam name="T">序列值类型</typeparam>
-/// <param name="Action">通知类型</param>
-/// <param name="Value">当 <paramref name="Action"/> 为 <see cref="ObservableLogAction.OnNext"/> 时的序列值;其他通知为默认值</param>
-/// <param name="Exception">当 <paramref name="Action"/> 为 <see cref="ObservableLogAction.OnError"/> 时的源异常;其他通知为 <see langword="null"/></param>
-public readonly record struct ObservableLogNotification<T>(
-    ObservableLogAction Action,
-    T? Value,
-    Exception? Exception
-);
-
 internal interface IObservableWithLogger
 {
     ILogger GetLogger();
