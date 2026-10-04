@@ -313,21 +313,7 @@ using var logged = viewModel
     .Subscribe(text => Console.WriteLine(text));
 ```
 
-`Log` 会从调用处源码提取顶层操作符，并在日志前显示链式调用。例如上面的值通知会记录为：
-
-```text
-WhenAnyValue().Throttle().DistinctUntilChanged().Log(this) | OnNext(keyword): Search text changed
-```
-
-调用链显示规则：
-
-- `OnNext` 和 `OnCompleted` 在 `Trace`、`Debug`、`Error`、`Critical` 级别显示调用链。
-- `Information`、`Warning` 和 `None` 级别的值与完成通知不显示调用链。
-- `OnError` 无论日志级别为何都强制显示调用链，并保留原始异常。
-- 调用链通过 `CallerArgumentExpression` 获取。直接链式调用可显示完整操作符；若先保存到局部变量再调用，只能显示 `observable.Log(this)`。
-- 调用链在首次需要时惰性解析，同一个 `Log` 管道只解析一次并缓存复用。
-
-普通 `IObservable<T>` 不携带日志记录器，应显式传入 `ILogger`。还可以指定 `LogLevel`、为每个值生成消息，或用 `LogNotifications` 根据 `ObservableLogNotification<T>` 自定义三种通知的消息。默认情况下值和完成使用 `Debug`，错误使用 `Error` 并保留原始异常。
+普通 `IObservable<T>` 不携带日志记录器，应显式传入 `ILogger`。还可以指定 `LogLevel`、为每个值生成消息。默认情况下值和完成使用 `Debug`，错误使用 `Error` 并保留原始异常。
 
 ## 错误和资源语义
 
