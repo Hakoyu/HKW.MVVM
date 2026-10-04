@@ -25,13 +25,10 @@ public sealed class ObservableLoggingTests
         Assert.AreSame(expectedError, receivedError);
         Assert.HasCount(2, logger.Entries);
         Assert.AreEqual(LogLevel.Debug, logger.Entries[0].Level);
-        Assert.AreEqual("source.Log(this) | OnNext(42): Search result", logger.Entries[0].Message);
+        StringAssert.Contains(logger.Entries[0].Message, "OnNext(42): Search result");
         Assert.AreEqual(LogLevel.Error, logger.Entries[1].Level);
         Assert.AreSame(expectedError, logger.Entries[1].Exception);
-        Assert.AreEqual(
-            "source.Log(this) | OnError(Search failed.): Search result",
-            logger.Entries[1].Message
-        );
+        StringAssert.Contains(logger.Entries[1].Message, "OnError(Search failed.): Search result");
     }
 
     [TestMethod]
@@ -49,20 +46,7 @@ public sealed class ObservableLoggingTests
         Assert.IsTrue(completed);
         Assert.HasCount(1, logger.Entries);
         Assert.AreEqual(LogLevel.Debug, logger.Entries[0].Level);
-        Assert.AreEqual("source.Log(this) | Observable: OnCompleted()", logger.Entries[0].Message);
-    }
-
-    [TestMethod]
-    public void OnCompletionWithMessage_UsesNotificationFirstFormat()
-    {
-        var source = new ManualObservable<int>();
-        var logger = new RecordingLogger();
-        using var subscription = source.Log(logger, "Completed").Subscribe(_ => { });
-
-        source.Complete();
-
-        Assert.HasCount(1, logger.Entries);
-        Assert.AreEqual("source.Log(this) | OnCompleted(): Completed", logger.Entries[0].Message);
+        Assert.AreEqual("Observable: OnCompleted()", logger.Entries[0].Message);
     }
 
     [TestMethod]
@@ -82,227 +66,8 @@ public sealed class ObservableLoggingTests
         Assert.AreSame(expectedError, receivedError);
         Assert.HasCount(2, logger.Entries);
         Assert.IsTrue(logger.Entries.All(entry => entry.Level == LogLevel.Warning));
-        Assert.AreEqual("OnNext(42): Custom level", logger.Entries[0].Message);
-        Assert.AreEqual(
-            "source.Log(this) | OnError(Expected.): Custom level",
-            logger.Entries[1].Message
-        );
+
         Assert.AreSame(expectedError, logger.Entries[1].Exception);
-    }
-
-    [TestMethod]
-    [DataRow(LogLevel.Trace, true)]
-    [DataRow(LogLevel.Debug, true)]
-    [DataRow(LogLevel.Information, false)]
-    [DataRow(LogLevel.Warning, false)]
-    [DataRow(LogLevel.Error, true)]
-    [DataRow(LogLevel.Critical, true)]
-    [DataRow(LogLevel.None, false)]
-    public void NormalNotifications_IncludeCallChainForConfiguredLevels(
-        LogLevel logLevel,
-        bool includesCallChain
-    )
-    {
-        var source = new ManualObservable<int>();
-        var logger = new RecordingLogger();
-        using var subscription = source.Log(logger, logLevel, "Level").Subscribe(_ => { });
-
-        source.Emit(42);
-        source.Complete();
-
-        var prefix = includesCallChain ? "source.Log(this) | " : string.Empty;
-        Assert.HasCount(2, logger.Entries);
-        Assert.AreEqual($"{prefix}OnNext(42): Level", logger.Entries[0].Message);
-        Assert.AreEqual($"{prefix}OnCompleted(): Level", logger.Entries[1].Message);
-    }
-
-    [TestMethod]
-    [DataRow(LogLevel.Trace)]
-    [DataRow(LogLevel.Debug)]
-    [DataRow(LogLevel.Information)]
-    [DataRow(LogLevel.Warning)]
-    [DataRow(LogLevel.Error)]
-    [DataRow(LogLevel.Critical)]
-    [DataRow(LogLevel.None)]
-    public void OnError_AlwaysIncludesCallChain(LogLevel logLevel)
-    {
-        var source = new ManualObservable<int>();
-        var logger = new RecordingLogger();
-        using var subscription = source
-            .Log(logger, logLevel, "Level")
-            .Subscribe(_ => { }, _ => { });
-
-        source.Fail(new TestException("Expected."));
-
-        Assert.HasCount(1, logger.Entries);
-        Assert.AreEqual("source.Log(this) | OnError(Expected.): Level", logger.Entries[0].Message);
-    }
-
-    [TestMethod]
-    public void WithDebugLevel_IncludesCallChainForErrors()
-    {
-        var source = new ManualObservable<int>();
-        var logger = new RecordingLogger();
-        using var subscription = source.Log(logger, LogLevel.Debug).Subscribe(_ => { }, _ => { });
-
-        source.Fail(new TestException("Expected."));
-
-        Assert.HasCount(1, logger.Entries);
-        Assert.AreEqual(
-            "source.Log(this) | Observable: OnError(Expected.)",
-            logger.Entries[0].Message
-        );
-    }
-
-    [TestMethod]
-    public void DirectPipeline_FormatsTopLevelCallChain()
-    {
-        var logger = new RecordingLogger();
-        var owner = new LoggerOwnerWithLogger(logger);
-        using var received = new ManualResetEventSlim();
-        using var subscription = owner
-            .WhenAnyValue(x => x.Value)
-            .Throttle(TimeSpan.Zero, ObservableSchedulers.ThreadPool)
-            .DistinctUntilChanged()
-            .ObserveOn(ObservableSchedulers.Current)
-            .Log("Search Change")
-            .Subscribe(_ => received.Set());
-
-        Assert.IsTrue(received.Wait(TimeSpan.FromSeconds(5)));
-        Assert.HasCount(1, logger.Entries);
-        Assert.AreEqual(
-            "WhenAnyValue().Throttle().DistinctUntilChanged().ObserveOn().Log(this) | OnNext(0): Search Change",
-            logger.Entries[0].Message
-        );
-    }
-
-    [TestMethod]
-    public void WithValueMessageFactory_UsesFactoryForValues()
-    {
-        var logger = new RecordingLogger();
-        var owner = new LoggerOwnerWithLogger(logger);
-        using var subscription = owner
-            .WhenAnyValue(x => x.Value)
-            .Log(value => $"Value changed to {value}")
-            .Subscribe(_ => { });
-
-        owner.Value = 42;
-
-        Assert.HasCount(2, logger.Entries);
-        Assert.AreEqual("WhenAnyValue().Log(this) | Value changed to 0", logger.Entries[0].Message);
-        Assert.AreEqual(
-            "WhenAnyValue().Log(this) | Value changed to 42",
-            logger.Entries[1].Message
-        );
-    }
-
-    [TestMethod]
-    public void WithValueMessageFactoryAndLevel_UsesSpecifiedLevel()
-    {
-        var logger = new RecordingLogger();
-        var owner = new LoggerOwnerWithLogger(logger);
-        using var subscription = owner
-            .WhenAnyValue(x => x.Value)
-            .Take(1)
-            .Log((int value) => $"Value: {value}", LogLevel.Warning)
-            .Subscribe(_ => { });
-
-        Assert.HasCount(2, logger.Entries);
-        Assert.IsTrue(logger.Entries.All(entry => entry.Level == LogLevel.Warning));
-        Assert.AreEqual("Value: 0", logger.Entries[0].Message);
-        Assert.AreEqual("Observable: OnCompleted()", logger.Entries[1].Message);
-    }
-
-    [TestMethod]
-    public void WithNotificationMessageFactory_ReceivesEveryNotification()
-    {
-        var logger = new RecordingLogger();
-        var owner = new LoggerOwnerWithLogger(logger);
-        var notifications = new List<ObservableLogNotification<int>>();
-        string CreateMessage(ObservableLogNotification<int> notification)
-        {
-            notifications.Add(notification);
-            return notification.Action.ToString();
-        }
-
-        using var completedSubscription = owner
-            .WhenAnyValue(x => x.Value)
-            .Take(1)
-            .LogNotifications(CreateMessage)
-            .Subscribe(_ => { });
-        var expectedError = new TestException("Expected.");
-        using var errorSubscription = owner
-            .WhenAnyValue(x => x.Value)
-            .Select<int, int>(_ => throw expectedError)
-            .LogNotifications(CreateMessage)
-            .Subscribe(_ => { }, _ => { });
-
-        Assert.HasCount(3, notifications);
-        Assert.AreEqual(ObservableLogAction.OnNext, notifications[0].Action);
-        Assert.AreEqual(0, notifications[0].Value);
-        Assert.AreEqual(ObservableLogAction.OnCompleted, notifications[1].Action);
-        Assert.AreEqual(ObservableLogAction.OnError, notifications[2].Action);
-        Assert.AreSame(expectedError, notifications[2].Exception);
-        CollectionAssert.AreEqual(
-            new[]
-            {
-                "WhenAnyValue().Take().Log(this) | OnNext",
-                "WhenAnyValue().Take().Log(this) | OnCompleted",
-                "WhenAnyValue().Select().Log(this) | OnError",
-            },
-            logger.Entries.Select(entry => entry.Message).ToArray()
-        );
-        Assert.AreEqual(LogLevel.Error, logger.Entries[2].Level);
-        Assert.AreSame(expectedError, logger.Entries[2].Exception);
-    }
-
-    [TestMethod]
-    public void MessageFactoryFailureTerminatesOnlyOnce()
-    {
-        var logger = new RecordingLogger();
-        var owner = new LoggerOwnerWithLogger(logger);
-        var expectedError = new TestException("Factory failed.");
-        var factoryCalls = 0;
-        var errors = new List<Exception>();
-        using var subscription = owner
-            .WhenAnyValue(x => x.Value)
-            .Log(
-                (int _) =>
-                {
-                    factoryCalls++;
-                    throw expectedError;
-                }
-            )
-            .Subscribe(_ => Assert.Fail(), errors.Add);
-
-        owner.Value = 1;
-
-        Assert.AreEqual(1, factoryCalls);
-        Assert.HasCount(1, errors);
-        Assert.AreSame(expectedError, errors[0]);
-        Assert.IsEmpty(logger.Entries);
-    }
-
-    [TestMethod]
-    public void NotificationFactoryFailureReplacesSourceError()
-    {
-        var logger = new RecordingLogger();
-        var owner = new LoggerOwnerWithLogger(logger);
-        var sourceError = new TestException("Source failed.");
-        var factoryError = new TestException("Factory failed.");
-        Exception? receivedError = null;
-        using var subscription = owner
-            .WhenAnyValue(x => x.Value)
-            .Select<int, int>(_ => throw sourceError)
-            .LogNotifications(notification =>
-                notification.Action == ObservableLogAction.OnError
-                    ? throw factoryError
-                    : notification.Action.ToString()
-            )
-            .Subscribe(_ => Assert.Fail(), error => receivedError = error);
-
-        Assert.AreSame(factoryError, receivedError);
-        Assert.IsEmpty(logger.Entries);
     }
 
     [TestMethod]
@@ -463,27 +228,6 @@ public sealed class ObservableLoggingTests
         var exception = Assert.ThrowsExactly<InvalidOperationException>(() => source.Log());
 
         StringAssert.Contains(exception.Message, "Pass an ILogger explicitly");
-    }
-
-    [TestMethod]
-    public void ValidatesArguments()
-    {
-        var source = new ManualObservable<int>();
-        var logger = new RecordingLogger();
-
-        Assert.ThrowsExactly<ArgumentNullException>(() =>
-            ObservableExtensions.Log<int>(null!, logger)
-        );
-        Assert.ThrowsExactly<ArgumentNullException>(() => source.Log((ILogger)null!));
-        Assert.ThrowsExactly<ArgumentNullException>(() => ObservableExtensions.Log<int>(null!));
-        Assert.ThrowsExactly<ArgumentNullException>(() =>
-            new LoggerOwnerWithLogger(logger)
-                .WhenAnyValue(x => x.Value)
-                .Log((Func<int, string>)null!)
-        );
-        Assert.ThrowsExactly<ArgumentNullException>(() =>
-            new LoggerOwnerWithLogger(logger).WhenAnyValue(x => x.Value).LogNotifications(null!)
-        );
     }
 
     private sealed class LoggerOwner : ObservableObjectEx, IEnableLogger

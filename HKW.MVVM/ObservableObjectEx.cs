@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using CommunityToolkit.Mvvm.ComponentModel;
 
@@ -35,8 +36,11 @@ public interface IPropertyChangeNotifier : INotifyPropertyChanging, INotifyPrope
 /// </summary>
 public class ObservableObjectEx : ObservableObject, IPropertyChangeNotifier
 {
+    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
     private readonly PropertyChangeSubject<IPropertyChangeEventArgs<ObservableObjectEx>> _changing =
         new();
+
+    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
     private readonly PropertyChangeSubject<IPropertyChangeEventArgs<ObservableObjectEx>> _changed =
         new();
 

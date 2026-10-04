@@ -87,21 +87,16 @@ public static class ObservableExtensions
     /// <typeparam name="TSource">源值类型</typeparam>
     /// <param name="source">携带日志记录器的可观察序列,例如由实现 <see cref="IEnableLogger"/> 的对象通过 <c>WhenAnyValue</c> 创建并经内置操作符转换的序列</param>
     /// <param name="message">用于在日志条目中标识该序列的标签</param>
-    /// <param name="sourceExpression">由编译器捕获的源表达式;调用方通常不应显式提供</param>
     /// <returns>记录并转发每个源通知的冷可观察序列</returns>
     /// <exception cref="InvalidOperationException">序列未携带日志记录器</exception>
     /// <remarks>
-    /// 值与成功完成以 <see cref="LogLevel.Debug"/> 级别记录,并以源表达式中的
-    /// 点式操作符调用链作为消息前缀.若通过局部变量调用,仅能显示变量名
-    /// 提供 <paramref name="message"/> 时使用 <c>OnNext(value): message</c> 等通知优先格式;
-    /// 未提供时保留 <c>Observable: OnNext(value)</c> 格式
-    /// 错误以 <see cref="LogLevel.Error"/> 级别记录并保留原始异常,且始终显示调用链
+    /// 值与成功完成以 <see cref="LogLevel.Debug"/> 级别记录,
+    /// 错误以 <see cref="LogLevel.Error"/> 级别记录并保留原始异常
     /// </remarks>
     public static IObservable<TSource> Log<TSource>(
         this IObservable<TSource> source,
-        string? message = null,
-        [CallerArgumentExpression(nameof(source))] string? sourceExpression = null
-    ) => Log(source, GetLogger(source), LogLevel.Debug, LogLevel.Error, message, sourceExpression);
+        string? message = null
+    ) => Log(source, GetLogger(source), LogLevel.Debug, LogLevel.Error, message);
 
     /// <summary>
     /// 使用可观察序列携带的日志记录器,以指定级别记录每个通知
@@ -110,111 +105,16 @@ public static class ObservableExtensions
     /// <param name="source">携带日志记录器的可观察序列,例如由实现 <see cref="IEnableLogger"/> 的对象通过 <c>WhenAnyValue</c> 创建并经内置操作符转换的序列</param>
     /// <param name="logLevel">用于记录每个序列通知的级别</param>
     /// <param name="message">用于在日志条目中标识该序列的标签</param>
-    /// <param name="sourceExpression">由编译器捕获的源表达式;调用方通常不应显式提供</param>
     /// <returns>记录并转发每个源通知的冷可观察序列</returns>
     /// <exception cref="InvalidOperationException">序列未携带日志记录器</exception>
     /// <remarks>
-    /// Trace,Debug,Error 和 Critical 级别的值与完成通知添加调用链前缀;
-    /// 错误通知无论级别为何都添加调用链前缀
     /// 提供 <paramref name="message"/> 时使用通知优先格式;未提供时保留原格式
     /// </remarks>
     public static IObservable<TSource> Log<TSource>(
         this IObservable<TSource> source,
         LogLevel logLevel,
-        string? message = null,
-        [CallerArgumentExpression(nameof(source))] string? sourceExpression = null
-    ) => Log(source, GetLogger(source), logLevel, logLevel, message, sourceExpression);
-
-    /// <summary>
-    /// 使用可观察序列携带的日志记录器记录通知,并使用工厂生成每个值的完整日志消息
-    /// </summary>
-    /// <typeparam name="TSource">源值类型</typeparam>
-    /// <param name="source">携带日志记录器的可观察序列</param>
-    /// <param name="messageFactory">根据每个源值生成完整日志消息的函数</param>
-    /// <param name="sourceExpression">由编译器捕获的源表达式;调用方通常不应显式提供</param>
-    /// <returns>记录并转发每个源通知的冷可观察序列</returns>
-    /// <remarks>
-    /// 值与成功完成以 <see cref="LogLevel.Debug"/> 级别记录并添加调用链前缀,错误以
-    /// <see cref="LogLevel.Error"/> 级别记录且始终添加调用链前缀.错误和完成使用标准消息格式
-    /// </remarks>
-    public static IObservable<TSource> Log<TSource>(
-        this IObservable<TSource> source,
-        Func<TSource, string> messageFactory,
-        [CallerArgumentExpression(nameof(source))] string? sourceExpression = null
-    )
-    {
-        ArgumentNullException.ThrowIfNull(messageFactory);
-        return LogWithMessageFactory(
-            source,
-            GetLogger(source),
-            notification =>
-                notification.Action == ObservableLogAction.OnNext
-                    ? messageFactory(notification.Value!)
-                    : GetStandardLogMessage(notification),
-            LogLevel.Debug,
-            LogLevel.Error,
-            sourceExpression
-        );
-    }
-
-    /// <summary>
-    /// 使用可观察序列携带的日志记录器和指定级别记录通知,
-    /// 并使用工厂生成每个值的完整日志消息
-    /// </summary>
-    /// <typeparam name="TSource">源值类型</typeparam>
-    /// <param name="source">携带日志记录器的可观察序列</param>
-    /// <param name="messageFactory">根据每个源值生成完整日志消息的函数</param>
-    /// <param name="logLevel">用于记录值,错误和完成通知的级别</param>
-    /// <param name="sourceExpression">由编译器捕获的源表达式;调用方通常不应显式提供</param>
-    /// <returns>记录并转发每个源通知的冷可观察序列</returns>
-    /// <remarks>
-    /// Trace,Debug,Error 和 Critical 级别的值与完成通知添加调用链前缀;
-    /// 错误通知无论级别为何都添加调用链前缀
-    /// </remarks>
-    public static IObservable<TSource> Log<TSource>(
-        this IObservable<TSource> source,
-        Func<TSource, string> messageFactory,
-        LogLevel logLevel,
-        [CallerArgumentExpression(nameof(source))] string? sourceExpression = null
-    )
-    {
-        ArgumentNullException.ThrowIfNull(messageFactory);
-        return LogWithMessageFactory(
-            source,
-            GetLogger(source),
-            notification =>
-                notification.Action == ObservableLogAction.OnNext
-                    ? messageFactory(notification.Value!)
-                    : GetStandardLogMessage(notification),
-            logLevel,
-            logLevel,
-            sourceExpression
-        );
-    }
-
-    /// <summary>
-    /// 使用可观察序列携带的日志记录器记录通知,
-    /// 并使用工厂为值,错误和完成通知生成完整日志消息
-    /// </summary>
-    /// <typeparam name="TSource">源值类型</typeparam>
-    /// <param name="source">携带日志记录器的可观察序列</param>
-    /// <param name="messageFactory">根据通知上下文生成完整日志消息的函数</param>
-    /// <param name="sourceExpression">由编译器捕获的源表达式;调用方通常不应显式提供</param>
-    /// <returns>记录并转发每个源通知的冷可观察序列</returns>
-    /// <remarks>Debug 值与完成通知添加调用链前缀;错误通知始终添加调用链前缀</remarks>
-    public static IObservable<TSource> LogNotifications<TSource>(
-        this IObservable<TSource> source,
-        Func<ObservableLogNotification<TSource>, string> messageFactory,
-        [CallerArgumentExpression(nameof(source))] string? sourceExpression = null
-    ) =>
-        LogWithMessageFactory(
-            source,
-            GetLogger(source),
-            messageFactory,
-            LogLevel.Debug,
-            LogLevel.Error,
-            sourceExpression
-        );
+        string? message = null
+    ) => Log(source, GetLogger(source), logLevel, logLevel, message);
 
     /// <summary>
     /// 使用指定的日志记录器记录可观察序列的每个通知,并原样转发
@@ -223,21 +123,18 @@ public static class ObservableExtensions
     /// <param name="source">要记录日志的可观察序列</param>
     /// <param name="logger">接收序列通知的日志记录器</param>
     /// <param name="message">用于在日志条目中标识该序列的标签</param>
-    /// <param name="sourceExpression">由编译器捕获的源表达式;调用方通常不应显式提供</param>
     /// <returns>记录并转发每个源通知的冷可观察序列</returns>
     /// <remarks>
-    /// 值与成功完成以 <see cref="LogLevel.Debug"/> 级别记录并添加调用链前缀
-    /// 提供 <paramref name="message"/> 时使用通知优先格式;未提供时保留原格式
-    /// 错误以<see cref="LogLevel.Error"/> 级别记录并保留原始异常,且始终显示调用链
+    /// 值与成功完成以 <see cref="LogLevel.Debug"/> 级别记录,
+    /// 错误以 <see cref="LogLevel.Error"/> 级别记录并保留原始异常
     /// </remarks>
     public static IObservable<TSource> Log<TSource>(
         this IObservable<TSource> source,
         ILogger logger,
-        string? message = null,
-        [CallerArgumentExpression(nameof(source))] string? sourceExpression = null
+        string? message = null
     )
     {
-        return Log(source, logger, LogLevel.Debug, LogLevel.Error, message, sourceExpression);
+        return Log(source, logger, LogLevel.Debug, LogLevel.Error, message);
     }
 
     /// <summary>
@@ -248,23 +145,19 @@ public static class ObservableExtensions
     /// <param name="logger">接收序列通知的日志记录器</param>
     /// <param name="logLevel">用于记录每个序列通知的级别</param>
     /// <param name="message">用于在日志条目中标识该序列的标签</param>
-    /// <param name="sourceExpression">由编译器捕获的源表达式;调用方通常不应显式提供</param>
     /// <returns>记录并转发每个源通知的冷可观察序列</returns>
     /// <remarks>
     /// 提供的级别用于值,错误和成功完成.错误会保留原始异常
-    /// Trace,Debug,Error 和 Critical 级别的值与完成通知添加调用链前缀;
-    /// 错误通知无论级别为何都添加调用链前缀
     /// 提供 <paramref name="message"/> 时使用通知优先格式;未提供时保留原格式
     /// </remarks>
     public static IObservable<TSource> Log<TSource>(
         this IObservable<TSource> source,
         ILogger logger,
         LogLevel logLevel,
-        string? message = null,
-        [CallerArgumentExpression(nameof(source))] string? sourceExpression = null
+        string? message = null
     )
     {
-        return Log(source, logger, logLevel, logLevel, message, sourceExpression);
+        return Log(source, logger, logLevel, logLevel, message);
     }
 
     private static ILogger GetLogger<TSource>(IObservable<TSource> source)
@@ -290,432 +183,17 @@ public static class ObservableExtensions
             ? new ObservableWithLogger<TResult>(result, observableWithLogger.GetLogger)
             : result;
 
-    private static string GetStandardLogMessage<TSource>(
-        ObservableLogNotification<TSource> notification
-    ) =>
-        notification.Action switch
-        {
-            ObservableLogAction.OnError =>
-                $"Observable: OnError({notification.Exception!.Message})",
-            ObservableLogAction.OnCompleted => "Observable: OnCompleted()",
-            _ => $"Observable: OnNext({notification.Value})",
-        };
-
-    private static IObservable<TSource> LogWithMessageFactory<TSource>(
-        IObservable<TSource> source,
-        ILogger logger,
-        Func<ObservableLogNotification<TSource>, string> messageFactory,
-        LogLevel notificationLogLevel,
-        LogLevel errorLogLevel,
-        string? sourceExpression
-    )
-    {
-        ArgumentNullException.ThrowIfNull(source);
-        ArgumentNullException.ThrowIfNull(logger);
-        ArgumentNullException.ThrowIfNull(messageFactory);
-        var callChain = new Lazy<string>(
-            () => FormatObservableCallChain(sourceExpression),
-            LazyThreadSafetyMode.ExecutionAndPublication
-        );
-
-        return Create(
-            source,
-            observer =>
-            {
-                var stopped = 0;
-                var subscription = new SingleAssignmentDisposable();
-
-                void Fail(Exception error)
-                {
-                    if (Interlocked.Exchange(ref stopped, 1) != 0)
-                    {
-                        return;
-                    }
-
-                    observer.OnError(error);
-                    subscription.Dispose();
-                }
-
-                bool TryCreateMessage(
-                    ObservableLogNotification<TSource> notification,
-                    out string message
-                )
-                {
-                    try
-                    {
-                        message = messageFactory(notification);
-                        return true;
-                    }
-                    catch (Exception exception)
-                    {
-                        message = string.Empty;
-                        Fail(exception);
-                        return false;
-                    }
-                }
-
-                subscription.Disposable = source.Subscribe(
-                    value =>
-                    {
-                        if (Volatile.Read(ref stopped) != 0)
-                        {
-                            return;
-                        }
-
-                        var notification = new ObservableLogNotification<TSource>(
-                            ObservableLogAction.OnNext,
-                            value,
-                            null
-                        );
-                        if (TryCreateMessage(notification, out var message) is false)
-                        {
-                            return;
-                        }
-
-                        LogObservableMessage(
-                            logger,
-                            notificationLogLevel,
-                            null,
-                            callChain,
-                            message,
-                            forceCallChain: false
-                        );
-                        observer.OnNext(value);
-                    },
-                    error =>
-                    {
-                        if (Volatile.Read(ref stopped) != 0)
-                        {
-                            return;
-                        }
-
-                        var notification = new ObservableLogNotification<TSource>(
-                            ObservableLogAction.OnError,
-                            default,
-                            error
-                        );
-                        if (TryCreateMessage(notification, out var message) is false)
-                        {
-                            return;
-                        }
-
-                        if (Interlocked.Exchange(ref stopped, 1) == 0)
-                        {
-                            LogObservableMessage(
-                                logger,
-                                errorLogLevel,
-                                error,
-                                callChain,
-                                message,
-                                forceCallChain: true
-                            );
-                            observer.OnError(error);
-                        }
-                    },
-                    () =>
-                    {
-                        if (Volatile.Read(ref stopped) != 0)
-                        {
-                            return;
-                        }
-
-                        var notification = new ObservableLogNotification<TSource>(
-                            ObservableLogAction.OnCompleted,
-                            default,
-                            null
-                        );
-                        if (TryCreateMessage(notification, out var message) is false)
-                        {
-                            return;
-                        }
-
-                        if (Interlocked.Exchange(ref stopped, 1) == 0)
-                        {
-                            LogObservableMessage(
-                                logger,
-                                notificationLogLevel,
-                                null,
-                                callChain,
-                                message,
-                                forceCallChain: false
-                            );
-                            observer.OnCompleted();
-                        }
-                    }
-                );
-                return subscription;
-            }
-        );
-    }
-
-    private static void LogObservableMessage(
-        ILogger logger,
-        LogLevel logLevel,
-        Exception? exception,
-        Lazy<string> callChain,
-        string message,
-        bool forceCallChain
-    )
-    {
-        if (forceCallChain || ShouldIncludeCallChain(logLevel))
-        {
-            logger.Log(
-                logLevel,
-                exception,
-                "{ObservableCallChain} | {Message}",
-                callChain.Value,
-                message
-            );
-        }
-        else
-        {
-            logger.Log(logLevel, exception, "{Message}", message);
-        }
-    }
-
-    private static bool ShouldIncludeCallChain(LogLevel logLevel) =>
-        logLevel is LogLevel.Trace or LogLevel.Debug or LogLevel.Error or LogLevel.Critical;
-
-    private static string FormatObservableCallChain(string? sourceExpression)
-    {
-        if (string.IsNullOrWhiteSpace(sourceExpression))
-        {
-            return "Log(this)";
-        }
-
-        var operators = new List<string>();
-        var parenthesisDepth = 0;
-        var bracketDepth = 0;
-        var braceDepth = 0;
-
-        for (var index = 0; index < sourceExpression.Length; index++)
-        {
-            var character = sourceExpression[index];
-            if (character == '/' && index + 1 < sourceExpression.Length)
-            {
-                if (sourceExpression[index + 1] == '/')
-                {
-                    index = sourceExpression.IndexOf('\n', index + 2);
-                    if (index < 0)
-                    {
-                        break;
-                    }
-                    continue;
-                }
-
-                if (sourceExpression[index + 1] == '*')
-                {
-                    var commentEnd = sourceExpression.IndexOf(
-                        "*/",
-                        index + 2,
-                        StringComparison.Ordinal
-                    );
-                    if (commentEnd < 0)
-                    {
-                        break;
-                    }
-                    index = commentEnd + 1;
-                    continue;
-                }
-            }
-
-            if (character == '"')
-            {
-                var quoteCount = 1;
-                while (
-                    index + quoteCount < sourceExpression.Length
-                    && sourceExpression[index + quoteCount] == '"'
-                )
-                {
-                    quoteCount++;
-                }
-
-                if (quoteCount >= 3)
-                {
-                    var delimiter = new string('"', quoteCount);
-                    var rawStringEnd = sourceExpression.IndexOf(
-                        delimiter,
-                        index + quoteCount,
-                        StringComparison.Ordinal
-                    );
-                    if (rawStringEnd < 0)
-                    {
-                        break;
-                    }
-                    index = rawStringEnd + quoteCount - 1;
-                    continue;
-                }
-
-                var verbatim = index > 0 && sourceExpression[index - 1] == '@';
-                while (++index < sourceExpression.Length)
-                {
-                    if (sourceExpression[index] != '"')
-                    {
-                        if (!verbatim && sourceExpression[index] == '\\')
-                        {
-                            index++;
-                        }
-                        continue;
-                    }
-
-                    if (
-                        verbatim
-                        && index + 1 < sourceExpression.Length
-                        && sourceExpression[index + 1] == '"'
-                    )
-                    {
-                        index++;
-                        continue;
-                    }
-                    break;
-                }
-                continue;
-            }
-
-            if (character == '\'')
-            {
-                while (++index < sourceExpression.Length)
-                {
-                    if (sourceExpression[index] == '\\')
-                    {
-                        index++;
-                    }
-                    else if (sourceExpression[index] == '\'')
-                    {
-                        break;
-                    }
-                }
-                continue;
-            }
-
-            switch (character)
-            {
-                case '(':
-                    parenthesisDepth++;
-                    continue;
-                case ')':
-                    parenthesisDepth--;
-                    continue;
-                case '[':
-                    bracketDepth++;
-                    continue;
-                case ']':
-                    bracketDepth--;
-                    continue;
-                case '{':
-                    braceDepth++;
-                    continue;
-                case '}':
-                    braceDepth--;
-                    continue;
-            }
-
-            if (character != '.' || parenthesisDepth != 0 || bracketDepth != 0 || braceDepth != 0)
-            {
-                continue;
-            }
-
-            var nameStart = index + 1;
-            while (
-                nameStart < sourceExpression.Length
-                && char.IsWhiteSpace(sourceExpression[nameStart])
-            )
-            {
-                nameStart++;
-            }
-            if (nameStart < sourceExpression.Length && sourceExpression[nameStart] == '@')
-            {
-                nameStart++;
-            }
-
-            var nameEnd = nameStart;
-            while (
-                nameEnd < sourceExpression.Length
-                && (
-                    char.IsLetterOrDigit(sourceExpression[nameEnd])
-                    || sourceExpression[nameEnd] == '_'
-                )
-            )
-            {
-                nameEnd++;
-            }
-            if (nameEnd == nameStart)
-            {
-                continue;
-            }
-
-            var invocationStart = nameEnd;
-            while (
-                invocationStart < sourceExpression.Length
-                && char.IsWhiteSpace(sourceExpression[invocationStart])
-            )
-            {
-                invocationStart++;
-            }
-
-            if (
-                invocationStart < sourceExpression.Length
-                && sourceExpression[invocationStart] == '<'
-            )
-            {
-                var genericDepth = 0;
-                do
-                {
-                    genericDepth += sourceExpression[invocationStart] switch
-                    {
-                        '<' => 1,
-                        '>' => -1,
-                        _ => 0,
-                    };
-                    invocationStart++;
-                } while (invocationStart < sourceExpression.Length && genericDepth > 0);
-
-                while (
-                    invocationStart < sourceExpression.Length
-                    && char.IsWhiteSpace(sourceExpression[invocationStart])
-                )
-                {
-                    invocationStart++;
-                }
-            }
-
-            if (
-                invocationStart < sourceExpression.Length
-                && sourceExpression[invocationStart] == '('
-            )
-            {
-                operators.Add(sourceExpression[nameStart..nameEnd]);
-            }
-        }
-
-        if (operators.Count == 0)
-        {
-            var receiver = string.Join(
-                " ",
-                sourceExpression.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)
-            );
-            return $"{receiver}.Log(this)";
-        }
-
-        return $"{string.Join("().", operators)}().Log(this)";
-    }
-
     private static IObservable<TSource> Log<TSource>(
         IObservable<TSource> source,
         ILogger logger,
         LogLevel notificationLogLevel,
         LogLevel errorLogLevel,
-        string? message,
-        string? sourceExpression
+        string? message
     )
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(logger);
         var hasMessage = string.IsNullOrWhiteSpace(message) is false;
-        var callChain = new Lazy<string>(
-            () => FormatObservableCallChain(sourceExpression),
-            LazyThreadSafetyMode.ExecutionAndPublication
-        );
 
         return Create(
             source,
@@ -725,33 +203,11 @@ public static class ObservableExtensions
                     {
                         if (hasMessage)
                         {
-                            if (ShouldIncludeCallChain(notificationLogLevel))
-                            {
-                                logger.Log(
-                                    notificationLogLevel,
-                                    "{ObservableCallChain} | OnNext({Value}): {Message}",
-                                    callChain.Value,
-                                    value,
-                                    message
-                                );
-                            }
-                            else
-                            {
-                                logger.Log(
-                                    notificationLogLevel,
-                                    "OnNext({Value}): {Message}",
-                                    value,
-                                    message
-                                );
-                            }
-                        }
-                        else if (ShouldIncludeCallChain(notificationLogLevel))
-                        {
                             logger.Log(
                                 notificationLogLevel,
-                                "{ObservableCallChain} | Observable: OnNext({Value})",
-                                callChain.Value,
-                                value
+                                "OnNext({Value}): {Message}",
+                                value,
+                                message
                             );
                         }
                         else
@@ -767,8 +223,7 @@ public static class ObservableExtensions
                             logger.Log(
                                 errorLogLevel,
                                 error,
-                                "{ObservableCallChain} | OnError({ErrorMessage}): {Message}",
-                                callChain.Value,
+                                "OnError({ErrorMessage}): {Message}",
                                 error.Message,
                                 message
                             );
@@ -778,8 +233,7 @@ public static class ObservableExtensions
                             logger.Log(
                                 errorLogLevel,
                                 error,
-                                "{ObservableCallChain} | Observable: OnError({ErrorMessage})",
-                                callChain.Value,
+                                "Observable: OnError({ErrorMessage})",
                                 error.Message
                             );
                         }
@@ -789,31 +243,7 @@ public static class ObservableExtensions
                     {
                         if (hasMessage)
                         {
-                            if (ShouldIncludeCallChain(notificationLogLevel))
-                            {
-                                logger.Log(
-                                    notificationLogLevel,
-                                    "{ObservableCallChain} | OnCompleted(): {Message}",
-                                    callChain.Value,
-                                    message
-                                );
-                            }
-                            else
-                            {
-                                logger.Log(
-                                    notificationLogLevel,
-                                    "OnCompleted(): {Message}",
-                                    message
-                                );
-                            }
-                        }
-                        else if (ShouldIncludeCallChain(notificationLogLevel))
-                        {
-                            logger.Log(
-                                notificationLogLevel,
-                                "{ObservableCallChain} | Observable: OnCompleted()",
-                                callChain.Value
-                            );
+                            logger.Log(notificationLogLevel, "OnCompleted(): {Message}", message);
                         }
                         else
                         {

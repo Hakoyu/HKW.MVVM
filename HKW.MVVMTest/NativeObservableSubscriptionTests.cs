@@ -6,7 +6,7 @@ namespace HKW.MVVMTest;
 public sealed class NativeObservableSubscriptionTests
 {
     [TestMethod]
-    public void Subscribe_ForwardsValuesErrorsAndCompletion()
+    public void ForwardsValuesErrorsAndCompletion()
     {
         var source = new ManualObservable<int>();
         var values = new List<int>();
@@ -15,7 +15,8 @@ public sealed class NativeObservableSubscriptionTests
         using var subscription = source.Subscribe(
             values.Add,
             error => receivedError = error,
-            () => completed = true);
+            () => completed = true
+        );
 
         source.Emit(1);
         source.Emit(2);
@@ -29,7 +30,7 @@ public sealed class NativeObservableSubscriptionTests
     }
 
     [TestMethod]
-    public void Subscribe_WhenDisposed_StopsForwardingValues()
+    public void WhenDisposed_StopsForwardingValues()
     {
         var source = new ManualObservable<int>();
         var values = new List<int>();
@@ -43,7 +44,7 @@ public sealed class NativeObservableSubscriptionTests
     }
 
     [TestMethod]
-    public void Subscribe_WithOnNextOnly_WrapsSourceError()
+    public void WithOnNextOnly_WrapsSourceError()
     {
         var source = new ManualObservable<int>();
         using var subscription = source.Subscribe(_ => { });
@@ -55,15 +56,14 @@ public sealed class NativeObservableSubscriptionTests
     }
 
     [TestMethod]
-    public void Subscribe_InvalidArgumentsThrow()
+    public void InvalidArgumentsThrow()
     {
         var source = new ManualObservable<int>();
 
         Assert.ThrowsExactly<ArgumentNullException>(() =>
-            NativeObservableSubscriptionExtensions.Subscribe<int>(null!, _ => { }));
-        Assert.ThrowsExactly<ArgumentNullException>(() =>
-            source.Subscribe((Action<int>)null!));
-        Assert.ThrowsExactly<ArgumentNullException>(() =>
-            source.Subscribe(_ => { }, null!));
+            NativeObservableSubscriptionExtensions.Subscribe<int>(null!, _ => { })
+        );
+        Assert.ThrowsExactly<ArgumentNullException>(() => source.Subscribe((Action<int>)null!));
+        Assert.ThrowsExactly<ArgumentNullException>(() => source.Subscribe(_ => { }, null!));
     }
 }

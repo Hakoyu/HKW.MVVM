@@ -11,14 +11,14 @@ public sealed class ObservableObjectTests
     {
         var model = new Person();
         var events = new List<string>();
-        model.PropertyChanging += (_, args) => events.Add($"Changing:{args.PropertyName}:{model.FirstName}");
-        model.PropertyChanged += (_, args) => events.Add($"Changed:{args.PropertyName}:{model.FirstName}");
+        model.PropertyChanging += (_, args) =>
+            events.Add($"Changing:{args.PropertyName}:{model.FirstName}");
+        model.PropertyChanged += (_, args) =>
+            events.Add($"Changed:{args.PropertyName}:{model.FirstName}");
 
         model.FirstName = "Ada";
 
-        CollectionAssert.AreEqual(
-            new[] { "Changing:FirstName:", "Changed:FirstName:Ada" },
-            events);
+        CollectionAssert.AreEqual(new[] { "Changing:FirstName:", "Changed:FirstName:Ada" }, events);
     }
 
     [TestMethod]
@@ -52,20 +52,39 @@ public sealed class ObservableObjectTests
     }
 
     [TestMethod]
+    public void ObservableObjectEx_PublicNotifyMethods_RaiseNotificationsArgs()
+    {
+        var model = new ObservableObjectEx();
+        var events = new List<string>();
+        model.PropertyChanging += (_, args) => events.Add($"Changing:{args.PropertyName}");
+        model.PropertyChanged += (_, args) => events.Add($"Changed:{args.PropertyName}");
+        var changingArgs = new PropertyChangingEventArgs("Result");
+        var changedArgs = new PropertyChangedEventArgs("Result");
+        model.NotifyPropertyChanging(changingArgs);
+        model.NotifyPropertyChanged(changedArgs);
+
+        CollectionAssert.AreEqual(new[] { "Changing:Result", "Changed:Result" }, events);
+        Assert.IsInstanceOfType<IPropertyChangeNotifier>(model);
+    }
+
+    [TestMethod]
     public void ObservableObjectEx_ChangingAndChanged_EmitReactiveNotifications()
     {
         var model = new Person();
         var events = new List<string>();
         using var changing = model.Changing.Subscribe(args =>
-            events.Add($"Changing:{args.PropertyName}:{ReferenceEquals(model, args.Sender)}"));
+            events.Add($"Changing:{args.PropertyName}:{ReferenceEquals(model, args.Sender)}")
+        );
         using var changed = model.Changed.Subscribe(args =>
-            events.Add($"Changed:{args.PropertyName}:{ReferenceEquals(model, args.Sender)}"));
+            events.Add($"Changed:{args.PropertyName}:{ReferenceEquals(model, args.Sender)}")
+        );
 
         model.FirstName = "Ada";
 
         CollectionAssert.AreEqual(
             new[] { "Changing:FirstName:True", "Changed:FirstName:True" },
-            events);
+            events
+        );
     }
 
     [TestMethod]
@@ -95,5 +114,4 @@ public sealed class ObservableObjectTests
 
         Assert.AreEqual(0, changingCount);
     }
-
 }

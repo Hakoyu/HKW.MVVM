@@ -1,5 +1,5 @@
-using HKW.MVVM;
 using CommunityToolkit.Mvvm.DependencyInjection;
+using HKW.MVVM;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -23,7 +23,7 @@ public sealed class IEnableLoggerTests
     public void Cleanup() => LogHost.LoggerFactory = _originalFactory;
 
     [TestMethod]
-    public void Log_UsesRuntimeTypeFullNameAsCategory()
+    public void UsesRuntimeTypeFullNameAsCategory()
     {
         var factory = new RecordingLoggerFactory();
         LogHost.LoggerFactory = factory;
@@ -36,7 +36,7 @@ public sealed class IEnableLoggerTests
     }
 
     [TestMethod]
-    public void Log_UsesLatestConfiguredFactory()
+    public void UsesLatestConfiguredFactory()
     {
         var instance = new LoggerEnabledType();
         var firstFactory = new RecordingLoggerFactory();
@@ -52,7 +52,7 @@ public sealed class IEnableLoggerTests
     }
 
     [TestMethod]
-    public void Log_ForSameRuntimeType_ReusesCachedLogger()
+    public void ForSameRuntimeType_ReusesCachedLogger()
     {
         var factory = new RecordingLoggerFactory();
         LogHost.LoggerFactory = factory;
@@ -65,7 +65,7 @@ public sealed class IEnableLoggerTests
     }
 
     [TestMethod]
-    public void Log_ForDifferentRuntimeTypes_CreatesDifferentCategories()
+    public void ForDifferentRuntimeTypes_CreatesDifferentCategories()
     {
         var factory = new RecordingLoggerFactory();
         LogHost.LoggerFactory = factory;
@@ -74,12 +74,17 @@ public sealed class IEnableLoggerTests
         _ = new AnotherLoggerEnabledType().Log();
 
         CollectionAssert.AreEquivalent(
-            new[] { typeof(LoggerEnabledType).FullName!, typeof(AnotherLoggerEnabledType).FullName! },
-            factory.CategoryNames);
+            new[]
+            {
+                typeof(LoggerEnabledType).FullName!,
+                typeof(AnotherLoggerEnabledType).FullName!,
+            },
+            factory.CategoryNames
+        );
     }
 
     [TestMethod]
-    public void Log_WhenCalledConcurrently_CreatesLoggerOnce()
+    public void WhenCalledConcurrently_CreatesLoggerOnce()
     {
         var factory = new RecordingLoggerFactory();
         LogHost.LoggerFactory = factory;
@@ -92,7 +97,7 @@ public sealed class IEnableLoggerTests
     }
 
     [TestMethod]
-    public void Log_WithLogger_ReturnsSpecifiedLogger()
+    public void WithLogger_ReturnsSpecifiedLogger()
     {
         var instance = new LoggerEnabledType();
         var logger = new RecordingLogger();
@@ -103,7 +108,7 @@ public sealed class IEnableLoggerTests
     }
 
     [TestMethod]
-    public void Log_WithOwnedLogger_ReturnsLoggerProperty()
+    public void WithOwnedLogger_ReturnsLoggerProperty()
     {
         var logger = new RecordingLogger();
         var instance = new LoggerOwningType(logger);
@@ -114,7 +119,7 @@ public sealed class IEnableLoggerTests
     }
 
     [TestMethod]
-    public void Log_WithOwnedLoggerThroughBaseInterface_ReturnsLoggerProperty()
+    public void WithOwnedLoggerThroughBaseInterface_ReturnsLoggerProperty()
     {
         var logger = new RecordingLogger();
         IEnableLogger instance = new LoggerOwningType(logger);
@@ -137,7 +142,7 @@ public sealed class IEnableLoggerTests
     }
 
     [TestMethod]
-    public void Log_WithNullInstance_ThrowsArgumentNullException()
+    public void WithNullInstance_ThrowsArgumentNullException()
     {
         IEnableLogger instance = null!;
 
@@ -145,7 +150,7 @@ public sealed class IEnableLoggerTests
     }
 
     [TestMethod]
-    public void Log_WithNullLogger_ThrowsArgumentNullException()
+    public void WithNullLogger_ThrowsArgumentNullException()
     {
         var instance = new LoggerEnabledType();
 
@@ -153,7 +158,7 @@ public sealed class IEnableLoggerTests
     }
 
     [TestMethod]
-    public void Log_WithNullOwnedLogger_ThrowsArgumentNullException()
+    public void WithNullOwnedLogger_ThrowsArgumentNullException()
     {
         var instance = new LoggerOwningType(null!);
 
@@ -183,7 +188,8 @@ public sealed class IEnableLoggerTests
         public ILogger Logger { get; } = logger;
     }
 
-    private sealed class LoggerFactoryServiceProvider(ILoggerFactory loggerFactory) : IServiceProvider
+    private sealed class LoggerFactoryServiceProvider(ILoggerFactory loggerFactory)
+        : IServiceProvider
     {
         public object? GetService(Type serviceType) =>
             serviceType == typeof(ILoggerFactory) ? loggerFactory : null;
@@ -214,7 +220,8 @@ public sealed class IEnableLoggerTests
 
     private sealed class RecordingLogger : ILogger
     {
-        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public IDisposable? BeginScope<TState>(TState state)
+            where TState : notnull => null;
 
         public bool IsEnabled(LogLevel logLevel) => true;
 
@@ -224,7 +231,6 @@ public sealed class IEnableLoggerTests
             TState state,
             Exception? exception,
             Func<TState, Exception?, string> formatter
-        )
-        { }
+        ) { }
     }
 }
