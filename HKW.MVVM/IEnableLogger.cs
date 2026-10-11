@@ -33,13 +33,16 @@ public interface IEnableLoggerWithLogger : IEnableLogger
 }
 
 /// <summary>
-/// 提供对 <see cref="LoggerMixins.Log(IEnableLogger)"/> 所使用的日志记录器工厂的访问
+/// 提供对 <see cref="LoggerMixins.Log(IEnableLogger)"/> 所使用的日志记录器工厂和日志域的访问
 /// </summary>
 public static class LogHost
 {
     private const int LoggerCacheSize = 64;
+    private static readonly Lock DomainGate = new();
     private static LoggerCache _loggerCache = new(NullLoggerFactory.Instance);
     private static ILoggerFactory? _loggerFactoryOverride;
+    private static DomainRegistrationSnapshot _domainSnapshot = DomainRegistrationSnapshot.Empty;
+    private static long _nextDomainRegistrationId;
 
     /// <summary>
     /// 获取与 <see cref="LogHost"/> 关联的默认 <see cref="ILogger"/>
@@ -72,6 +75,39 @@ public static class LogHost
     }
 
     /// <summary>
+    /// 为 <typeparamref name="T"/> 及其派生类型注册专用的日志记录器工厂
+    /// </summary>
+    /// <typeparam name="T">要注册日志域的类或接口</typeparam>
+    /// <param name="loggerFactory">日志域使用的日志记录器工厂</param>
+    /// <returns>移除本次日志域注册的可释放对象</returns>
+    /// <remarks>
+    /// 类域优先于接口域,多个类域使用继承链上最接近运行时类型的域；
+    /// 多个接口域使用最近注册且尚未释放的域.日志类别仍为对象运行时类型的完全限定名称.
+    /// 释放返回的对象不会释放 <paramref name="loggerFactory"/>.
+    /// </remarks>
+    public static IDisposable RegisterDomain<T>(ILoggerFactory loggerFactory)
+        where T : class
+    {
+        ArgumentNullException.ThrowIfNull(loggerFactory);
+
+        var registration = new DomainRegistration(
+            Interlocked.Increment(ref _nextDomainRegistrationId),
+            typeof(T),
+            loggerFactory
+        );
+        lock (DomainGate)
+        {
+            var snapshot = Volatile.Read(ref _domainSnapshot);
+            Volatile.Write(
+                ref _domainSnapshot,
+                new DomainRegistrationSnapshot([.. snapshot.Registrations, registration])
+            );
+        }
+
+        return new DomainRegistrationHandle(registration.Id);
+    }
+
+    /// <summary>
     /// 移除显式的日志记录器工厂替代设置,使后续的日志记录器请求使用
     /// <see cref="Ioc.Default"/> 中注册的工厂
     /// </summary>
@@ -85,6 +121,12 @@ public static class LogHost
     {
         ArgumentNullException.ThrowIfNull(type);
 
+        var domainRegistration = FindDomainRegistration(type);
+        if (domainRegistration is not null)
+        {
+            return domainRegistration.LoggerCache.CacheGetLogger(type);
+        }
+
         var loggerFactory = LoggerFactory;
         var loggerCache = Volatile.Read(ref _loggerCache);
         if (ReferenceEquals(loggerCache.CacheLoggerFactory, loggerFactory) is false)
@@ -94,6 +136,30 @@ public static class LogHost
         }
 
         return loggerCache.CacheGetLogger(type);
+    }
+
+    private static DomainRegistration? FindDomainRegistration(Type type)
+    {
+        var snapshot = Volatile.Read(ref _domainSnapshot);
+        for (var currentType = type; currentType is not null; currentType = currentType.BaseType)
+        {
+            if (snapshot.ClassRegistrations.TryGetValue(currentType, out var registration))
+            {
+                return registration;
+            }
+        }
+
+        var interfaceRegistrations = snapshot.InterfaceRegistrations;
+        for (var index = interfaceRegistrations.Length - 1; index >= 0; index--)
+        {
+            var registration = interfaceRegistrations[index];
+            if (registration.DomainType.IsAssignableFrom(type))
+            {
+                return registration;
+            }
+        }
+
+        return null;
     }
 
     private static ILoggerFactory GetDefaultLoggerFactory()
@@ -106,6 +172,87 @@ public static class LogHost
         {
             // 在调用 ConfigureServices 之前, Ioc 会抛出异常
             return NullLoggerFactory.Instance;
+        }
+    }
+
+    private sealed class DomainRegistration(long id, Type domainType, ILoggerFactory loggerFactory)
+    {
+        public long Id { get; } = id;
+
+        public Type DomainType { get; } = domainType;
+
+        public LoggerCache LoggerCache { get; } = new(loggerFactory);
+    }
+
+    private sealed class DomainRegistrationSnapshot
+    {
+        public static DomainRegistrationSnapshot Empty { get; } = new([]);
+
+        public DomainRegistrationSnapshot(DomainRegistration[] registrations)
+        {
+            Registrations = registrations;
+            ClassRegistrations = new Dictionary<Type, DomainRegistration>(registrations.Length);
+            var interfaceRegistrations = new List<DomainRegistration>();
+            foreach (var registration in registrations)
+            {
+                if (registration.DomainType.IsClass)
+                {
+                    ClassRegistrations[registration.DomainType] = registration;
+                }
+                else
+                {
+                    interfaceRegistrations.Add(registration);
+                }
+            }
+
+            InterfaceRegistrations = [.. interfaceRegistrations];
+        }
+
+        public DomainRegistration[] Registrations { get; }
+
+        public Dictionary<Type, DomainRegistration> ClassRegistrations { get; }
+
+        public DomainRegistration[] InterfaceRegistrations { get; }
+    }
+
+    private sealed class DomainRegistrationHandle(long registrationId) : IDisposable
+    {
+        private int _isDisposed;
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _isDisposed, 1) == 0)
+            {
+                RemoveDomainRegistration(registrationId);
+            }
+        }
+
+        private static void RemoveDomainRegistration(long id)
+        {
+            lock (DomainGate)
+            {
+                var snapshot = Volatile.Read(ref _domainSnapshot);
+                var registrations = snapshot.Registrations;
+                var index = Array.FindIndex(registrations, registration => registration.Id == id);
+                if (index < 0)
+                {
+                    return;
+                }
+
+                var updatedRegistrations = new DomainRegistration[registrations.Length - 1];
+                Array.Copy(registrations, updatedRegistrations, index);
+                Array.Copy(
+                    registrations,
+                    index + 1,
+                    updatedRegistrations,
+                    index,
+                    registrations.Length - index - 1
+                );
+                Volatile.Write(
+                    ref _domainSnapshot,
+                    new DomainRegistrationSnapshot(updatedRegistrations)
+                );
+            }
         }
     }
 
@@ -140,9 +287,9 @@ public static class LoggerMixins
     /// 获取以实例运行时类型为类别的日志记录器
     /// </summary>
     /// <param name="instance">启用了日志记录器的实例</param>
-    /// <returns>由 <see cref="LogHost.LoggerFactory"/> 创建的缓存日志记录器</returns>
+    /// <returns>由匹配的日志域或 <see cref="LogHost.LoggerFactory"/> 创建的缓存日志记录器</returns>
     /// <remarks>
-    /// 运行时类型仅用作日志记录器类别,不会通过反射进行检查
+    /// 运行时类型用作日志记录器类别和日志域匹配,不会检查该类型是否实现标记接口
     /// </remarks>
     public static ILogger Log(this IEnableLogger instance)
     {

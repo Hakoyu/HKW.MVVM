@@ -298,7 +298,20 @@ public sealed class SearchViewModel : ObservableObjectEx, IEnableLogger
 }
 ```
 
-如对象自带 `ILogger`，实现 `IEnableLoggerWithLogger.Logger`。调用 `LogHost.UseDefaultLoggerFactory()` 可清除显式工厂并恢复从 IoC 获取。
+可以为一组对象注册专用日志域。域类型可为类或接口；派生类和接口实现类会自动使用该域的工厂，但日志类别仍是对象的运行时类型：
+
+```csharp
+using var viewModelLogDomain =
+    LogHost.RegisterDomain<ViewModelBase>(viewModelLoggerFactory);
+
+// MainViewModel : ViewModelBase
+// 返回由 viewModelLoggerFactory 创建、类别为 MainViewModel 的 ILogger
+var logger = mainViewModel.Log();
+```
+
+当多个域匹配时，类域优先于接口域，类域选择继承链上最近的类型；多个接口域选择最近注册且尚未释放的域。同一类型可嵌套注册，释放内层注册后会恢复外层域。注册句柄不会接管或释放传入的 `ILoggerFactory`。
+
+如对象自带 `ILogger`，实现 `IEnableLoggerWithLogger.Logger`；自带日志记录器优先于日志域。调用 `LogHost.UseDefaultLoggerFactory()` 可清除显式全局工厂并恢复从 IoC 获取。
 
 ### 记录 Observable 通知
 
