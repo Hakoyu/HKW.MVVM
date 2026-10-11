@@ -184,12 +184,11 @@ public static class LoggerMixins
     {
         ArgumentNullException.ThrowIfNull(instance);
 
-        if (
-            instance is IEnableLoggerWithLogger loggerOwner
-            && loggerOwner.Logger.IsEnabled(logLevel)
-        )
+        if (instance is IEnableLoggerWithLogger loggerOwner)
         {
-            return (instance.Log(loggerOwner.Logger), logLevel);
+            return loggerOwner.Logger.IsEnabled(logLevel)
+                ? (instance.Log(loggerOwner.Logger), logLevel)
+                : null;
         }
         else
         {

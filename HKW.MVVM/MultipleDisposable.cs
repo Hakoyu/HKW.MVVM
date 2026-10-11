@@ -59,7 +59,7 @@ public sealed class MultipleDisposable : ICollection<IDisposable>, IDisposable
     }
 
     /// <summary>
-    /// 移除并释放此容器当前持有的全部资源
+    /// 移除此容器当前持有的全部资源
     /// </summary>
     public void Clear()
     {
@@ -75,7 +75,7 @@ public sealed class MultipleDisposable : ICollection<IDisposable>, IDisposable
     }
 
     /// <summary>
-    /// 移除此容器当前持有的全部资源
+    /// 移除并释放此容器当前持有的全部资源
     /// </summary>
     public void DisposeAndClear()
     {
