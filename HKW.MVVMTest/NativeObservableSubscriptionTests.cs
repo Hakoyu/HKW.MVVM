@@ -1,4 +1,4 @@
-using HKW.MVVM;
+﻿using HKW.MVVM;
 
 namespace HKW.MVVMTest;
 
@@ -61,7 +61,7 @@ public sealed class NativeObservableSubscriptionTests
         var source = new ManualObservable<int>();
 
         Assert.ThrowsExactly<ArgumentNullException>(() =>
-            NativeObservableSubscriptionExtensions.Subscribe<int>(null!, _ => { })
+            ObservableExtensions.Subscribe<int>(null!, _ => { })
         );
         Assert.ThrowsExactly<ArgumentNullException>(() => source.Subscribe((Action<int>)null!));
         Assert.ThrowsExactly<ArgumentNullException>(() => source.Subscribe(_ => { }, null!));

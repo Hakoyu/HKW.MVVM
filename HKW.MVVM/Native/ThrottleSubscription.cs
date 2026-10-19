@@ -1,9 +1,5 @@
 namespace HKW.MVVM;
 
-/// <summary>
-/// 管理限流操作符所使用的计时器和源订阅
-/// </summary>
-/// <typeparam name="TSource">源值类型</typeparam>
 internal sealed class ThrottleSubscription<TSource> : IDisposable
 {
     private readonly IObserver<TSource> _observer;

@@ -2,10 +2,7 @@ using System.Linq.Expressions;
 
 namespace HKW.MVVM;
 
-/// <summary>
-/// 提供表达式树的辅助方法
-/// </summary>
-internal static class ExpressionExtensions
+internal static class NativeExtensions
 {
     /// <summary>
     /// 从表达式树中获取所选的成员名称

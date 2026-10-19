@@ -1,4 +1,4 @@
-using BenchmarkDotNet.Attributes;
+﻿using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Columns;
 using BenchmarkDotNet.Configs;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -48,12 +48,12 @@ public class ToPropertyBenchmarks
             ReactiveUI.Builder.RxAppBuilder.CreateReactiveUIBuilder().WithCoreServices()
         );
         _coreFastProperty = new CoreStoredProperty(_coreFastUpdateSource, _coreOwner.SetResult);
-        _toPropertyFastProperty = HKW.MVVM.ObservableAsPropertyHelperExtensions.ToProperty(
+        _toPropertyFastProperty = HKW.MVVM.ObservableExtensions.ToProperty(
             _toPropertyFastUpdateSource,
             _toPropertyFastOwner,
             owner => owner.Result
         );
-        _toPropertyPlainProperty = HKW.MVVM.ObservableAsPropertyHelperExtensions.ToProperty(
+        _toPropertyPlainProperty = HKW.MVVM.ObservableExtensions.ToProperty(
             _toPropertyPlainUpdateSource,
             _toPropertyPlainOwner,
             owner => owner.Result
@@ -120,7 +120,7 @@ public class ToPropertyBenchmarks
     [BenchmarkCategory("FOCAD")]
     public void HKWFastOwnerCreateAndDispose()
     {
-        using var property = HKW.MVVM.ObservableAsPropertyHelperExtensions.ToProperty(
+        using var property = HKW.MVVM.ObservableExtensions.ToProperty(
             _toPropertyFastCreateSource,
             _toPropertyFastOwner,
             owner => owner.Result
@@ -134,7 +134,7 @@ public class ToPropertyBenchmarks
     [BenchmarkCategory("POCAD")]
     public void HKWPlainOwnerCreateAndDispose()
     {
-        using var property = HKW.MVVM.ObservableAsPropertyHelperExtensions.ToProperty(
+        using var property = HKW.MVVM.ObservableExtensions.ToProperty(
             _toPropertyPlainCreateSource,
             _toPropertyPlainOwner,
             owner => owner.Result
@@ -162,7 +162,7 @@ public class ToPropertyBenchmarks
     [BenchmarkCategory("DFR")]
     public int HKWDeferredFirstRead()
     {
-        using var property = HKW.MVVM.ObservableAsPropertyHelperExtensions.ToProperty(
+        using var property = HKW.MVVM.ObservableExtensions.ToProperty(
             _toPropertyDeferredSource,
             _toPropertyFastOwner,
             owner => owner.Result,

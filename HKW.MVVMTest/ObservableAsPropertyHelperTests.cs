@@ -1,4 +1,4 @@
-using HKW.MVVM;
+﻿using HKW.MVVM;
 
 namespace HKW.MVVMTest;
 
@@ -351,7 +351,7 @@ public sealed class ObservableAsPropertyHelperTests
         var owner = new PropertyOwner();
 
         Assert.ThrowsExactly<ArgumentNullException>(() =>
-            ObservableAsPropertyHelperExtensions.ToProperty<PropertyOwner, string>(
+            ObservableExtensions.ToProperty<PropertyOwner, string>(
                 null!,
                 owner,
                 nameof(PropertyOwner.Result)

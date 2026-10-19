@@ -190,6 +190,15 @@ public sealed class ObservableLoggingTests
     }
 
     [TestMethod]
+    public void BufferPreservesLogger()
+    {
+        var logger = new RecordingLogger();
+        var owner = new LoggerOwnerWithLogger(logger);
+
+        _ = owner.WhenAnyValue(x => x.Value).Buffer(2).Log();
+    }
+
+    [TestMethod]
     public void WhenAnyValueResolvesLoggerLazilyAndOnlyOnce()
     {
         var owner = new CountingLoggerOwner(new RecordingLogger());

@@ -12,7 +12,7 @@
 | 响应式对象 | `ObservableObjectEx` | 扩展 CommunityToolkit 的 `ObservableObject`，公开通知方法以及 `Changing`、`Changed` 流 |
 | 属性绑定 | `BindTo`、`TwoWayBind` | 单向/双向绑定，支持类型转换、自定义赋值和嵌套可写属性路径 |
 | 派生属性 | `ObservableAsPropertyHelper<T>`、`ToProperty` | 将流的最新值公开为只读属性，支持初始值、延迟订阅、调度和错误流 |
-| Observable 操作符 | `Select`、`Where`、`DistinctUntilChanged`、`StartWith`、`Skip`、`Take`、`Do`、`ObserveOn`、`SubscribeOn`、`Throttle`、`Catch` | 不依赖 System.Reactive 的常用冷 Observable 操作符 |
+| Observable 操作符 | `Select`、`Where`、`CombineLatest`、`Switch`、`Merge`、`SelectMany`、`Concat`、`Scan`、`Retry`、`Finally`、`Delay`、`Timeout`、`Sample`、`TakeUntil` 等 | 不依赖 System.Reactive 的组合、转换、生命周期和时间操作符 |
 | Observable 创建与订阅 | `Return`、`Empty`、`Subscribe` | 创建单值/空序列，并通过回调订阅值、错误和完成通知 |
 | 资源管理 | `MultipleDisposable`、`DisposeWith` | 线程安全地集中管理订阅和其他 `IDisposable` |
 | 日志 | `IEnableLogger`、`IEnableLoggerWithLogger`、`LogHost`、`LogIfEnabled`、Observable `Log` | 使用 `Microsoft.Extensions.Logging` 记录对象日志或完整 Observable 通知 |
@@ -234,16 +234,73 @@ disposables.Dispose();
 
 | 操作符 | 行为 |
 | --- | --- |
-| `Select` | 投影每个值 |
-| `Where` | 按谓词筛选值 |
+| `Select` / `Where` | 投影或筛选值 |
 | `DistinctUntilChanged` | 使用默认或自定义比较器抑制连续重复值 |
-| `StartWith` | 在源订阅前先发出指定值 |
-| `Skip` / `Take` | 跳过前 N 个值，或最多获取前 N 个值 |
+| `StartWith` / `Skip` / `Take` | 添加初始值、跳过前 N 个值或最多获取前 N 个值 |
+| `CombineLatest` | 组合 2～4 个源的最新值；每个源至少发值一次后，返回元组或 selector 结果 |
+| `Switch` | 只转发最新内部 Observable 的通知 |
+| `Merge` / `Concat` | 并发交错多个序列，或按顺序逐个订阅序列 |
+| `SelectMany` | 将每个值仅投影为 `IObservable<TResult>`，并并发合并内部序列 |
+| `Scan` | 使用首值或显式 seed 累积状态，并发出每次累积结果 |
+| `Retry` | 出错后重新订阅；`retryCount` 表示初次尝试之外的额外重试次数 |
+| `Finally` | 完成、错误、订阅失败或释放时恰好执行一次操作 |
+| `TakeUntil` | 另一序列首次发值时完成；忽略其完成，但转发其错误 |
 | `Do` | 在转发值前执行副作用 |
-| `ObserveOn` | 将观察者通知按顺序投递到指定上下文或调度器 |
-| `SubscribeOn` | 在指定上下文或调度器上执行源订阅 |
+| `ObserveOn` / `SubscribeOn` | 调度观察者通知或源订阅 |
+| `Buffer` | 按数量、时间或两者中先到的边界收集并批量发出值 |
 | `Throttle` | 静默达到指定时长后发出最新值；支持 `TimeProvider` 和调度器 |
+| `Delay` | 延迟所有通知并保持顺序，包括错误和完成通知 |
+| `Timeout` | 静默超时后发送 `TimeoutException`，或切换到指定 fallback Observable |
+| `Sample` | 在周期 tick 发出期间最新值；源完成后在下一个 tick 完成 |
 | `Catch` | 源失败后切换到异常处理器返回的替代序列 |
+
+`Buffer` 返回 `IObservable<IList<T>>`。数量模式在缓冲区满时发出；时间模式会在每个窗口结束时发出，包括空窗口；组合模式在时间或数量边界先到时发出并开启新窗口：
+
+```csharp
+using var batches = observable
+    .Buffer(TimeSpan.FromSeconds(1), 100)
+    .Subscribe(batch => Console.WriteLine($"Received {batch.Count} values"));
+```
+
+源成功完成时会先发出剩余的非空缓冲区；源发生错误时则丢弃尚未发出的值。
+
+`CombineLatest` 提供 2～4 个源的强类型元组和 selector 重载。例如同时计算表单有效性；`TakeUntil` 可在视图停用时结束订阅：
+
+```csharp
+var canSave = viewModel.WhenAnyValue(x => x.Name)
+    .CombineLatest(
+        viewModel.WhenAnyValue(x => x.Email),
+        static (name, email) => !string.IsNullOrWhiteSpace(name) && email.Contains('@'));
+
+using var validation = canSave
+    .TakeUntil(viewModel.WhenAnyValue(x => x.IsClosed).Where(static closed => closed))
+    .BindTo(view, x => x.SaveButtonEnabled);
+```
+
+搜索等“最新请求获胜”场景可使用 `Select(...).Switch()`；`SelectMany` 只接受返回 `IObservable<TResult>` 的 projection，不提供 `IEnumerable<TResult>` 重载：
+
+```csharp
+using var results = viewModel.WhenAnyValue(x => x.SearchText)
+    .Throttle(TimeSpan.FromMilliseconds(300))
+    .DistinctUntilChanged()
+    .Select(text => searchService.Search(text).Timeout(TimeSpan.FromSeconds(5)))
+    .Switch()
+    .Retry(2) // 初次请求失败后最多额外重试两次
+    .Finally(() => viewModel.IsSearching = false)
+    .Subscribe(items => viewModel.Results = items);
+```
+
+`Merge` 适合合并多个并行 UI 事件流，`Concat` 适合严格顺序执行，`Scan` 可生成计数或增量状态。时间操作符均支持 `TimeProvider` 重载；`Delay` 也会延迟错误，`Sample` 会在源完成后的下一个采样 tick 完成，`Timeout` 可发送 `TimeoutException` 或切换到 fallback：
+
+```csharp
+var status = onlineStatus
+    .Timeout(TimeSpan.FromSeconds(10), ObservableExtensions.Return(false))
+    .Delay(TimeSpan.FromMilliseconds(100));
+
+var saveCount = saveCommands.Merge(autoSaveCommands)
+    .Scan(0, static (count, _) => count + 1)
+    .Sample(TimeSpan.FromSeconds(1));
+```
 
 无需引入 System.Reactive 即可创建和订阅简单序列：
 
@@ -333,7 +390,11 @@ using var logged = viewModel
 - Observable 发生错误后会终止当前订阅。
 - 属性 getter、`Select`、`Where`、`Do`、`DistinctUntilChanged`、`Catch` 处理器或日志消息工厂抛出的异常会转发为 `OnError`。
 - `ObservableAsPropertyHelper<T>` 将源错误发布到 `ThrownExceptions`。
+- `Buffer` 在源完成时会先发送剩余的非空缓冲区；源错误时丢弃尚未发送的缓冲区。
 - `Throttle` 在源完成时会先发送待处理的最后一个值，再发送完成通知。
+- `Delay` 延迟值、完成和错误；`Sample` 立即转发错误，但将正常完成延至下一个采样 tick。
+- `Timeout` 在静默超过期限后发送 `TimeoutException`；提供 fallback 时改为切换序列。
+- `Retry(n)` 最多执行 `1 + n` 次订阅；`Finally` 对每个订阅恰好执行一次。
 - 所有返回订阅的操作都应由调用方负责释放，推荐使用 `using`、`MultipleDisposable` 或 `DisposeWith`。
 
 ## AOT 与性能说明

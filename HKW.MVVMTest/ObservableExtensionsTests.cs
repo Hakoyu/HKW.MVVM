@@ -379,6 +379,140 @@ public sealed class ObservableExtensionsTests
     }
 
     [TestMethod]
+    public void Buffer_Count_EmitsFullBuffersAndFlushesRemainderOnCompletion()
+    {
+        var source = new ManualObservable<int>();
+        var buffers = new List<IList<int>>();
+        var completed = false;
+        using var subscription = source.Buffer(2).Subscribe(
+            buffers.Add,
+            _ => Assert.Fail(),
+            () => completed = true);
+
+        source.Emit(1);
+        source.Emit(2);
+        source.Emit(3);
+        source.Complete();
+
+        Assert.HasCount(2, buffers);
+        CollectionAssert.AreEqual(new[] { 1, 2 }, buffers[0].ToArray());
+        CollectionAssert.AreEqual(new[] { 3 }, buffers[1].ToArray());
+        Assert.IsTrue(completed);
+        Assert.AreEqual(1, source.DisposalCount);
+    }
+
+    [TestMethod]
+    public async Task Buffer_Time_EmitsValuesAndEmptyWindows()
+    {
+        var source = new ManualObservable<int>();
+        var buffers = new List<IList<int>>();
+        var twoBuffers = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var subscription = source
+            .Buffer(TimeSpan.FromMilliseconds(40))
+            .Subscribe(buffer =>
+            {
+                lock (buffers)
+                {
+                    buffers.Add(buffer);
+                    if (buffers.Count == 2)
+                    {
+                        twoBuffers.TrySetResult();
+                    }
+                }
+            });
+
+        source.Emit(1);
+        await twoBuffers.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        lock (buffers)
+        {
+            CollectionAssert.AreEqual(new[] { 1 }, buffers[0].ToArray());
+            Assert.IsEmpty(buffers[1]);
+        }
+    }
+
+    [TestMethod]
+    public async Task Buffer_TimeOrCount_ClosesAtEitherBoundaryAndRestartsTimer()
+    {
+        var source = new ManualObservable<int>();
+        var buffers = new List<IList<int>>();
+        var twoBuffers = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var subscription = source
+            .Buffer(TimeSpan.FromMilliseconds(80), 2)
+            .Subscribe(buffer =>
+            {
+                lock (buffers)
+                {
+                    buffers.Add(buffer);
+                    if (buffers.Count == 2)
+                    {
+                        twoBuffers.TrySetResult();
+                    }
+                }
+            });
+
+        source.Emit(1);
+        source.Emit(2);
+        await Task.Delay(20);
+        source.Emit(3);
+        await twoBuffers.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        lock (buffers)
+        {
+            CollectionAssert.AreEqual(new[] { 1, 2 }, buffers[0].ToArray());
+            CollectionAssert.AreEqual(new[] { 3 }, buffers[1].ToArray());
+        }
+    }
+
+    [TestMethod]
+    public void Buffer_OnError_DiscardsPendingValuesAndDisposesSource()
+    {
+        var source = new ManualObservable<int>();
+        var buffers = new List<IList<int>>();
+        Exception? error = null;
+        using var subscription = source.Buffer(2).Subscribe(buffers.Add, received => error = received);
+
+        source.Emit(1);
+        source.Fail(new TestException("Expected."));
+
+        Assert.IsEmpty(buffers);
+        Assert.IsInstanceOfType<TestException>(error);
+        Assert.AreEqual(1, source.DisposalCount);
+    }
+
+    [TestMethod]
+    public void Buffer_DisposeStopsSourceAndTimerNotifications()
+    {
+        var source = new ManualObservable<int>();
+        var buffers = new List<IList<int>>();
+        var subscription = source.Buffer(TimeSpan.FromMilliseconds(20)).Subscribe(buffers.Add);
+
+        source.Emit(1);
+        subscription.Dispose();
+        Thread.Sleep(60);
+
+        Assert.IsEmpty(buffers);
+        Assert.AreEqual(1, source.DisposalCount);
+    }
+
+    [TestMethod]
+    public void Buffer_SynchronousCompletion_FlushesAndDisposesSourceSubscription()
+    {
+        var buffers = new List<IList<int>>();
+        var source = new SynchronousObservable<int>(observer =>
+        {
+            observer.OnNext(1);
+            observer.OnCompleted();
+        });
+
+        using var subscription = source.Buffer(2).Subscribe(buffers.Add);
+
+        Assert.HasCount(1, buffers);
+        CollectionAssert.AreEqual(new[] { 1 }, buffers[0].ToArray());
+        Assert.AreEqual(1, source.DisposalCount);
+    }
+
+    [TestMethod]
     public async Task Throttle_EmitsOnlyLatestValueAfterQuietPeriod()
     {
         var source = new ManualObservable<int>();
@@ -558,6 +692,10 @@ public sealed class ObservableExtensionsTests
         Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => source.ObserveOn((ObservableSchedulers)999));
         Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => source.SubscribeOn((ObservableSchedulers)999));
         Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => source.Throttle(TimeSpan.FromMilliseconds(-1)));
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => source.Buffer(0));
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => source.Buffer(TimeSpan.Zero));
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => source.Buffer(TimeSpan.FromSeconds(1), 0));
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => source.Buffer(TimeSpan.Zero, 1));
         Assert.ThrowsExactly<ArgumentNullException>(() => source.Catch(null!));
     }
 }

@@ -1,4 +1,4 @@
-using System.Linq.Expressions;
+﻿using System.Linq.Expressions;
 using HKW.MVVM;
 
 namespace HKW.MVVMTest;
@@ -264,7 +264,7 @@ public sealed class BindingExtensionsTests
         Action<string, Person> assignment = (value, person) => person.FirstName = value;
 
         Assert.ThrowsExactly<ArgumentNullException>(() =>
-            BindingExtensions.TwoWayBind<Person, Person, string>(null!, source, property, property)
+            ObservableExtensions.TwoWayBind<Person, Person, string>(null!, source, property, property)
         );
         Assert.ThrowsExactly<ArgumentNullException>(() =>
             target.TwoWayBind(null!, property, property)
@@ -276,7 +276,7 @@ public sealed class BindingExtensionsTests
             target.TwoWayBind(source, property, null!)
         );
         Assert.ThrowsExactly<ArgumentNullException>(() =>
-            BindingExtensions.TwoWayBind<Person, Person, string, string>(
+            ObservableExtensions.TwoWayBind<Person, Person, string, string>(
                 target,
                 source,
                 property,
@@ -286,7 +286,7 @@ public sealed class BindingExtensionsTests
             )
         );
         Assert.ThrowsExactly<ArgumentNullException>(() =>
-            BindingExtensions.TwoWayBind<Person, Person, string, string>(
+            ObservableExtensions.TwoWayBind<Person, Person, string, string>(
                 target,
                 source,
                 property,
@@ -314,7 +314,7 @@ public sealed class BindingExtensionsTests
         Action<string, Person> assignment = (value, person) => person.FirstName = value;
 
         Assert.ThrowsExactly<ArgumentNullException>(() =>
-            BindingExtensions.BindTo<string, Person>(null!, target, assignment)
+            ObservableExtensions.BindTo<string, Person>(null!, target, assignment)
         );
         Assert.ThrowsExactly<ArgumentNullException>(() => source.BindTo(null!, assignment));
         Assert.ThrowsExactly<ArgumentNullException>(() =>
