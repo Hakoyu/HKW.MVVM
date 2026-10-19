@@ -5,6 +5,23 @@ namespace HKW.MVVM;
 public static partial class ObservableExtensions
 {
     /// <summary>
+    /// 以 <see cref="LogLevel.Trace"/> 记录携带日志记录器的序列通知
+    /// </summary>
+    public static IObservable<TSource> Trace<TSource>(
+        this IObservable<TSource> source,
+        string? message = null
+    ) => Log(source, LogLevel.Trace, message);
+
+    /// <summary>
+    /// 以 <see cref="LogLevel.Trace"/> 使用指定日志记录器记录序列通知
+    /// </summary>
+    public static IObservable<TSource> Trace<TSource>(
+        this IObservable<TSource> source,
+        ILogger logger,
+        string? message = null
+    ) => Log(source, logger, LogLevel.Trace, message);
+
+    /// <summary>
     /// 使用可观察序列携带的日志记录器记录每个通知,并原样转发该序列
     /// </summary>
     /// <typeparam name="TSource">源值类型</typeparam>

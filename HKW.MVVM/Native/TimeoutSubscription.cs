@@ -5,7 +5,13 @@ internal sealed class TimeoutSubscription<TSource> : IDisposable
     private readonly IObserver<TSource> _observer;
     private readonly TimeSpan _dueTime;
     private readonly IObservable<TSource>? _fallback;
-    private readonly Lock _gate = new();
+    private readonly
+#if NET10_0_OR_GREATER
+    Lock
+#else
+    object
+#endif
+    _gate = new();
     private readonly SingleAssignmentDisposable _sourceSubscription = new();
     private readonly SingleAssignmentDisposable _fallbackSubscription = new();
     private ITimer? _timer;
@@ -32,7 +38,11 @@ internal sealed class TimeoutSubscription<TSource> : IDisposable
                 dueTime,
                 System.Threading.Timeout.InfiniteTimeSpan
             );
-            _sourceSubscription.Disposable = source.Subscribe(OnSourceNext, OnSourceError, OnSourceCompleted);
+            _sourceSubscription.Disposable = source.Subscribe(
+                OnSourceNext,
+                OnSourceError,
+                OnSourceCompleted
+            );
         }
         catch (Exception error)
         {

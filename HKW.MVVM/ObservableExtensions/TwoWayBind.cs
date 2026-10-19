@@ -8,17 +8,9 @@ namespace HKW.MVVM;
 public static partial class ObservableExtensions
 {
     /// <summary>
-    /// 在类型相同的源属性和目标属性之间创建双向绑定
+    /// 在类型相同的属性之间创建双向绑定
     /// </summary>
-    /// <typeparam name="TSource">源对象的类型</typeparam>
-    /// <typeparam name="TTarget">目标对象的类型</typeparam>
-    /// <typeparam name="TValue">所绑定属性的值类型</typeparam>
-    /// <param name="target">调用此扩展方法的目标对象</param>
-    /// <param name="source">提供初始值的源对象</param>
-    /// <param name="sourceProperty">被观察的,可写的源属性路径</param>
-    /// <param name="targetProperty">被观察的,可写的目标属性路径</param>
-    /// <returns>可停止双向更新的可释放对象</returns>
-    public static IDisposable TwoWayBind<TSource, TTarget, TValue>(
+    public static BindingResult TwoWayBind<TSource, TTarget, TValue>(
         this TSource source,
         TTarget target,
         Expression<Func<TSource, TValue>> sourceProperty,
@@ -31,25 +23,35 @@ public static partial class ObservableExtensions
             target,
             sourceProperty,
             targetProperty,
-            static value => value,
-            static value => value
+            new TwoWayBindingOptions<TValue, TValue>()
         );
 
     /// <summary>
-    /// 在源属性和目标属性之间创建经过转换的双向绑定
+    /// 使用选项在类型相同的属性之间创建双向绑定
     /// </summary>
-    /// <typeparam name="TSource">源对象的类型</typeparam>
-    /// <typeparam name="TTarget">目标对象的类型</typeparam>
-    /// <typeparam name="TSourceValue">源属性的值类型</typeparam>
-    /// <typeparam name="TTargetValue">目标属性的值类型</typeparam>
-    /// <param name="target">调用此扩展方法的目标对象</param>
-    /// <param name="source">提供初始值的源对象</param>
-    /// <param name="sourceProperty">被观察的,可写的源属性路径</param>
-    /// <param name="targetProperty">被观察的,可写的目标属性路径</param>
-    /// <param name="sourceToTarget">在将源值赋给目标之前对其进行转换</param>
-    /// <param name="targetToSource">在将目标值赋给源之前对其进行转换</param>
-    /// <returns>可停止双向更新的可释放对象</returns>
-    public static IDisposable TwoWayBind<TSource, TTarget, TSourceValue, TTargetValue>(
+    public static BindingResult TwoWayBind<TSource, TTarget, TValue>(
+        this TSource source,
+        TTarget target,
+        Expression<Func<TSource, TValue>> sourceProperty,
+        Expression<Func<TTarget, TValue>> targetProperty,
+        TwoWayBindingOptions<TValue, TValue> options
+    )
+        where TSource : class, INotifyPropertyChanged
+        where TTarget : class, INotifyPropertyChanged =>
+        TwoWayBind(
+            source,
+            target,
+            sourceProperty,
+            targetProperty,
+            static value => value,
+            static value => value,
+            options
+        );
+
+    /// <summary>
+    /// 在属性之间创建经过转换的双向绑定
+    /// </summary>
+    public static BindingResult TwoWayBind<TSource, TTarget, TSourceValue, TTargetValue>(
         this TSource source,
         TTarget target,
         Expression<Func<TSource, TSourceValue>> sourceProperty,
@@ -58,45 +60,64 @@ public static partial class ObservableExtensions
         Func<TTargetValue, TSourceValue> targetToSource
     )
         where TSource : class, INotifyPropertyChanged
-        where TTarget : class, INotifyPropertyChanged
-    {
-        ArgumentNullException.ThrowIfNull(target);
-        ArgumentNullException.ThrowIfNull(source);
-        ArgumentNullException.ThrowIfNull(sourceProperty);
-        ArgumentNullException.ThrowIfNull(targetProperty);
-        ArgumentNullException.ThrowIfNull(sourceToTarget);
-        ArgumentNullException.ThrowIfNull(targetToSource);
-
-        var sourceSetter = PropertySetter.Create(sourceProperty);
-        var targetSetter = PropertySetter.Create(targetProperty);
-        return TwoWayBind(
+        where TTarget : class, INotifyPropertyChanged =>
+        TwoWayBind(
             source,
             target,
             sourceProperty,
             targetProperty,
-            (value, currentTarget) => targetSetter(currentTarget, sourceToTarget(value)),
-            (value, currentSource) => sourceSetter(currentSource, targetToSource(value))
+            sourceToTarget,
+            targetToSource,
+            new TwoWayBindingOptions<TSourceValue, TTargetValue>()
+        );
+
+    /// <summary>
+    /// 使用选项在属性之间创建经过转换的双向绑定
+    /// </summary>
+    public static BindingResult TwoWayBind<TSource, TTarget, TSourceValue, TTargetValue>(
+        this TSource source,
+        TTarget target,
+        Expression<Func<TSource, TSourceValue>> sourceProperty,
+        Expression<Func<TTarget, TTargetValue>> targetProperty,
+        Func<TSourceValue, TTargetValue> sourceToTarget,
+        Func<TTargetValue, TSourceValue> targetToSource,
+        TwoWayBindingOptions<TSourceValue, TTargetValue> options
+    )
+        where TSource : class, INotifyPropertyChanged
+        where TTarget : class, INotifyPropertyChanged
+    {
+        ValidateTwoWayArguments(source, target, sourceProperty, targetProperty, options);
+        ArgumentNullException.ThrowIfNull(sourceToTarget);
+        ArgumentNullException.ThrowIfNull(targetToSource);
+        var sourceSetter = PropertySetter.Create(sourceProperty);
+        var targetSetter = PropertySetter.Create(targetProperty);
+        return TwoWayBindCore(
+            source,
+            target,
+            sourceProperty,
+            targetProperty,
+            value =>
+                targetSetter(
+                    target,
+                    value is null && options.TargetNullValue.HasValue
+                        ? options.TargetNullValue.Value
+                        : sourceToTarget(value)
+                ),
+            value =>
+                sourceSetter(
+                    source,
+                    value is null && options.SourceNullValue.HasValue
+                        ? options.SourceNullValue.Value
+                        : targetToSource(value)
+                ),
+            options
         );
     }
 
     /// <summary>
-    /// 使用调用方为两个方向提供的赋值操作创建双向绑定
+    /// 使用调用方提供的赋值操作创建双向绑定
     /// </summary>
-    /// <typeparam name="TSource">源对象的类型</typeparam>
-    /// <typeparam name="TTarget">目标对象的类型</typeparam>
-    /// <typeparam name="TSourceValue">被观察的源值类型</typeparam>
-    /// <typeparam name="TTargetValue">被观察的目标值类型</typeparam>
-    /// <param name="target">调用此扩展方法的目标对象</param>
-    /// <param name="source">提供初始值的源对象</param>
-    /// <param name="sourceProperty">要观察的源属性路径</param>
-    /// <param name="targetProperty">要观察的目标属性路径</param>
-    /// <param name="assignTarget">将源值赋给目标</param>
-    /// <param name="assignSource">将目标值赋给源</param>
-    /// <returns>可停止双向更新的可释放对象</returns>
-    /// <remarks>
-    /// 反射: 否
-    /// </remarks>
-    public static IDisposable TwoWayBind<TSource, TTarget, TSourceValue, TTargetValue>(
+    public static BindingResult TwoWayBind<TSource, TTarget, TSourceValue, TTargetValue>(
         this TSource source,
         TTarget target,
         Expression<Func<TSource, TSourceValue>> sourceProperty,
@@ -105,99 +126,217 @@ public static partial class ObservableExtensions
         Action<TTargetValue, TSource> assignSource
     )
         where TSource : class, INotifyPropertyChanged
-        where TTarget : class, INotifyPropertyChanged
-    {
-        ArgumentNullException.ThrowIfNull(target);
-        ArgumentNullException.ThrowIfNull(source);
-        ArgumentNullException.ThrowIfNull(sourceProperty);
-        ArgumentNullException.ThrowIfNull(targetProperty);
-        ArgumentNullException.ThrowIfNull(assignTarget);
-        ArgumentNullException.ThrowIfNull(assignSource);
-
-        var state = new TwoWayBindingState<TSource, TTarget, TSourceValue, TTargetValue>(
+        where TTarget : class, INotifyPropertyChanged =>
+        TwoWayBind(
             source,
             target,
+            sourceProperty,
+            targetProperty,
+            assignTarget,
+            assignSource,
+            new TwoWayBindingOptions<TSourceValue, TTargetValue>()
+        );
+
+    /// <summary>
+    /// 使用选项和调用方提供的赋值操作创建双向绑定
+    /// </summary>
+    public static BindingResult TwoWayBind<TSource, TTarget, TSourceValue, TTargetValue>(
+        this TSource source,
+        TTarget target,
+        Expression<Func<TSource, TSourceValue>> sourceProperty,
+        Expression<Func<TTarget, TTargetValue>> targetProperty,
+        Action<TSourceValue, TTarget> assignTarget,
+        Action<TTargetValue, TSource> assignSource,
+        TwoWayBindingOptions<TSourceValue, TTargetValue> options
+    )
+        where TSource : class, INotifyPropertyChanged
+        where TTarget : class, INotifyPropertyChanged
+    {
+        ArgumentNullException.ThrowIfNull(assignTarget);
+        ArgumentNullException.ThrowIfNull(assignSource);
+        return TwoWayBindCore(
+            source,
+            target,
+            sourceProperty,
+            targetProperty,
+            value => assignTarget(value, target),
+            value => assignSource(value, source),
+            options
+        );
+    }
+
+    private static BindingResult TwoWayBindCore<TSource, TTarget, TSourceValue, TTargetValue>(
+        TSource source,
+        TTarget target,
+        Expression<Func<TSource, TSourceValue>> sourceProperty,
+        Expression<Func<TTarget, TTargetValue>> targetProperty,
+        Action<TSourceValue> assignTarget,
+        Action<TTargetValue> assignSource,
+        TwoWayBindingOptions<TSourceValue, TTargetValue> options
+    )
+        where TSource : class, INotifyPropertyChanged
+        where TTarget : class, INotifyPropertyChanged
+    {
+        ValidateTwoWayArguments(source, target, sourceProperty, targetProperty, options);
+
+        var result = new BindingResult();
+        var state = new TwoWayBindingState<TSourceValue, TTargetValue>(
+            result,
+            options.Scheduler,
             assignTarget,
             assignSource
         );
-        var subscriptions = new MultipleDisposable { state };
+        var subscriptions = new MultipleDisposable();
 
         try
         {
+            var sourceOptions = new WhenAnyValueOptions<TSourceValue>
+            {
+                Comparer = options.SourceComparer,
+                SkipInitial = true,
+                PathUnavailableFallback = options.SourceFallbackValue.HasValue
+                    ? () => options.SourceFallbackValue.Value
+                    : null,
+            };
+            var targetOptions = new WhenAnyValueOptions<TTargetValue>
+            {
+                Comparer = options.TargetComparer,
+                SkipInitial = true,
+                PathUnavailableFallback = options.TargetFallbackValue.HasValue
+                    ? () => options.TargetFallbackValue.Value
+                    : null,
+            };
+
             source
-                .WhenAnyValue(sourceProperty)
-                .Subscribe(state.UpdateTarget)
+                .WhenAnyValue(sourceProperty, sourceOptions)
+                .Subscribe(state.UpdateTarget, result.Fail)
                 .DisposeWith(subscriptions);
             target
-                .WhenAnyValue(targetProperty)
-                .Subscribe(state.UpdateSource)
+                .WhenAnyValue(targetProperty, targetOptions)
+                .Subscribe(state.UpdateSource, result.Fail)
                 .DisposeWith(subscriptions);
-            return subscriptions;
+
+            var sourceGetter = sourceProperty.Compile();
+            var targetGetter = targetProperty.Compile();
+            switch (options.InitialSyncDirection)
+            {
+                case BindingInitialSyncDirection.SourceToTarget:
+                    state.UpdateTarget(sourceGetter(source));
+                    break;
+                case BindingInitialSyncDirection.TargetToSource:
+                    state.UpdateSource(targetGetter(target));
+                    break;
+                case BindingInitialSyncDirection.None:
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(options.InitialSyncDirection));
+            }
+
+            result.SetSubscription(subscriptions);
         }
-        catch
+        catch (Exception exception)
         {
             subscriptions.Dispose();
-            throw;
+            result.Fail(exception);
         }
+
+        return result;
     }
 
-    private sealed class TwoWayBindingState<TSource, TTarget, TSourceValue, TTargetValue>(
+    private static void ValidateTwoWayArguments<TSource, TTarget, TSourceValue, TTargetValue>(
         TSource source,
         TTarget target,
-        Action<TSourceValue, TTarget> assignTarget,
-        Action<TTargetValue, TSource> assignSource
-    ) : IDisposable
-        where TSource : class
-        where TTarget : class
+        Expression<Func<TSource, TSourceValue>> sourceProperty,
+        Expression<Func<TTarget, TTargetValue>> targetProperty,
+        TwoWayBindingOptions<TSourceValue, TTargetValue> options
+    )
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(target);
+        ArgumentNullException.ThrowIfNull(sourceProperty);
+        ArgumentNullException.ThrowIfNull(targetProperty);
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(options.SourceComparer);
+        ArgumentNullException.ThrowIfNull(options.TargetComparer);
+        ArgumentNullException.ThrowIfNull(options.Scheduler);
+    }
+
+    private sealed class TwoWayBindingState<TSourceValue, TTargetValue>(
+        BindingResult result,
+        IObservableScheduler scheduler,
+        Action<TSourceValue> assignTarget,
+        Action<TTargetValue> assignSource
+    )
     {
         private const int Idle = 0;
         private const int UpdatingTarget = 1;
         private const int UpdatingSource = 2;
-        private const int Disposed = 3;
-
         private int _state;
 
-        public void UpdateTarget(TSourceValue value)
-        {
-            // 源到目标具有更高优先级:它可以替换 UpdatingSource,而
-            // UpdateSource 只允许从 Idle 状态进入
-            int state;
-            do
-            {
-                state = Volatile.Read(ref _state);
-                if (state is UpdatingTarget or Disposed)
-                {
-                    return;
-                }
-            } while (Interlocked.CompareExchange(ref _state, UpdatingTarget, state) != state);
+        public void UpdateTarget(TSourceValue value) =>
+            Schedule(value, UpdatingTarget, assignTarget, true);
 
-            try
-            {
-                assignTarget(value, target);
-            }
-            finally
-            {
-                Interlocked.CompareExchange(ref _state, Idle, UpdatingTarget);
-            }
-        }
+        public void UpdateSource(TTargetValue value) =>
+            Schedule(value, UpdatingSource, assignSource, false);
 
-        public void UpdateSource(TTargetValue value)
+        private void Schedule<TValue>(
+            TValue value,
+            int direction,
+            Action<TValue> assignment,
+            bool sourceWins
+        )
         {
-            if (Interlocked.CompareExchange(ref _state, UpdatingSource, Idle) != Idle)
+            if (result.IsStopped)
             {
                 return;
             }
 
             try
             {
-                assignSource(value, source);
+                scheduler.Schedule(() =>
+                {
+                    if (result.IsStopped)
+                    {
+                        return;
+                    }
+
+                    int previous;
+                    if (sourceWins)
+                    {
+                        do
+                        {
+                            previous = Volatile.Read(ref _state);
+                            if (previous == UpdatingTarget)
+                            {
+                                return;
+                            }
+                        } while (
+                            Interlocked.CompareExchange(ref _state, direction, previous) != previous
+                        );
+                    }
+                    else if (Interlocked.CompareExchange(ref _state, direction, Idle) != Idle)
+                    {
+                        return;
+                    }
+
+                    try
+                    {
+                        assignment(value);
+                    }
+                    catch (Exception exception)
+                    {
+                        result.Fail(exception);
+                    }
+                    finally
+                    {
+                        Interlocked.CompareExchange(ref _state, Idle, direction);
+                    }
+                });
             }
-            finally
+            catch (Exception exception)
             {
-                Interlocked.CompareExchange(ref _state, Idle, UpdatingSource);
+                result.Fail(exception);
             }
         }
-
-        public void Dispose() => Interlocked.Exchange(ref _state, Disposed);
     }
 }

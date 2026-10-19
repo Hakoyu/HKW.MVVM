@@ -2,7 +2,7 @@ namespace HKW.MVVMTest;
 
 internal sealed class ManualTimeProvider : TimeProvider
 {
-    private readonly Lock _gate = new();
+    private readonly object _gate = new();
     private readonly List<ManualTimer> _timers = [];
     private DateTimeOffset _utcNow;
     private long _timestamp;

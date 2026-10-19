@@ -7,56 +7,71 @@ public static partial class ObservableExtensions
     /// <summary>
     /// 使用调用方提供的赋值操作绑定可观察序列产生的值
     /// </summary>
-    /// <typeparam name="TValue">源产生的值类型</typeparam>
-    /// <typeparam name="TTarget">目标对象的类型</typeparam>
-    /// <param name="source">提供值的可观察序列</param>
-    /// <param name="target">传递给 <paramref name="assignment"/> 的目标对象</param>
-    /// <param name="assignment">接收每个源值和目标对象的操作</param>
-    /// <returns>可停止绑定的可释放对象</returns>
-    public static IDisposable BindTo<TValue, TTarget>(
+    public static BindingResult BindTo<TValue, TTarget>(
         this IObservable<TValue> source,
         TTarget target,
         Action<TValue, TTarget> assignment
+    ) => BindTo(source, target, assignment, new BindingOptions<TValue>());
+
+    /// <summary>
+    /// 使用选项和调用方提供的赋值操作绑定可观察序列产生的值
+    /// </summary>
+    public static BindingResult BindTo<TValue, TTarget>(
+        this IObservable<TValue> source,
+        TTarget target,
+        Action<TValue, TTarget> assignment,
+        BindingOptions<TValue> options
     )
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(target);
         ArgumentNullException.ThrowIfNull(assignment);
-        return source.Subscribe(value => assignment(value, target));
+        Validate(options);
+        return BindCore(source, static value => value, value => assignment(value, target), options);
     }
 
     /// <summary>
     /// 将可观察序列产生的值绑定到可写的目标属性
     /// </summary>
-    /// <typeparam name="TTarget">目标对象的类型</typeparam>
-    /// <typeparam name="TValue">源和目标的值的类型</typeparam>
-    /// <param name="source">提供值的可观察序列</param>
-    /// <param name="target">接收值的属性所属对象</param>
-    /// <param name="targetProperty">以 <paramref name="target"/> 为根的,可写的属性路径</param>
-    /// <returns>可停止绑定的可释放对象</returns>
-    public static IDisposable BindTo<TTarget, TValue>(
+    public static BindingResult BindTo<TTarget, TValue>(
         this IObservable<TValue> source,
         TTarget target,
         Expression<Func<TTarget, TValue>> targetProperty
     )
-        where TTarget : class => BindTo(source, target, targetProperty, static value => value);
+        where TTarget : class => BindTo(source, target, targetProperty, new BindingOptions<TValue>());
 
     /// <summary>
-    /// 将可观察序列产生的,经过转换的值绑定到可写的目标属性
+    /// 使用选项将可观察序列产生的值绑定到可写的目标属性
     /// </summary>
-    /// <typeparam name="TSourceValue">源产生的值类型</typeparam>
-    /// <typeparam name="TTarget">目标对象的类型</typeparam>
-    /// <typeparam name="TTargetValue">目标属性的值类型</typeparam>
-    /// <param name="source">提供值的可观察序列</param>
-    /// <param name="target">接收值的属性所属对象</param>
-    /// <param name="targetProperty">以 <paramref name="target"/> 为根的,可写的属性路径</param>
-    /// <param name="converter">将源值转换为目标值的函数</param>
-    /// <returns>可停止绑定的可释放对象</returns>
-    public static IDisposable BindTo<TSourceValue, TTarget, TTargetValue>(
+    public static BindingResult BindTo<TTarget, TValue>(
+        this IObservable<TValue> source,
+        TTarget target,
+        Expression<Func<TTarget, TValue>> targetProperty,
+        BindingOptions<TValue> options
+    )
+        where TTarget : class => BindTo(source, target, targetProperty, static value => value, options);
+
+    /// <summary>
+    /// 将转换后的源值绑定到可写的目标属性
+    /// </summary>
+    public static BindingResult BindTo<TSourceValue, TTarget, TTargetValue>(
         this IObservable<TSourceValue> source,
         TTarget target,
         Expression<Func<TTarget, TTargetValue>> targetProperty,
         Func<TSourceValue, TTargetValue> converter
+    )
+        where TTarget : class =>
+        BindTo(source, target, targetProperty, converter, new BindingOptions<TTargetValue>());
+
+    /// <summary>
+    /// 使用选项将转换后的源值绑定到可写的目标属性
+    /// </summary>
+    public static BindingResult BindTo<TSourceValue, TTarget, TTargetValue>(
+        this IObservable<TSourceValue> source,
+        TTarget target,
+        Expression<Func<TTarget, TTargetValue>> targetProperty,
+        Func<TSourceValue, TTargetValue> converter,
+        BindingOptions<TTargetValue> options
     )
         where TTarget : class
     {
@@ -64,8 +79,142 @@ public static partial class ObservableExtensions
         ArgumentNullException.ThrowIfNull(target);
         ArgumentNullException.ThrowIfNull(targetProperty);
         ArgumentNullException.ThrowIfNull(converter);
+        Validate(options);
 
         var setter = PropertySetter.Create(targetProperty);
-        return source.Subscribe(value => setter(target, converter(value)));
+        return BindCore(source, converter, value => setter(target, value), options);
+    }
+
+    private static BindingResult BindCore<TSourceValue, TTargetValue>(
+        IObservable<TSourceValue> source,
+        Func<TSourceValue, TTargetValue> converter,
+        Action<TTargetValue> assignment,
+        BindingOptions<TTargetValue> options
+    )
+    {
+        var result = new BindingResult();
+        var queue = new SerialActionQueue(options.Scheduler.Schedule);
+        var hasValue = false;
+        var lastValue = default(TTargetValue)!;
+
+        void Assign(TTargetValue value)
+        {
+            if (result.IsStopped)
+            {
+                return;
+            }
+
+            try
+            {
+                if (hasValue && options.Comparer.Equals(lastValue, value))
+                {
+                    return;
+                }
+
+                assignment(value);
+                lastValue = value;
+                hasValue = true;
+            }
+            catch (Exception exception)
+            {
+                if (options.FallbackValue.HasValue)
+                {
+                    try
+                    {
+                        assignment(options.FallbackValue.Value);
+                    }
+                    catch
+                    {
+                        // The original failure is the binding's diagnostic.
+                    }
+                }
+
+                result.Fail(exception);
+                queue.Dispose();
+            }
+        }
+
+        try
+        {
+            var subscription = source.Subscribe(
+                value =>
+                {
+                    try
+                    {
+                        queue.Enqueue(() =>
+                        {
+                            try
+                            {
+                                var targetValue = value is null && options.TargetNullValue.HasValue
+                                    ? options.TargetNullValue.Value
+                                    : converter(value);
+                                Assign(targetValue);
+                            }
+                            catch (Exception exception)
+                            {
+                                if (options.FallbackValue.HasValue)
+                                {
+                                    try
+                                    {
+                                        assignment(options.FallbackValue.Value);
+                                    }
+                                    catch
+                                    {
+                                        // The original conversion failure is the binding's diagnostic.
+                                    }
+                                }
+                                result.Fail(exception);
+                            }
+                        });
+                    }
+                    catch (Exception exception)
+                    {
+                        result.Fail(exception);
+                        queue.Dispose();
+                    }
+                },
+                exception =>
+                {
+                    try
+                    {
+                        queue.Enqueue(() =>
+                        {
+                            if (options.FallbackValue.HasValue)
+                            {
+                                try
+                                {
+                                    assignment(options.FallbackValue.Value);
+                                }
+                                catch
+                                {
+                                    // The source failure remains the binding's diagnostic.
+                                }
+                            }
+                            result.Fail(exception);
+                        });
+                    }
+                    catch (Exception schedulingException)
+                    {
+                        result.Fail(schedulingException);
+                        queue.Dispose();
+                    }
+                }
+            );
+            result.SetSubscription(new MultipleDisposable { subscription, queue });
+        }
+        catch (Exception exception)
+        {
+            result.Fail(exception);
+            queue.Dispose();
+        }
+
+        return result;
+    }
+
+    private static void Validate<TValue>(BindingOptions<TValue> options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(options.Comparer);
+        ArgumentNullException.ThrowIfNull(options.Scheduler);
     }
 }

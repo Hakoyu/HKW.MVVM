@@ -16,22 +16,9 @@ public static partial class ObservableExtensions
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(synchronizationContext);
-        return CreateCore(
+        return ObserveOn(
             source,
-            observer =>
-            {
-                var dispatcher = new NotificationDispatcher<TSource>(
-                    observer,
-                    synchronizationContext
-                );
-                var subscription = source.Subscribe(
-                    dispatcher.OnNext,
-                    dispatcher.OnError,
-                    dispatcher.OnCompleted
-                );
-                dispatcher.SetSubscription(subscription);
-                return dispatcher;
-            }
+            ObservableSchedulers.FromSynchronizationContext(synchronizationContext)
         );
     }
 
@@ -42,27 +29,20 @@ public static partial class ObservableExtensions
     /// <param name="source">要派发其通知的可观察序列</param>
     /// <param name="scheduler">用于观察者通知的调度器</param>
     /// <returns>通知在选定调度器上进行调度的可观察序列</returns>
-    /// <remarks>
-    /// <see cref="ObservableSchedulers.Current"/> 在创建该操作符时捕获
-    /// <see cref="SynchronizationContext.Current"/>. 如果没有可用的上下文,
-    /// 则回退到线程池.通知按顺序排队
-    /// </remarks>
+    /// <remarks>通知按源顺序进行调度.</remarks>
     public static IObservable<TSource> ObserveOn<TSource>(
         this IObservable<TSource> source,
-        ObservableSchedulers scheduler
+        IObservableScheduler scheduler
     )
     {
         ArgumentNullException.ThrowIfNull(source);
-        var synchronizationContext = GetSynchronizationContext(scheduler);
+        ArgumentNullException.ThrowIfNull(scheduler);
 
         return CreateCore(
             source,
             observer =>
             {
-                var dispatcher = new NotificationDispatcher<TSource>(
-                    observer,
-                    synchronizationContext
-                );
+                var dispatcher = new NotificationDispatcher<TSource>(observer, scheduler);
                 var subscription = source.Subscribe(
                     dispatcher.OnNext,
                     dispatcher.OnError,

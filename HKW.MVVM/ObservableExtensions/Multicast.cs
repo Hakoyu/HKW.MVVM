@@ -28,7 +28,7 @@ public static partial class ObservableExtensions
     }
 
     /// <summary>
-    /// 创建一个在连接后多播源通知，并向新订阅者重放最多指定数量值的可连接序列
+    /// 创建一个在连接后多播源通知, 并向新订阅者重放最多指定数量值的可连接序列
     /// </summary>
     /// <typeparam name="TSource">源值类型</typeparam>
     /// <param name="source">要共享的源序列</param>
@@ -62,7 +62,13 @@ public static partial class ObservableExtensions
     {
         private readonly IObservable<T> _source;
         private readonly int _bufferSize;
-        private readonly Lock _gate = new();
+        private readonly
+#if NET10_0_OR_GREATER
+    Lock
+#else
+    object
+#endif
+    _gate = new();
         private readonly List<ObserverSubscription> _observers = [];
         private readonly Queue<T> _buffer = [];
         private Connection? _connection;
@@ -301,7 +307,13 @@ public static partial class ObservableExtensions
             IObserver<T> observer
         ) : IDisposable
         {
-            private readonly Lock _gate = new();
+            private readonly
+#if NET10_0_OR_GREATER
+    Lock
+#else
+    object
+#endif
+    _gate = new();
             private readonly Queue<Notification> _notifications = [];
             private bool _draining;
             private bool _disposed;
@@ -414,7 +426,13 @@ public static partial class ObservableExtensions
 
     private sealed class RefCountObservable<T>(IConnectableObservable<T> source) : IObservable<T>
     {
-        private readonly Lock _gate = new();
+        private readonly
+#if NET10_0_OR_GREATER
+    Lock
+#else
+    object
+#endif
+    _gate = new();
         private IDisposable? _connection;
         private int _subscriberCount;
         private long _generation;

@@ -38,7 +38,13 @@ public interface IEnableLoggerWithLogger : IEnableLogger
 public static class LogHost
 {
     private const int LoggerCacheSize = 64;
-    private static readonly Lock DomainGate = new();
+    private static readonly
+#if NET10_0_OR_GREATER
+    Lock
+#else
+    object
+#endif
+    DomainGate = new();
     private static LoggerCache _loggerCache = new(NullLoggerFactory.Instance);
     private static ILoggerFactory? _loggerFactoryOverride;
     private static DomainRegistrationSnapshot _domainSnapshot = DomainRegistrationSnapshot.Empty;
@@ -81,7 +87,7 @@ public static class LogHost
     /// <param name="loggerFactory">日志域使用的日志记录器工厂</param>
     /// <returns>移除本次日志域注册的可释放对象</returns>
     /// <remarks>
-    /// 类域优先于接口域,多个类域使用继承链上最接近运行时类型的域；
+    /// 类域优先于接口域,多个类域使用继承链上最接近运行时类型的域;
     /// 多个接口域使用最近注册且尚未释放的域.日志类别仍为对象运行时类型的完全限定名称.
     /// 释放返回的对象不会释放 <paramref name="loggerFactory"/>.
     /// </remarks>
@@ -322,7 +328,7 @@ public static class LoggerMixins
     /// <param name="instance">启用了日志记录器的实例</param>
     /// <param name="logLevel">启用的日志等级</param>
     /// <returns>
-    /// 日志等级启用时, 返回日志记录器及日志等级；否则返回 <see langword="null"/>
+    /// 日志等级启用时, 返回日志记录器及日志等级; 否则返回 <see langword="null"/>
     /// </returns>
     public static (ILogger logger, LogLevel logLevel)? LogIfEnabled(
         this IEnableLogger instance,
@@ -352,7 +358,7 @@ public static class LoggerMixins
     /// <param name="logger">要使用的日志记录器</param>
     /// <param name="logLevel">要检查的日志等级</param>
     /// <returns>
-    /// 日志等级启用时, 返回日志记录器及日志等级；否则返回 <see langword="null"/>
+    /// 日志等级启用时, 返回日志记录器及日志等级; 否则返回 <see langword="null"/>
     /// </returns>
     public static (ILogger logger, LogLevel logLevel)? LogIfEnabled(
         this IEnableLogger instance,

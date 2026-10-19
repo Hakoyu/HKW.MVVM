@@ -20,14 +20,19 @@ public sealed class ObservableAsPropertyHelper<T>
         Subscribed,
     }
 
-    private readonly Lock _gate = new();
+    private readonly
+#if NET10_0_OR_GREATER
+    Lock
+#else
+    object
+#endif
+    _gate = new();
     private readonly IObservable<T> _source;
     private readonly ObservableObject _owner;
 
-    private readonly SynchronizationContext? _synchronizationContext;
-    private readonly bool _scheduleOnThreadPool;
-    private readonly SerialActionQueue? _notificationQueue;
-    private readonly ExceptionSubject _exceptions = new();
+    private readonly SerialActionQueue _notificationQueue;
+    private readonly IEqualityComparer<T> _comparer;
+    private readonly ExceptionSubject _exceptions = new(replayLatest: true);
     private readonly PropertyChangingEventArgs _valueChangingEventArgs = new(nameof(Value));
     private readonly PropertyChangedEventArgs _valueChangedEventArgs = new(nameof(Value));
     private readonly PropertyChangingEventArgs _ownerChangingEventArgs;
@@ -37,6 +42,7 @@ public sealed class ObservableAsPropertyHelper<T>
     private T _lastDistinctValue;
     private bool _hasLastDistinctValue;
     private SubscriptionState _subscriptionState;
+    private bool _sourceStopped;
     private bool _disposed;
 
     internal ObservableAsPropertyHelper(
@@ -56,12 +62,11 @@ public sealed class ObservableAsPropertyHelper<T>
         _hasLastDistinctValue = true;
         _ownerChangingEventArgs = new PropertyChangingEventArgs(PropertyName);
         _ownerChangedEventArgs = new PropertyChangedEventArgs(PropertyName);
-        _synchronizationContext = synchronizationContext;
-        _notificationQueue = synchronizationContext is null
-            ? null
-            : new SerialActionQueue(action =>
-                synchronizationContext.Post(static state => ((Action)state!).Invoke(), action)
-            );
+        var scheduler = synchronizationContext is null
+            ? ObservableSchedulers.Immediate
+            : ObservableSchedulers.FromSynchronizationContext(synchronizationContext);
+        _comparer = EqualityComparer<T>.Default;
+        _notificationQueue = new SerialActionQueue(scheduler.Schedule);
 
         if (deferSubscription is false)
         {
@@ -75,7 +80,7 @@ public sealed class ObservableAsPropertyHelper<T>
         string propertyName,
         T initialValue,
         bool deferSubscription,
-        ObservableSchedulers scheduler
+        IObservableScheduler scheduler
     )
     {
         _source = source;
@@ -86,38 +91,42 @@ public sealed class ObservableAsPropertyHelper<T>
         _hasLastDistinctValue = true;
         _ownerChangingEventArgs = new PropertyChangingEventArgs(propertyName);
         _ownerChangedEventArgs = new PropertyChangedEventArgs(propertyName);
-
-        (_synchronizationContext, _scheduleOnThreadPool) = scheduler switch
-        {
-            ObservableSchedulers.Current => (
-                SynchronizationContext.Current,
-                SynchronizationContext.Current is null
-            ),
-            ObservableSchedulers.ThreadPool => (null, true),
-            _ => throw new ArgumentOutOfRangeException(
-                nameof(scheduler),
-                scheduler,
-                "Unknown observable scheduler."
-            ),
-        };
-
-        _notificationQueue = new SerialActionQueue(action =>
-        {
-            if (_scheduleOnThreadPool)
-            {
-                ThreadPool.QueueUserWorkItem(
-                    static state => state.Invoke(),
-                    action,
-                    preferLocal: false
-                );
-            }
-            else
-            {
-                _synchronizationContext!.Post(static state => ((Action)state!).Invoke(), action);
-            }
-        });
+        ArgumentNullException.ThrowIfNull(scheduler);
+        _comparer = EqualityComparer<T>.Default;
+        _notificationQueue = new SerialActionQueue(scheduler.Schedule);
 
         if (deferSubscription is false)
+        {
+            EnsureSubscribed();
+        }
+    }
+
+    internal ObservableAsPropertyHelper(
+        IObservable<T> source,
+        ObservableObject owner,
+        string propertyName,
+        T initialValue,
+        ObservableAsPropertyOptions<T> options
+    )
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(owner);
+        ArgumentException.ThrowIfNullOrEmpty(propertyName);
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(options.Scheduler);
+        ArgumentNullException.ThrowIfNull(options.Comparer);
+        _source = source;
+        _owner = owner;
+        PropertyName = propertyName;
+        _value = initialValue;
+        _lastDistinctValue = initialValue;
+        _hasLastDistinctValue = true;
+        _ownerChangingEventArgs = new PropertyChangingEventArgs(propertyName);
+        _ownerChangedEventArgs = new PropertyChangedEventArgs(propertyName);
+        _comparer = options.Comparer;
+        _notificationQueue = new SerialActionQueue(options.Scheduler.Schedule);
+
+        if (options.DeferSubscription is false)
         {
             EnsureSubscribed();
         }
@@ -192,7 +201,7 @@ public sealed class ObservableAsPropertyHelper<T>
         }
 
         subscription?.Dispose();
-        _notificationQueue?.Dispose();
+        _notificationQueue.Dispose();
         _exceptions.Dispose();
     }
 
@@ -203,7 +212,7 @@ public sealed class ObservableAsPropertyHelper<T>
         lock (_gate)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
-            if (_subscriptionState is not SubscriptionState.NotSubscribed)
+            if (_sourceStopped || _subscriptionState is not SubscriptionState.NotSubscribed)
             {
                 return;
             }
@@ -213,7 +222,7 @@ public sealed class ObservableAsPropertyHelper<T>
 
         try
         {
-            subscription = _source.Subscribe(SetValue, _exceptions.OnNext);
+            subscription = _source.Subscribe(SetValue, OnSourceError);
         }
         catch
         {
@@ -230,7 +239,7 @@ public sealed class ObservableAsPropertyHelper<T>
 
         lock (_gate)
         {
-            if (_disposed)
+            if (_disposed || _sourceStopped)
             {
                 _subscriptionState = SubscriptionState.NotSubscribed;
             }
@@ -245,26 +254,45 @@ public sealed class ObservableAsPropertyHelper<T>
         subscription?.Dispose();
     }
 
+    private void OnSourceError(Exception exception)
+    {
+        IDisposable? subscription;
+        lock (_gate)
+        {
+            if (_disposed || _sourceStopped)
+            {
+                return;
+            }
+
+            _sourceStopped = true;
+            _subscriptionState = SubscriptionState.NotSubscribed;
+            subscription = _subscription;
+            _subscription = null;
+        }
+
+        _exceptions.OnNext(exception);
+        subscription?.Dispose();
+    }
+
     private void SetValue(T value)
     {
-        if (TryAcceptValue(value) is false)
+        bool accepted;
+        try
+        {
+            accepted = TryAcceptValue(value);
+        }
+        catch (Exception exception)
+        {
+            OnSourceError(exception);
+            return;
+        }
+
+        if (accepted is false)
         {
             return;
         }
 
-        if (
-            _scheduleOnThreadPool is false
-            && (
-                _synchronizationContext is null
-                || SynchronizationContext.Current == _synchronizationContext
-            )
-        )
-        {
-            SetValueCore(value);
-            return;
-        }
-
-        _notificationQueue!.Enqueue(() => SetValueCore(value));
+        _notificationQueue.Enqueue(() => SetValueCore(value));
     }
 
     private bool TryAcceptValue(T value)
@@ -276,10 +304,7 @@ public sealed class ObservableAsPropertyHelper<T>
                 return false;
             }
 
-            if (
-                _hasLastDistinctValue
-                && EqualityComparer<T>.Default.Equals(_lastDistinctValue, value)
-            )
+            if (_hasLastDistinctValue && _comparer.Equals(_lastDistinctValue, value))
             {
                 return false;
             }

@@ -39,7 +39,10 @@ public static partial class ObservableExtensions
             first,
             CreateCore<TResult>(observer =>
             {
-                var subscription = new ZipSubscription<TFirst, TSecond, TResult>(observer, selector);
+                var subscription = new ZipSubscription<TFirst, TSecond, TResult>(
+                    observer,
+                    selector
+                );
                 subscription.Subscribe(first, second);
                 return subscription;
             })

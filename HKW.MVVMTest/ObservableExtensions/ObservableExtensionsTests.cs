@@ -1,4 +1,4 @@
-using HKW.MVVM;
+﻿using HKW.MVVM;
 
 namespace HKW.MVVMTest;
 
@@ -268,30 +268,59 @@ public sealed class ObservableExtensionsTests
     }
 
     [TestMethod]
-    public void ObserveOn_CurrentSynchronizationContextUsesCapturedContext()
+    public void ObserveOn_CurrentThreadDeliversOnCallingThread()
     {
         var source = new ManualObservable<int>();
+        var values = new List<int>();
+        using var subscription = source
+            .ObserveOn(ObservableSchedulers.CurrentThread)
+            .Subscribe(values.Add);
+
+        source.Emit(1);
+
+        CollectionAssert.AreEqual(new[] { 1 }, values);
+    }
+
+    [TestMethod]
+    public void ImmediateScheduler_ExecutesSynchronously()
+    {
+        var invoked = false;
+
+        using var scheduled = ObservableSchedulers.Immediate.Schedule(() => invoked = true);
+
+        Assert.IsTrue(invoked);
+    }
+
+    [TestMethod]
+    public void CurrentThreadScheduler_TrampolinesNestedWorkAndSupportsCancellation()
+    {
+        var events = new List<string>();
+
+        ObservableSchedulers.CurrentThread.Schedule(() =>
+        {
+            events.Add("OuterStart");
+            ObservableSchedulers.CurrentThread.Schedule(() => events.Add("Nested"));
+            var cancelled = ObservableSchedulers.CurrentThread.Schedule(() => events.Add("Cancelled"));
+            cancelled.Dispose();
+            events.Add("OuterEnd");
+        });
+
+        CollectionAssert.AreEqual(new[] { "OuterStart", "OuterEnd", "Nested" }, events);
+    }
+
+    [TestMethod]
+    public void SynchronizationContextScheduler_DisposeCancelsPostedWork()
+    {
         var context = new QueuedSynchronizationContext();
-        var previousContext = SynchronizationContext.Current;
-        SynchronizationContext.SetSynchronizationContext(context);
-        try
-        {
-            var values = new List<int>();
-            using var subscription = source
-                .ObserveOn(ObservableSchedulers.Current)
-                .Subscribe(values.Add);
+        var invoked = false;
+        var scheduled = ObservableSchedulers
+            .FromSynchronizationContext(context)
+            .Schedule(() => invoked = true);
 
-            source.Emit(1);
+        scheduled.Dispose();
+        context.RunAll();
 
-            Assert.IsEmpty(values);
-            Assert.AreEqual(1, context.PendingCount);
-            context.RunAll();
-            CollectionAssert.AreEqual(new[] { 1 }, values);
-        }
-        finally
-        {
-            SynchronizationContext.SetSynchronizationContext(previousContext);
-        }
+        Assert.IsFalse(invoked);
     }
 
     [TestMethod]
@@ -309,27 +338,15 @@ public sealed class ObservableExtensionsTests
     }
 
     [TestMethod]
-    public void SubscribeOn_CurrentSynchronizationContextDelaysSubscription()
+    public void SubscribeOn_CurrentThreadSubscribesOnCallingThread()
     {
         var source = new ManualObservable<int>();
-        var context = new QueuedSynchronizationContext();
-        var previousContext = SynchronizationContext.Current;
-        SynchronizationContext.SetSynchronizationContext(context);
-        try
-        {
-            using var subscription = source
-                .SubscribeOn(ObservableSchedulers.Current)
-                .Subscribe(_ => Assert.Fail());
 
-            Assert.AreEqual(0, source.SubscriptionCount);
-            Assert.AreEqual(1, context.PendingCount);
-            context.RunAll();
-            Assert.AreEqual(1, source.SubscriptionCount);
-        }
-        finally
-        {
-            SynchronizationContext.SetSynchronizationContext(previousContext);
-        }
+        using var subscription = source
+            .SubscribeOn(ObservableSchedulers.CurrentThread)
+            .Subscribe(_ => Assert.Fail());
+
+        Assert.AreEqual(1, source.SubscriptionCount);
     }
 
     [TestMethod]
@@ -513,16 +530,19 @@ public sealed class ObservableExtensionsTests
     }
 
     [TestMethod]
-    public async Task Throttle_EmitsOnlyLatestValueAfterQuietPeriod()
+    public void Throttle_EmitsOnlyLatestValueAfterQuietPeriod()
     {
         var source = new ManualObservable<int>();
+        var timeProvider = new ManualTimeProvider();
         var values = new List<int>();
-        using var subscription = source.Throttle(TimeSpan.FromMilliseconds(40)).Subscribe(values.Add);
+        using var subscription = source
+            .Throttle(TimeSpan.FromMilliseconds(40), timeProvider)
+            .Subscribe(values.Add);
 
         source.Emit(1);
-        await Task.Delay(20);
+        timeProvider.Advance(TimeSpan.FromMilliseconds(20));
         source.Emit(2);
-        await Task.Delay(80);
+        timeProvider.Advance(TimeSpan.FromMilliseconds(40));
 
         CollectionAssert.AreEqual(new[] { 2 }, values);
     }
@@ -573,34 +593,21 @@ public sealed class ObservableExtensionsTests
     }
 
     [TestMethod]
-    public void Throttle_CurrentSynchronizationContextSchedulesValueAndCompletion()
+    public void Throttle_CurrentThreadSchedulesValueAndCompletionInOrder()
     {
         var source = new ManualObservable<int>();
-        var context = new QueuedSynchronizationContext();
-        var previousContext = SynchronizationContext.Current;
-        SynchronizationContext.SetSynchronizationContext(context);
-        try
-        {
-            var events = new List<string>();
-            using var subscription = source
-                .Throttle(TimeSpan.FromMinutes(1), ObservableSchedulers.Current)
-                .Subscribe(
-                    value => events.Add($"Next:{value}"),
-                    _ => Assert.Fail(),
-                    () => events.Add("Completed"));
+        var events = new List<string>();
+        using var subscription = source
+            .Throttle(TimeSpan.FromMinutes(1), ObservableSchedulers.CurrentThread)
+            .Subscribe(
+                value => events.Add($"Next:{value}"),
+                _ => Assert.Fail(),
+                () => events.Add("Completed"));
 
-            source.Emit(1);
-            source.Complete();
+        source.Emit(1);
+        source.Complete();
 
-            Assert.IsEmpty(events);
-            Assert.AreEqual(1, context.PendingCount);
-            context.RunAll();
-            CollectionAssert.AreEqual(new[] { "Next:1", "Completed" }, events);
-        }
-        finally
-        {
-            SynchronizationContext.SetSynchronizationContext(previousContext);
-        }
+        CollectionAssert.AreEqual(new[] { "Next:1", "Completed" }, events);
     }
 
     [TestMethod]
@@ -683,14 +690,24 @@ public sealed class ObservableExtensionsTests
         Assert.ThrowsExactly<ArgumentNullException>(() => source.Select((Func<int, int>)null!));
         Assert.ThrowsExactly<ArgumentNullException>(() => source.Where(null!));
         Assert.ThrowsExactly<ArgumentNullException>(() => source.DistinctUntilChanged(null!));
-        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => source.Throttle(TimeSpan.Zero, (ObservableSchedulers)999));
+        Assert.ThrowsExactly<ArgumentNullException>(() =>
+            source.Throttle(TimeSpan.Zero, (IObservableScheduler)null!)
+        );
+        Assert.ThrowsExactly<ArgumentNullException>(() =>
+            ObservableSchedulers.FromSynchronizationContext(null!)
+        );
         Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => source.Skip(-1));
         Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => source.Take(-1));
         Assert.ThrowsExactly<ArgumentNullException>(() => source.Do(null!));
-        Assert.ThrowsExactly<ArgumentNullException>(() => source.ObserveOn(null!));
-        Assert.ThrowsExactly<ArgumentNullException>(() => source.SubscribeOn((SynchronizationContext)null!));
-        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => source.ObserveOn((ObservableSchedulers)999));
-        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => source.SubscribeOn((ObservableSchedulers)999));
+        Assert.ThrowsExactly<ArgumentNullException>(() =>
+            source.ObserveOn((IObservableScheduler)null!)
+        );
+        Assert.ThrowsExactly<ArgumentNullException>(() =>
+            source.SubscribeOn((SynchronizationContext)null!)
+        );
+        Assert.ThrowsExactly<ArgumentNullException>(() =>
+            source.SubscribeOn((IObservableScheduler)null!)
+        );
         Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => source.Throttle(TimeSpan.FromMilliseconds(-1)));
         Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => source.Buffer(0));
         Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => source.Buffer(TimeSpan.Zero));

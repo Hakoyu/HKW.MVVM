@@ -14,7 +14,12 @@ public static partial class ObservableExtensions
     public static IObservable<(TSource Source, TOther Latest)> WithLatestFrom<TSource, TOther>(
         this IObservable<TSource> source,
         IObservable<TOther> other
-    ) => WithLatestFrom(source, other, static (sourceValue, latestValue) => (sourceValue, latestValue));
+    ) =>
+        WithLatestFrom(
+            source,
+            other,
+            static (sourceValue, latestValue) => (sourceValue, latestValue)
+        );
 
     /// <summary>
     /// 使用结果选择器将源序列的每个值与另一个序列最近发出的值组合

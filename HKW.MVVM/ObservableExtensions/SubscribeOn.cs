@@ -16,7 +16,10 @@ public static partial class ObservableExtensions
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(synchronizationContext);
-        return SubscribeOnCore(source, synchronizationContext);
+        return SubscribeOnCore(
+            source,
+            ObservableSchedulers.FromSynchronizationContext(synchronizationContext)
+        );
     }
 
     /// <summary>
@@ -26,18 +29,14 @@ public static partial class ObservableExtensions
     /// <param name="source">要订阅的可观察序列</param>
     /// <param name="scheduler">用于订阅操作的调度器</param>
     /// <returns>其源订阅被调度的可观察序列</returns>
-    /// <remarks>
-    /// <see cref="ObservableSchedulers.Current"/> 在创建该操作符时捕获
-    /// <see cref="SynchronizationContext.Current"/>.如果没有可用的上下文,
-    /// 则回退到线程池. 在计划的操作执行前释放,可避免对源进行订阅
-    /// </remarks>
+    /// <remarks>在计划的操作执行前释放订阅,可避免对源进行订阅.</remarks>
     public static IObservable<TSource> SubscribeOn<TSource>(
         this IObservable<TSource> source,
-        ObservableSchedulers scheduler
+        IObservableScheduler scheduler
     )
     {
         ArgumentNullException.ThrowIfNull(source);
-        var synchronizationContext = GetSynchronizationContext(scheduler);
-        return SubscribeOnCore(source, synchronizationContext);
+        ArgumentNullException.ThrowIfNull(scheduler);
+        return SubscribeOnCore(source, scheduler);
     }
 }

@@ -10,7 +10,13 @@ namespace HKW.MVVM;
 /// </remarks>
 public sealed class MultipleDisposable : ICollection<IDisposable>, IDisposable
 {
-    private readonly Lock _gate = new();
+    private readonly
+#if NET10_0_OR_GREATER
+    Lock
+#else
+    object
+#endif
+    _gate = new();
     private List<IDisposable>? _items = [];
 
     /// <summary>

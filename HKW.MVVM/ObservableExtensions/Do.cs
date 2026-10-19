@@ -14,38 +14,106 @@ public static partial class ObservableExtensions
         Action<TSource> onNext
     )
     {
-        ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(onNext);
+        return Do(source, onNext, null, null, null, null);
+    }
+
+    /// <summary>
+    /// 在订阅、通知和释放生命周期点执行副作用, 并原样转发源序列
+    /// </summary>
+    public static IObservable<TSource> Do<TSource>(
+        this IObservable<TSource> source,
+        Action<TSource>? onNext = null,
+        Action<Exception>? onError = null,
+        Action? onCompleted = null,
+        Action? onSubscribe = null,
+        Action? onDispose = null
+    )
+    {
+        ArgumentNullException.ThrowIfNull(source);
         return CreateCore(
             source,
             observer =>
             {
                 var stopped = false;
+                var disposeNotified = 0;
                 var subscription = new SingleAssignmentDisposable();
-                subscription.Disposable = source.Subscribe(
-                    value =>
+
+                void NotifyDisposed()
+                {
+                    if (Interlocked.Exchange(ref disposeNotified, 1) == 0)
                     {
-                        if (stopped)
-                        {
-                            return;
-                        }
+                        onDispose?.Invoke();
+                    }
+                }
 
-                        try
+                try
+                {
+                    onSubscribe?.Invoke();
+                    subscription.Disposable = source.Subscribe(
+                        value =>
                         {
-                            onNext(value);
-                        }
-                        catch (Exception exception)
-                        {
-                            ForwardError(observer, subscription, ref stopped, exception);
-                            return;
-                        }
+                            if (stopped)
+                            {
+                                return;
+                            }
 
-                        observer.OnNext(value);
-                    },
-                    error => ForwardError(observer, subscription, ref stopped, error),
-                    () => ForwardCompletion(observer, subscription, ref stopped)
-                );
-                return subscription;
+                            try
+                            {
+                                onNext?.Invoke(value);
+                            }
+                            catch (Exception exception)
+                            {
+                                ForwardError(observer, subscription, ref stopped, exception);
+                                NotifyDisposed();
+                                return;
+                            }
+
+                            observer.OnNext(value);
+                        },
+                        error =>
+                        {
+                            try
+                            {
+                                onError?.Invoke(error);
+                            }
+                            catch (Exception exception)
+                            {
+                                error = exception;
+                            }
+
+                            ForwardError(observer, subscription, ref stopped, error);
+                            NotifyDisposed();
+                        },
+                        () =>
+                        {
+                            try
+                            {
+                                onCompleted?.Invoke();
+                            }
+                            catch (Exception exception)
+                            {
+                                ForwardError(observer, subscription, ref stopped, exception);
+                                NotifyDisposed();
+                                return;
+                            }
+
+                            ForwardCompletion(observer, subscription, ref stopped);
+                            NotifyDisposed();
+                        }
+                    );
+                }
+                catch (Exception exception)
+                {
+                    ForwardError(observer, subscription, ref stopped, exception);
+                    NotifyDisposed();
+                }
+
+                return new ActionDisposable(() =>
+                {
+                    subscription.Dispose();
+                    NotifyDisposed();
+                });
             }
         );
     }

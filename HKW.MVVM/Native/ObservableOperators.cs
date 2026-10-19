@@ -14,7 +14,7 @@ internal abstract class OperatorObserver<TSource, TResult>(IObserver<TResult> ob
 
     public abstract void OnNext(TSource value);
 
-    public void OnError(Exception error)
+    public virtual void OnError(Exception error)
     {
         ArgumentNullException.ThrowIfNull(error);
         var subscription = Interlocked.Exchange(ref _subscription, DisposedSubscription);
@@ -33,7 +33,7 @@ internal abstract class OperatorObserver<TSource, TResult>(IObserver<TResult> ob
         }
     }
 
-    public void OnCompleted()
+    public virtual void OnCompleted()
     {
         var subscription = Interlocked.Exchange(ref _subscription, DisposedSubscription);
         if (ReferenceEquals(subscription, DisposedSubscription))
@@ -66,7 +66,9 @@ internal abstract class OperatorObserver<TSource, TResult>(IObserver<TResult> ob
         if (current is not null)
         {
             subscription.Dispose();
-            throw new InvalidOperationException("The upstream subscription has already been assigned.");
+            throw new InvalidOperationException(
+                "The upstream subscription has already been assigned."
+            );
         }
     }
 
@@ -75,7 +77,10 @@ internal abstract class OperatorObserver<TSource, TResult>(IObserver<TResult> ob
     private void DisposeSubscription()
     {
         var subscription = Interlocked.Exchange(ref _subscription, DisposedSubscription);
-        if (subscription is not null && ReferenceEquals(subscription, DisposedSubscription) is false)
+        if (
+            subscription is not null
+            && ReferenceEquals(subscription, DisposedSubscription) is false
+        )
         {
             subscription.Dispose();
         }
@@ -142,8 +147,10 @@ internal sealed class WhereObservable<TSource>(
     }
 }
 
-internal sealed class WhereObserver<TSource>(IObserver<TSource> observer, Func<TSource, bool> predicate)
-    : OperatorObserver<TSource, TSource>(observer)
+internal sealed class WhereObserver<TSource>(
+    IObserver<TSource> observer,
+    Func<TSource, bool> predicate
+) : OperatorObserver<TSource, TSource>(observer)
 {
     public override void OnNext(TSource value)
     {

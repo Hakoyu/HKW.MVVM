@@ -3,7 +3,13 @@ namespace HKW.MVVM;
 internal sealed class SampleSubscription<TSource> : IDisposable
 {
     private readonly IObserver<TSource> _observer;
-    private readonly Lock _gate = new();
+    private readonly
+#if NET10_0_OR_GREATER
+    Lock
+#else
+    object
+#endif
+    _gate = new();
     private readonly SingleAssignmentDisposable _subscription = new();
     private ITimer? _timer;
     private bool _hasValue;

@@ -5,7 +5,13 @@ internal sealed class DelaySubscription<TSource> : IDisposable
     private readonly IObserver<TSource> _observer;
     private readonly TimeSpan _dueTime;
     private readonly TimeProvider _timeProvider;
-    private readonly Lock _gate = new();
+    private readonly
+#if NET10_0_OR_GREATER
+    Lock
+#else
+    object
+#endif
+    _gate = new();
     private readonly SingleAssignmentDisposable _subscription = new();
     private readonly Queue<Notification> _notifications = [];
     private ITimer? _timer;
@@ -58,11 +64,14 @@ internal sealed class DelaySubscription<TSource> : IDisposable
         _subscription.Dispose();
     }
 
-    private void OnNext(TSource value) => Enqueue(new Notification(value, null, false, _timeProvider.GetTimestamp()));
+    private void OnNext(TSource value) =>
+        Enqueue(new Notification(value, null, false, _timeProvider.GetTimestamp()));
 
-    private void OnError(Exception error) => Enqueue(new Notification(default, error, true, _timeProvider.GetTimestamp()));
+    private void OnError(Exception error) =>
+        Enqueue(new Notification(default, error, true, _timeProvider.GetTimestamp()));
 
-    private void OnCompleted() => Enqueue(new Notification(default, null, true, _timeProvider.GetTimestamp()));
+    private void OnCompleted() =>
+        Enqueue(new Notification(default, null, true, _timeProvider.GetTimestamp()));
 
     private void Enqueue(Notification notification)
     {

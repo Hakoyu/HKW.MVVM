@@ -5,8 +5,13 @@ internal sealed class BufferSubscription<TSource> : IDisposable
     private readonly IObserver<IList<TSource>> _observer;
     private readonly TimeSpan _timeSpan;
     private readonly int _count;
-    private readonly TimeProvider _timeProvider;
-    private readonly Lock _gate = new();
+    private readonly
+#if NET10_0_OR_GREATER
+    Lock
+#else
+    object
+#endif
+    _gate = new();
     private readonly SingleAssignmentDisposable _subscription = new();
     private readonly bool _useTimer;
     private List<TSource> _buffer = [];
@@ -27,13 +32,12 @@ internal sealed class BufferSubscription<TSource> : IDisposable
         _timeSpan = timeSpan;
         _count = count;
         _useTimer = useTimer;
-        _timeProvider = timeProvider;
 
         try
         {
             if (_useTimer)
             {
-                _timer = _timeProvider.CreateTimer(
+                _timer = timeProvider.CreateTimer(
                     static state => ((BufferSubscription<TSource>)state!).CloseTimedWindow(),
                     this,
                     _timeSpan,

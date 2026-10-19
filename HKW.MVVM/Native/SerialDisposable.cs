@@ -2,7 +2,13 @@ namespace HKW.MVVM;
 
 internal sealed class SerialDisposable : IDisposable
 {
-    private readonly Lock _gate = new();
+    private readonly
+#if NET10_0_OR_GREATER
+    Lock
+#else
+    object
+#endif
+    _gate = new();
     private IDisposable? _current;
     private bool _disposed;
 

@@ -405,6 +405,7 @@ public sealed class IEnableLoggerTests
             TState state,
             Exception? exception,
             Func<TState, Exception?, string> formatter
-        ) { }
+        )
+        { }
     }
 }

@@ -4,7 +4,7 @@ using System.Reflection;
 
 namespace HKW.MVVM;
 
-#pragma warning disable S2436, S3776
+#pragma warning disable S107, S2436, S3776
 /// <summary>
 /// 属性观察结果,包含对象,属性名称和当前值
 /// </summary>
@@ -13,6 +13,28 @@ public readonly record struct PropertyObservation<TSender, TValue>(
     string PropertyName,
     TValue Value
 );
+
+/// <summary>
+/// 单属性 <see cref="WhenAnyExtensions.WhenAnyValue{TSource, TValue}(TSource, Expression{Func{TSource, TValue}}, WhenAnyValueOptions{TValue})"/> 观察选项
+/// </summary>
+public sealed class WhenAnyValueOptions<TValue>
+{
+    /// <summary>
+    /// 用于抑制重复值的比较器
+    /// </summary>
+    public IEqualityComparer<TValue> Comparer { get; init; } = EqualityComparer<TValue>.Default;
+
+    /// <summary>
+    /// 是否跳过订阅时的当前值
+    /// </summary>
+    public bool SkipInitial { get; init; }
+
+    /// <summary>
+    /// 嵌套路径不可用时产生回退值的工厂; 为 <see langword="null"/> 时保持原有的抑制行为
+    /// 工厂可返回 <see langword="null"/>, 且路径不可用状态仍与实际的空叶值区分
+    /// </summary>
+    public Func<TValue>? PathUnavailableFallback { get; init; }
+}
 
 /// <summary>
 /// 将 <see cref="INotifyPropertyChanged"/> 属性转换为冷可观察序列
@@ -35,27 +57,40 @@ public static partial class WhenAnyExtensions
         this TSource source,
         Expression<Func<TSource, TValue>> property
     )
+        where TSource : class, INotifyPropertyChanged =>
+        source.WhenAnyValue(property, new WhenAnyValueOptions<TValue>());
+
+    /// <summary>
+    /// 观察一条属性路径, 并使用自定义去重、初始值及路径不可用回退选项
+    /// </summary>
+    public static IObservable<TValue> WhenAnyValue<TSource, TValue>(
+        this TSource source,
+        Expression<Func<TSource, TValue>> property,
+        WhenAnyValueOptions<TValue> options
+    )
         where TSource : class, INotifyPropertyChanged
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(property);
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(options.Comparer);
 
-        // 直接属性只需 INotifyPropertyChanged
-        // 让嵌套路径继续则重新绑定实现,但对占绝大多数的单属性情形避免反射以及事件处理程序的重建
         if (PropertyPath.TryGetDirectProperty(property, out var directProperty))
         {
             return ObservableExtensions.WithLogger(
                 new DirectPropertyObservable<TSource, TValue>(
                     source,
                     DirectPropertyGetterCache<TSource, TValue>.Getters.Get(directProperty),
-                    directProperty.Name
+                    directProperty.Name,
+                    options.Comparer,
+                    options.SkipInitial
                 ),
                 source
             );
         }
 
         return ObservableExtensions.WithLogger(
-            new PropertyPathObservable<TSource, TValue>(source, property),
+            new PropertyPathObservable<TSource, TValue>(source, property, options),
             source
         );
     }
@@ -249,6 +284,256 @@ public static partial class WhenAnyExtensions
     }
 
     /// <summary>
+    /// 观察 5 个属性, 并在任一值更改时发出最新值元组
+    /// </summary>
+    public static IObservable<(T1, T2, T3, T4, T5)> WhenAnyValue<TSource, T1, T2, T3, T4, T5>(
+        this TSource source,
+        Expression<Func<TSource, T1>> property1,
+        Expression<Func<TSource, T2>> property2,
+        Expression<Func<TSource, T3>> property3,
+        Expression<Func<TSource, T4>> property4,
+        Expression<Func<TSource, T5>> property5
+    )
+        where TSource : class, INotifyPropertyChanged =>
+        Combine(
+            source.WhenAnyValue(property1),
+            source.WhenAnyValue(property2),
+            source.WhenAnyValue(property3),
+            source.WhenAnyValue(property4),
+            source.WhenAnyValue(property5),
+            static (value1, value2, value3, value4, value5) =>
+                (value1, value2, value3, value4, value5)
+        );
+
+    /// <summary>
+    /// 观察 5 个属性, 并在任一值更改时投影其最新值
+    /// </summary>
+    public static IObservable<TResult> WhenAnyValue<TSource, T1, T2, T3, T4, T5, TResult>(
+        this TSource source,
+        Expression<Func<TSource, T1>> property1,
+        Expression<Func<TSource, T2>> property2,
+        Expression<Func<TSource, T3>> property3,
+        Expression<Func<TSource, T4>> property4,
+        Expression<Func<TSource, T5>> property5,
+        Func<T1, T2, T3, T4, T5, TResult> selector
+    )
+        where TSource : class, INotifyPropertyChanged
+    {
+        ArgumentNullException.ThrowIfNull(selector);
+        return Combine(
+            source.WhenAnyValue(property1),
+            source.WhenAnyValue(property2),
+            source.WhenAnyValue(property3),
+            source.WhenAnyValue(property4),
+            source.WhenAnyValue(property5),
+            selector
+        );
+    }
+
+    /// <summary>
+    /// 观察 6 个属性, 并在任一值更改时发出最新值元组
+    /// </summary>
+    public static IObservable<(T1, T2, T3, T4, T5, T6)> WhenAnyValue<
+        TSource,
+        T1,
+        T2,
+        T3,
+        T4,
+        T5,
+        T6
+    >(
+        this TSource source,
+        Expression<Func<TSource, T1>> property1,
+        Expression<Func<TSource, T2>> property2,
+        Expression<Func<TSource, T3>> property3,
+        Expression<Func<TSource, T4>> property4,
+        Expression<Func<TSource, T5>> property5,
+        Expression<Func<TSource, T6>> property6
+    )
+        where TSource : class, INotifyPropertyChanged =>
+        Combine(
+            source.WhenAnyValue(property1),
+            source.WhenAnyValue(property2),
+            source.WhenAnyValue(property3),
+            source.WhenAnyValue(property4),
+            source.WhenAnyValue(property5),
+            source.WhenAnyValue(property6),
+            static (value1, value2, value3, value4, value5, value6) =>
+                (value1, value2, value3, value4, value5, value6)
+        );
+
+    /// <summary>
+    /// 观察 6 个属性, 并在任一值更改时投影其最新值
+    /// </summary>
+    public static IObservable<TResult> WhenAnyValue<TSource, T1, T2, T3, T4, T5, T6, TResult>(
+        this TSource source,
+        Expression<Func<TSource, T1>> property1,
+        Expression<Func<TSource, T2>> property2,
+        Expression<Func<TSource, T3>> property3,
+        Expression<Func<TSource, T4>> property4,
+        Expression<Func<TSource, T5>> property5,
+        Expression<Func<TSource, T6>> property6,
+        Func<T1, T2, T3, T4, T5, T6, TResult> selector
+    )
+        where TSource : class, INotifyPropertyChanged
+    {
+        ArgumentNullException.ThrowIfNull(selector);
+        return Combine(
+            source.WhenAnyValue(property1),
+            source.WhenAnyValue(property2),
+            source.WhenAnyValue(property3),
+            source.WhenAnyValue(property4),
+            source.WhenAnyValue(property5),
+            source.WhenAnyValue(property6),
+            selector
+        );
+    }
+
+    /// <summary>
+    /// 观察 7 个属性, 并在任一值更改时发出最新值元组
+    /// </summary>
+    public static IObservable<(T1, T2, T3, T4, T5, T6, T7)> WhenAnyValue<
+        TSource,
+        T1,
+        T2,
+        T3,
+        T4,
+        T5,
+        T6,
+        T7
+    >(
+        this TSource source,
+        Expression<Func<TSource, T1>> property1,
+        Expression<Func<TSource, T2>> property2,
+        Expression<Func<TSource, T3>> property3,
+        Expression<Func<TSource, T4>> property4,
+        Expression<Func<TSource, T5>> property5,
+        Expression<Func<TSource, T6>> property6,
+        Expression<Func<TSource, T7>> property7
+    )
+        where TSource : class, INotifyPropertyChanged =>
+        Combine(
+            source.WhenAnyValue(property1),
+            source.WhenAnyValue(property2),
+            source.WhenAnyValue(property3),
+            source.WhenAnyValue(property4),
+            source.WhenAnyValue(property5),
+            source.WhenAnyValue(property6),
+            source.WhenAnyValue(property7),
+            static (value1, value2, value3, value4, value5, value6, value7) =>
+                (value1, value2, value3, value4, value5, value6, value7)
+        );
+
+    /// <summary>
+    /// 观察 7 个属性, 并在任一值更改时投影其最新值
+    /// </summary>
+    public static IObservable<TResult> WhenAnyValue<TSource, T1, T2, T3, T4, T5, T6, T7, TResult>(
+        this TSource source,
+        Expression<Func<TSource, T1>> property1,
+        Expression<Func<TSource, T2>> property2,
+        Expression<Func<TSource, T3>> property3,
+        Expression<Func<TSource, T4>> property4,
+        Expression<Func<TSource, T5>> property5,
+        Expression<Func<TSource, T6>> property6,
+        Expression<Func<TSource, T7>> property7,
+        Func<T1, T2, T3, T4, T5, T6, T7, TResult> selector
+    )
+        where TSource : class, INotifyPropertyChanged
+    {
+        ArgumentNullException.ThrowIfNull(selector);
+        return Combine(
+            source.WhenAnyValue(property1),
+            source.WhenAnyValue(property2),
+            source.WhenAnyValue(property3),
+            source.WhenAnyValue(property4),
+            source.WhenAnyValue(property5),
+            source.WhenAnyValue(property6),
+            source.WhenAnyValue(property7),
+            selector
+        );
+    }
+
+    /// <summary>
+    /// 观察 8 个属性, 并在任一值更改时发出最新值元组
+    /// </summary>
+    public static IObservable<(T1, T2, T3, T4, T5, T6, T7, T8)> WhenAnyValue<
+        TSource,
+        T1,
+        T2,
+        T3,
+        T4,
+        T5,
+        T6,
+        T7,
+        T8
+    >(
+        this TSource source,
+        Expression<Func<TSource, T1>> property1,
+        Expression<Func<TSource, T2>> property2,
+        Expression<Func<TSource, T3>> property3,
+        Expression<Func<TSource, T4>> property4,
+        Expression<Func<TSource, T5>> property5,
+        Expression<Func<TSource, T6>> property6,
+        Expression<Func<TSource, T7>> property7,
+        Expression<Func<TSource, T8>> property8
+    )
+        where TSource : class, INotifyPropertyChanged =>
+        Combine(
+            source.WhenAnyValue(property1),
+            source.WhenAnyValue(property2),
+            source.WhenAnyValue(property3),
+            source.WhenAnyValue(property4),
+            source.WhenAnyValue(property5),
+            source.WhenAnyValue(property6),
+            source.WhenAnyValue(property7),
+            source.WhenAnyValue(property8),
+            static (value1, value2, value3, value4, value5, value6, value7, value8) =>
+                (value1, value2, value3, value4, value5, value6, value7, value8)
+        );
+
+    /// <summary>
+    /// 观察 8 个属性, 并在任一值更改时投影其最新值
+    /// </summary>
+    public static IObservable<TResult> WhenAnyValue<
+        TSource,
+        T1,
+        T2,
+        T3,
+        T4,
+        T5,
+        T6,
+        T7,
+        T8,
+        TResult
+    >(
+        this TSource source,
+        Expression<Func<TSource, T1>> property1,
+        Expression<Func<TSource, T2>> property2,
+        Expression<Func<TSource, T3>> property3,
+        Expression<Func<TSource, T4>> property4,
+        Expression<Func<TSource, T5>> property5,
+        Expression<Func<TSource, T6>> property6,
+        Expression<Func<TSource, T7>> property7,
+        Expression<Func<TSource, T8>> property8,
+        Func<T1, T2, T3, T4, T5, T6, T7, T8, TResult> selector
+    )
+        where TSource : class, INotifyPropertyChanged
+    {
+        ArgumentNullException.ThrowIfNull(selector);
+        return Combine(
+            source.WhenAnyValue(property1),
+            source.WhenAnyValue(property2),
+            source.WhenAnyValue(property3),
+            source.WhenAnyValue(property4),
+            source.WhenAnyValue(property5),
+            source.WhenAnyValue(property6),
+            source.WhenAnyValue(property7),
+            source.WhenAnyValue(property8),
+            selector
+        );
+    }
+
+    /// <summary>
     /// 观察一条属性路径,并投影出包含发送方,最终属性名称和值的观察结果
     /// </summary>
     /// <typeparam name="TSource">发出通知的源类型</typeparam>
@@ -425,7 +710,7 @@ public static partial class WhenAnyExtensions
             source1,
             new AnonymousObservable<TResult>(observer =>
             {
-                var gate = new Lock();
+                var gate = new object();
                 var value1 = default(T1)!;
                 var value2 = default(T2)!;
                 var hasValue1 = false;
@@ -560,6 +845,129 @@ public static partial class WhenAnyExtensions
             (values, value4) => selector(values.Item1, values.Item2, values.Item3, value4)
         );
 
+    private static IObservable<TResult> Combine<T1, T2, T3, T4, T5, TResult>(
+        IObservable<T1> source1,
+        IObservable<T2> source2,
+        IObservable<T3> source3,
+        IObservable<T4> source4,
+        IObservable<T5> source5,
+        Func<T1, T2, T3, T4, T5, TResult> selector
+    ) =>
+        Combine(
+            Combine(
+                source1,
+                source2,
+                source3,
+                source4,
+                static (value1, value2, value3, value4) => (value1, value2, value3, value4)
+            ),
+            source5,
+            (values, value5) =>
+                selector(values.Item1, values.Item2, values.Item3, values.Item4, value5)
+        );
+
+    private static IObservable<TResult> Combine<T1, T2, T3, T4, T5, T6, TResult>(
+        IObservable<T1> source1,
+        IObservable<T2> source2,
+        IObservable<T3> source3,
+        IObservable<T4> source4,
+        IObservable<T5> source5,
+        IObservable<T6> source6,
+        Func<T1, T2, T3, T4, T5, T6, TResult> selector
+    ) =>
+        Combine(
+            Combine(
+                source1,
+                source2,
+                source3,
+                source4,
+                source5,
+                static (value1, value2, value3, value4, value5) =>
+                    (value1, value2, value3, value4, value5)
+            ),
+            source6,
+            (values, value6) =>
+                selector(
+                    values.Item1,
+                    values.Item2,
+                    values.Item3,
+                    values.Item4,
+                    values.Item5,
+                    value6
+                )
+        );
+
+    private static IObservable<TResult> Combine<T1, T2, T3, T4, T5, T6, T7, TResult>(
+        IObservable<T1> source1,
+        IObservable<T2> source2,
+        IObservable<T3> source3,
+        IObservable<T4> source4,
+        IObservable<T5> source5,
+        IObservable<T6> source6,
+        IObservable<T7> source7,
+        Func<T1, T2, T3, T4, T5, T6, T7, TResult> selector
+    ) =>
+        Combine(
+            Combine(
+                source1,
+                source2,
+                source3,
+                source4,
+                source5,
+                source6,
+                static (value1, value2, value3, value4, value5, value6) =>
+                    (value1, value2, value3, value4, value5, value6)
+            ),
+            source7,
+            (values, value7) =>
+                selector(
+                    values.Item1,
+                    values.Item2,
+                    values.Item3,
+                    values.Item4,
+                    values.Item5,
+                    values.Item6,
+                    value7
+                )
+        );
+
+    private static IObservable<TResult> Combine<T1, T2, T3, T4, T5, T6, T7, T8, TResult>(
+        IObservable<T1> source1,
+        IObservable<T2> source2,
+        IObservable<T3> source3,
+        IObservable<T4> source4,
+        IObservable<T5> source5,
+        IObservable<T6> source6,
+        IObservable<T7> source7,
+        IObservable<T8> source8,
+        Func<T1, T2, T3, T4, T5, T6, T7, T8, TResult> selector
+    ) =>
+        Combine(
+            Combine(
+                source1,
+                source2,
+                source3,
+                source4,
+                source5,
+                source6,
+                source7,
+                static (value1, value2, value3, value4, value5, value6, value7) =>
+                    (value1, value2, value3, value4, value5, value6, value7)
+            ),
+            source8,
+            (values, value8) =>
+                selector(
+                    values.Item1,
+                    values.Item2,
+                    values.Item3,
+                    values.Item4,
+                    values.Item5,
+                    values.Item6,
+                    values.Item7,
+                    value8
+                )
+        );
+
     private static class DirectPropertyGetterCache<TSource, TValue>
     {
         public static readonly MemoizingLRUCache<PropertyInfo, Func<TSource, TValue>> Getters = new(
@@ -635,7 +1043,9 @@ public static partial class WhenAnyExtensions
     private sealed class DirectPropertyObservable<TSource, TValue>(
         TSource source,
         Func<TSource, TValue> getter,
-        string propertyName
+        string propertyName,
+        IEqualityComparer<TValue> comparer,
+        bool skipInitial
     ) : IObservable<TValue>
         where TSource : class, INotifyPropertyChanged
     {
@@ -646,6 +1056,8 @@ public static partial class WhenAnyExtensions
                 source,
                 getter,
                 propertyName,
+                comparer,
+                skipInitial,
                 observer
             );
         }
@@ -657,6 +1069,7 @@ public static partial class WhenAnyExtensions
         private readonly TSource _source;
         private readonly Func<TSource, TValue> _getter;
         private readonly string _propertyName;
+        private readonly IEqualityComparer<TValue> _comparer;
         private readonly IObserver<TValue> _observer;
         private bool _hasValue;
         private TValue? _lastValue;
@@ -666,15 +1079,18 @@ public static partial class WhenAnyExtensions
             TSource source,
             Func<TSource, TValue> getter,
             string propertyName,
+            IEqualityComparer<TValue> comparer,
+            bool skipInitial,
             IObserver<TValue> observer
         )
         {
             _source = source;
             _getter = getter;
             _propertyName = propertyName;
+            _comparer = comparer;
             _observer = observer;
             _source.PropertyChanged += OnPropertyChanged;
-            PublishCurrentValue();
+            PublishCurrentValue(publish: !skipInitial);
         }
 
         public void Dispose()
@@ -692,11 +1108,11 @@ public static partial class WhenAnyExtensions
                 || eventArgs.PropertyName == _propertyName
             )
             {
-                PublishCurrentValue();
+                PublishCurrentValue(publish: true);
             }
         }
 
-        private void PublishCurrentValue()
+        private void PublishCurrentValue(bool publish)
         {
             if (Volatile.Read(ref _disposed) != 0)
             {
@@ -707,6 +1123,10 @@ public static partial class WhenAnyExtensions
             try
             {
                 value = _getter(_source);
+                if (_hasValue && _comparer.Equals(_lastValue!, value))
+                {
+                    return;
+                }
             }
             catch (Exception exception)
             {
@@ -719,14 +1139,12 @@ public static partial class WhenAnyExtensions
                 return;
             }
 
-            if (_hasValue && EqualityComparer<TValue>.Default.Equals(_lastValue!, value))
-            {
-                return;
-            }
-
             _hasValue = true;
             _lastValue = value;
-            _observer.OnNext(value);
+            if (publish)
+            {
+                _observer.OnNext(value);
+            }
         }
     }
 
@@ -737,10 +1155,16 @@ public static partial class WhenAnyExtensions
         private readonly PropertyInfo[] _path;
         private readonly Func<object, object?>[] _pathGetters;
         private readonly Func<object, TValue> _leafGetter;
+        private readonly WhenAnyValueOptions<TValue> _options;
 
-        public PropertyPathObservable(TSource source, Expression<Func<TSource, TValue>> expression)
+        public PropertyPathObservable(
+            TSource source,
+            Expression<Func<TSource, TValue>> expression,
+            WhenAnyValueOptions<TValue> options
+        )
         {
             _source = source;
+            _options = options;
             _path = PropertyPath.Parse(expression);
             _pathGetters = new Func<object, object?>[_path.Length - 1];
             for (var index = 0; index < _pathGetters.Length; index++)
@@ -758,6 +1182,7 @@ public static partial class WhenAnyExtensions
                 _path,
                 _pathGetters,
                 _leafGetter,
+                _options,
                 observer
             );
         }
@@ -766,7 +1191,13 @@ public static partial class WhenAnyExtensions
     private sealed class PropertyPathSubscription<TSource, TValue> : IDisposable
         where TSource : class, INotifyPropertyChanged
     {
-        private readonly Lock _gate = new();
+        private readonly
+#if NET10_0_OR_GREATER
+        Lock
+#else
+        object
+#endif
+        _gate = new();
         private readonly TSource _source;
         private readonly PropertyInfo[] _path;
         private readonly Func<object, object?>[] _pathGetters;
@@ -777,9 +1208,11 @@ public static partial class WhenAnyExtensions
         private readonly PropertyChangedEventHandler[] _handlers;
         private readonly int _pathLength;
         private readonly int _lastPathIndex;
-        private readonly IEqualityComparer<TValue> _valueComparer =
-            EqualityComparer<TValue>.Default;
+        private readonly IEqualityComparer<TValue> _valueComparer;
+        private readonly Func<TValue>? _pathUnavailableFallback;
         private bool _hasValue;
+        private bool _lastValueWasFallback;
+        private bool _skipNextPublish;
         private TValue? _lastValue;
         private bool _disposed;
 
@@ -788,6 +1221,7 @@ public static partial class WhenAnyExtensions
             PropertyInfo[] path,
             Func<object, object?>[] pathGetters,
             Func<object, TValue> leafGetter,
+            WhenAnyValueOptions<TValue> options,
             IObserver<TValue> observer
         )
         {
@@ -797,6 +1231,9 @@ public static partial class WhenAnyExtensions
             _pathLength = path.Length;
             _lastPathIndex = _pathLength - 1;
             _leafGetter = leafGetter;
+            _valueComparer = options.Comparer;
+            _pathUnavailableFallback = options.PathUnavailableFallback;
+            _skipNextPublish = options.SkipInitial;
             _observer = observer;
             _owners = new object?[_pathLength];
             _notifiers = new INotifyPropertyChanged?[_pathLength];
@@ -862,11 +1299,19 @@ public static partial class WhenAnyExtensions
                     }
 
                     DetachHandlersFrom(changedPathIndex + 1);
+                    var pathAvailable = false;
                     for (var index = changedPathIndex; index < _pathLength; index++)
                     {
                         if (owner is null)
                         {
-                            return;
+                            if (_pathUnavailableFallback is not null)
+                            {
+                                value = _pathUnavailableFallback();
+                                publish = Accept(value, isFallback: true);
+                            }
+
+                            _skipNextPublish = false;
+                            break;
                         }
 
                         if (index > changedPathIndex || _owners[index] is null)
@@ -882,6 +1327,7 @@ public static partial class WhenAnyExtensions
                         if (index == _lastPathIndex)
                         {
                             value = _leafGetter(owner);
+                            pathAvailable = true;
                         }
                         else
                         {
@@ -889,11 +1335,9 @@ public static partial class WhenAnyExtensions
                         }
                     }
 
-                    if (_hasValue is false || _valueComparer.Equals(_lastValue!, value!) is false)
+                    if (pathAvailable)
                     {
-                        _hasValue = true;
-                        _lastValue = value;
-                        publish = true;
+                        publish = Accept(value!, isFallback: false);
                     }
                 }
                 catch (TargetInvocationException exception)
@@ -918,6 +1362,24 @@ public static partial class WhenAnyExtensions
             {
                 _observer.OnNext(value!);
             }
+        }
+
+        private bool Accept(TValue value, bool isFallback)
+        {
+            var changed =
+                !_hasValue
+                || _lastValueWasFallback != isFallback
+                || !_valueComparer.Equals(_lastValue!, value);
+            _hasValue = true;
+            _lastValue = value;
+            _lastValueWasFallback = isFallback;
+            if (_skipNextPublish)
+            {
+                _skipNextPublish = false;
+                return false;
+            }
+
+            return changed;
         }
 
         private void DetachHandlersFrom(int startIndex)
@@ -1018,4 +1480,4 @@ public static partial class WhenAnyExtensions
         }
     }
 }
-#pragma warning restore S2436, S3776
+#pragma warning restore S107, S2436, S3776

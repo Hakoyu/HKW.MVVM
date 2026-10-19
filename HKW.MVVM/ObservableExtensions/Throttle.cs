@@ -26,8 +26,12 @@ public static partial class ObservableExtensions
     public static IObservable<TSource> Throttle<TSource>(
         this IObservable<TSource> source,
         TimeSpan dueTime,
-        ObservableSchedulers scheduler
-    ) => Throttle(source, dueTime, TimeProvider.System).ObserveOn(scheduler);
+        IObservableScheduler scheduler
+    )
+    {
+        ArgumentNullException.ThrowIfNull(scheduler);
+        return Throttle(source, dueTime, TimeProvider.System).ObserveOn(scheduler);
+    }
 
     /// <summary>
     /// 使用提供的时间提供程序,仅当源在指定时长内保持静默后,才发出最近的一个值

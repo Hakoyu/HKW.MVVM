@@ -5,7 +5,13 @@ internal sealed class ThrottleSubscription<TSource> : IDisposable
     private readonly IObserver<TSource> _observer;
     private readonly TimeSpan _dueTime;
     private readonly TimeProvider _timeProvider;
-    private readonly Lock _gate = new();
+    private readonly
+#if NET10_0_OR_GREATER
+    Lock
+#else
+    object
+#endif
+    _gate = new();
     private readonly SingleAssignmentDisposable _subscription = new();
     private ITimer? _timer;
     private long _version;

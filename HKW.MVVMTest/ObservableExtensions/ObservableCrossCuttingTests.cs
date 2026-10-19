@@ -231,7 +231,7 @@ public sealed class ObservableCrossCuttingTests
 
     private sealed class ConcurrentObservable<T> : IObservable<T>
     {
-        private readonly Lock _gate = new();
+        private readonly object _gate = new();
         private readonly List<IObserver<T>> _observers = [];
         private int _disposalCount;
 

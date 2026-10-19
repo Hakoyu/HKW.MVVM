@@ -47,7 +47,7 @@ public static partial class ObservableExtensions
 
         return Create<EventPattern<TEventArgs>>(observer =>
         {
-            var gate = new Lock();
+            var gate = new object();
             var disposed = false;
             EventHandler<TEventArgs> handler = (sender, eventArgs) =>
             {
@@ -87,7 +87,7 @@ public static partial class ObservableExtensions
     /// <param name="addHandler">添加事件处理程序的操作</param>
     /// <param name="removeHandler">移除事件处理程序的操作</param>
     /// <returns>发布事件发送方和事件参数的可观察序列</returns>
-    /// <remarks>显式转换器不依赖运行时反射或动态代码，适用于 AOT 发布。</remarks>
+    /// <remarks>显式转换器不依赖运行时反射或动态代码, 适用于 AOT 发布</remarks>
     public static IObservable<EventPattern<TEventArgs>> FromEventPattern<TDelegate, TEventArgs>(
         Func<EventHandler<TEventArgs>, TDelegate> conversion,
         Action<TDelegate> addHandler,
@@ -101,7 +101,7 @@ public static partial class ObservableExtensions
 
         return Create<EventPattern<TEventArgs>>(observer =>
         {
-            var gate = new Lock();
+            var gate = new object();
             var disposed = false;
             EventHandler<TEventArgs> forwardingHandler = (sender, eventArgs) =>
             {
@@ -147,7 +147,7 @@ public static partial class ObservableExtensions
         Timer(dueTime, TimeProvider.System);
 
     /// <summary>
-    /// 使用指定时间提供程序，在指定相对时间后发布单个值
+    /// 使用指定时间提供程序, 在指定相对时间后发布单个值
     /// </summary>
     /// <param name="dueTime">发布第一个值前的等待时间</param>
     /// <param name="timeProvider">用于创建计时器的时间提供程序</param>
@@ -168,7 +168,7 @@ public static partial class ObservableExtensions
         Timer(dueTime, TimeProvider.System);
 
     /// <summary>
-    /// 使用指定时间提供程序，在指定绝对时间发布单个值
+    /// 使用指定时间提供程序, 在指定绝对时间发布单个值
     /// </summary>
     /// <param name="dueTime">发布值的时间</param>
     /// <param name="timeProvider">用于读取当前时间并创建计时器的时间提供程序</param>
@@ -194,7 +194,7 @@ public static partial class ObservableExtensions
         Timer(dueTime, period, TimeProvider.System);
 
     /// <summary>
-    /// 使用指定时间提供程序，在指定绝对时间开始按固定周期发布递增值
+    /// 使用指定时间提供程序, 在指定绝对时间开始按固定周期发布递增值
     /// </summary>
     /// <param name="dueTime">发布第一个值的时间</param>
     /// <param name="period">后续值之间的时间间隔</param>
@@ -226,7 +226,7 @@ public static partial class ObservableExtensions
         Timer(dueTime, period, TimeProvider.System);
 
     /// <summary>
-    /// 使用指定时间提供程序，在指定相对时间后开始按固定周期发布递增值
+    /// 使用指定时间提供程序, 在指定相对时间后开始按固定周期发布递增值
     /// </summary>
     /// <param name="dueTime">发布第一个值前的等待时间</param>
     /// <param name="period">后续值之间的时间间隔</param>
@@ -298,7 +298,13 @@ public static partial class ObservableExtensions
         TimeSpan period
     ) : IDisposable
     {
-        private readonly Lock _gate = new();
+        private readonly
+#if NET10_0_OR_GREATER
+    Lock
+#else
+    object
+#endif
+    _gate = new();
         private ITimer? _timer;
         private long _next;
         private bool _oneShotFired;

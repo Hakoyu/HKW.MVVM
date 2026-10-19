@@ -1,4 +1,4 @@
-using System.Linq.Expressions;
+﻿using System.Linq.Expressions;
 using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace HKW.MVVM;
@@ -8,7 +8,7 @@ public static partial class ObservableExtensions
     /// <summary>
     /// 将可观察序列转换为针对由表达式选择的只读拥有者属性的,带调度的辅助对象
     /// </summary>
-    /// <typeparam name="TOwner">CommunityToolkit 可观察对象拥有者的类型</typeparam>
+    /// <typeparam name="TOwner"><see cref="ObservableObject"/> 可观察对象拥有者的类型</typeparam>
     /// <typeparam name="TValue">属性的值类型</typeparam>
     /// <param name="source">提供属性值的序列</param>
     /// <param name="owner">拥有该只读属性的对象</param>
@@ -16,16 +16,12 @@ public static partial class ObservableExtensions
     /// <param name="scheduler">用于派发值变更和通知的调度器</param>
     /// <param name="deferSubscription">是否将源订阅推迟到首次读取该辅助对象的值时</param>
     /// <returns>存储最新值并通知拥有者的可观察属性辅助对象</returns>
-    /// <remarks>
-    /// <see cref="ObservableSchedulers.Current"/> 会在创建辅助对象时捕获
-    /// <see cref="SynchronizationContext.Current"/>,不存在上下文时回退到线程池
-    /// <see cref="ObservableSchedulers.ThreadPool"/> 则始终将变更排队到线程池
-    /// </remarks>
+    /// <remarks>使用 <see cref="ObservableSchedulers"/> 中的内置调度器或自定义调度器派发通知.</remarks>
     public static ObservableAsPropertyHelper<TValue> ToProperty<TOwner, TValue>(
         this IObservable<TValue> source,
         TOwner owner,
         Expression<Func<TOwner, TValue>> property,
-        ObservableSchedulers scheduler,
+        IObservableScheduler scheduler,
         bool deferSubscription = false
     )
         where TOwner : ObservableObject
@@ -88,16 +84,12 @@ public static partial class ObservableExtensions
     /// <param name="scheduler">用于派发值变更和通知的调度器</param>
     /// <param name="deferSubscription">是否将源订阅推迟到首次读取该辅助对象的值时</param>
     /// <returns>存储最新值并通知拥有者的可观察属性辅助对象</returns>
-    /// <remarks>
-    /// <see cref="ObservableSchedulers.Current"/> 会在创建辅助对象时捕获
-    /// <see cref="SynchronizationContext.Current"/>,不存在上下文时回退到线程池
-    /// <see cref="ObservableSchedulers.ThreadPool"/> 则始终将变更排队到线程池
-    /// </remarks>
+    /// <remarks>使用 <see cref="ObservableSchedulers"/> 中的内置调度器或自定义调度器派发通知.</remarks>
     public static ObservableAsPropertyHelper<TValue> ToProperty<TOwner, TValue>(
         this IObservable<TValue> source,
         TOwner owner,
         string propertyName,
-        ObservableSchedulers scheduler,
+        IObservableScheduler scheduler,
         bool deferSubscription = false
     )
         where TOwner : ObservableObject
@@ -164,17 +156,13 @@ public static partial class ObservableExtensions
     /// <param name="initialValue">在源产生首个去重值之前所公开的值</param>
     /// <param name="deferSubscription">是否将源订阅推迟到首次读取该辅助对象的值时</param>
     /// <returns>存储最新值并通知拥有者的可观察属性辅助对象</returns>
-    /// <remarks>
-    /// <see cref="ObservableSchedulers.Current"/> 会在创建辅助对象时捕获
-    /// <see cref="SynchronizationContext.Current"/>,不存在上下文时回退到线程池
-    /// <see cref="ObservableSchedulers.ThreadPool"/> 则始终将变更排队到线程池
-    /// </remarks>
+    /// <remarks>使用 <see cref="ObservableSchedulers"/> 中的内置调度器或自定义调度器派发通知.</remarks>
     public static ObservableAsPropertyHelper<TValue> ToProperty<TOwner, TValue>(
         this IObservable<TValue> source,
         TOwner owner,
         Expression<Func<TOwner, TValue>> property,
         TValue initialValue,
-        ObservableSchedulers scheduler,
+        IObservableScheduler scheduler,
         bool deferSubscription = false
     )
         where TOwner : ObservableObject
@@ -240,17 +228,13 @@ public static partial class ObservableExtensions
     /// <param name="initialValue">在源产生首个去重值之前所公开的值</param>
     /// <param name="deferSubscription">是否将源订阅推迟到首次读取该辅助对象的值时</param>
     /// <returns>存储最新值并通知拥有者的可观察属性辅助对象</returns>
-    /// <remarks>
-    /// <see cref="ObservableSchedulers.Current"/> 会在创建辅助对象时捕获
-    /// <see cref="SynchronizationContext.Current"/>,不存在上下文时回退到线程池
-    /// <see cref="ObservableSchedulers.ThreadPool"/> 则始终将变更排队到线程池
-    /// </remarks>
+    /// <remarks>使用 <see cref="ObservableSchedulers"/> 中的内置调度器或自定义调度器派发通知.</remarks>
     public static ObservableAsPropertyHelper<TValue> ToProperty<TOwner, TValue>(
         this IObservable<TValue> source,
         TOwner owner,
         string propertyName,
         TValue initialValue,
-        ObservableSchedulers scheduler,
+        IObservableScheduler scheduler,
         bool deferSubscription = false
     )
         where TOwner : ObservableObject
@@ -304,6 +288,74 @@ public static partial class ObservableExtensions
             initialValue,
             deferSubscription,
             synchronizationContext
+        );
+    }
+
+    /// <summary>
+    /// 使用统一选项创建可观察属性辅助对象
+    /// </summary>
+    public static ObservableAsPropertyHelper<TValue> ToProperty<TOwner, TValue>(
+        this IObservable<TValue> source,
+        TOwner owner,
+        Expression<Func<TOwner, TValue>> property,
+        ObservableAsPropertyOptions<TValue> options
+    )
+        where TOwner : ObservableObject
+    {
+        ArgumentNullException.ThrowIfNull(property);
+        return ToProperty(source, owner, property.GetPropertyName(), default!, options);
+    }
+
+    /// <summary>
+    /// 使用初始值和统一选项创建可观察属性辅助对象
+    /// </summary>
+    public static ObservableAsPropertyHelper<TValue> ToProperty<TOwner, TValue>(
+        this IObservable<TValue> source,
+        TOwner owner,
+        Expression<Func<TOwner, TValue>> property,
+        TValue initialValue,
+        ObservableAsPropertyOptions<TValue> options
+    )
+        where TOwner : ObservableObject
+    {
+        ArgumentNullException.ThrowIfNull(property);
+        return ToProperty(source, owner, property.GetPropertyName(), initialValue, options);
+    }
+
+    /// <summary>
+    /// 使用统一选项创建按名称通知的可观察属性辅助对象
+    /// </summary>
+    public static ObservableAsPropertyHelper<TValue> ToProperty<TOwner, TValue>(
+        this IObservable<TValue> source,
+        TOwner owner,
+        string propertyName,
+        ObservableAsPropertyOptions<TValue> options
+    )
+        where TOwner : ObservableObject =>
+        ToProperty(source, owner, propertyName, default!, options);
+
+    /// <summary>
+    /// 使用初始值和统一选项创建按名称通知的可观察属性辅助对象
+    /// </summary>
+    public static ObservableAsPropertyHelper<TValue> ToProperty<TOwner, TValue>(
+        this IObservable<TValue> source,
+        TOwner owner,
+        string propertyName,
+        TValue initialValue,
+        ObservableAsPropertyOptions<TValue> options
+    )
+        where TOwner : ObservableObject
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(owner);
+        ArgumentException.ThrowIfNullOrEmpty(propertyName);
+        ArgumentNullException.ThrowIfNull(options);
+        return new ObservableAsPropertyHelper<TValue>(
+            source,
+            owner,
+            propertyName,
+            initialValue,
+            options
         );
     }
 }

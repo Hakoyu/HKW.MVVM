@@ -10,7 +10,13 @@ namespace HKW.MVVM;
 internal sealed class MemoizingLRUCache<TKey, TValue>
     where TKey : notnull
 {
-    private readonly Lock _gate = new();
+    private readonly
+#if NET10_0_OR_GREATER
+    Lock
+#else
+    object
+#endif
+    _gate = new();
     private readonly Func<TKey, TValue> _valueFactory;
     private readonly int _maximumSize;
     private readonly Dictionary<TKey, CacheEntry> _entries;

@@ -2,7 +2,13 @@ namespace HKW.MVVM;
 
 internal sealed class CombineLatestSubscription<TResult> : IDisposable
 {
-    private readonly Lock _gate = new();
+    private readonly
+#if NET10_0_OR_GREATER
+    Lock
+#else
+    object
+#endif
+    _gate = new();
     private readonly IObserver<TResult> _observer;
     private readonly Func<object?[], TResult> _selector;
     private readonly object?[] _values;
@@ -11,7 +17,11 @@ internal sealed class CombineLatestSubscription<TResult> : IDisposable
     private readonly MultipleDisposable _subscriptions = new();
     private bool _stopped;
 
-    public CombineLatestSubscription(IObserver<TResult> observer, int sourceCount, Func<object?[], TResult> selector)
+    public CombineLatestSubscription(
+        IObserver<TResult> observer,
+        int sourceCount,
+        Func<object?[], TResult> selector
+    )
     {
         _observer = observer;
         _selector = selector;
@@ -20,11 +30,19 @@ internal sealed class CombineLatestSubscription<TResult> : IDisposable
         _completed = new bool[sourceCount];
     }
 
-    public bool IsStopped { get { lock (_gate) return _stopped; } }
+    public bool IsStopped
+    {
+        get
+        {
+            lock (_gate)
+                return _stopped;
+        }
+    }
 
     public void Subscribe<T>(int index, IObservable<T> source)
     {
-        if (IsStopped) return;
+        if (IsStopped)
+            return;
         var slot = new SingleAssignmentDisposable();
         _subscriptions.Add(slot);
         try
@@ -32,7 +50,8 @@ internal sealed class CombineLatestSubscription<TResult> : IDisposable
             slot.Disposable = source.Subscribe(
                 value => Next(index, value),
                 Fail,
-                () => Complete(index, slot));
+                () => Complete(index, slot)
+            );
         }
         catch (Exception exception)
         {
@@ -45,10 +64,12 @@ internal sealed class CombineLatestSubscription<TResult> : IDisposable
         Exception? failure = null;
         lock (_gate)
         {
-            if (_stopped) return;
+            if (_stopped)
+                return;
             _values[index] = value;
             _hasValues[index] = true;
-            if (!_hasValues.All(static hasValue => hasValue)) return;
+            if (!_hasValues.All(static hasValue => hasValue))
+                return;
             try
             {
                 _observer.OnNext(_selector((object?[])_values.Clone()));
@@ -71,10 +92,12 @@ internal sealed class CombineLatestSubscription<TResult> : IDisposable
         var complete = false;
         lock (_gate)
         {
-            if (_stopped) return;
+            if (_stopped)
+                return;
             _completed[index] = true;
             complete = !_hasValues[index] || _completed.All(static value => value);
-            if (complete) _stopped = true;
+            if (complete)
+                _stopped = true;
         }
         _subscriptions.Remove(slot);
         slot.Dispose();
@@ -89,7 +112,8 @@ internal sealed class CombineLatestSubscription<TResult> : IDisposable
     {
         lock (_gate)
         {
-            if (_stopped) return;
+            if (_stopped)
+                return;
             _stopped = true;
         }
         _observer.OnError(error);
@@ -98,14 +122,21 @@ internal sealed class CombineLatestSubscription<TResult> : IDisposable
 
     public void Dispose()
     {
-        lock (_gate) _stopped = true;
+        lock (_gate)
+            _stopped = true;
         _subscriptions.Dispose();
     }
 }
 
 internal sealed class MergeSubscription<T> : IDisposable
 {
-    private readonly Lock _gate = new();
+    private readonly
+#if NET10_0_OR_GREATER
+    Lock
+#else
+    object
+#endif
+    _gate = new();
     private readonly IObserver<T> _observer;
     private readonly MultipleDisposable _subscriptions = new();
     private int _active;
@@ -134,13 +165,20 @@ internal sealed class MergeSubscription<T> : IDisposable
                     Fail(exception);
                     return;
                 }
-                if (!moved) break;
+                if (!moved)
+                    break;
                 if (source is null)
                 {
-                    Fail(new ArgumentNullException(nameof(sources), "The source sequence contains a null observable."));
+                    Fail(
+                        new ArgumentNullException(
+                            nameof(sources),
+                            "The source sequence contains a null observable."
+                        )
+                    );
                     return;
                 }
-                if (!SubscribeInner(source)) return;
+                if (!SubscribeInner(source))
+                    return;
             }
         }
         catch (Exception exception)
@@ -150,8 +188,14 @@ internal sealed class MergeSubscription<T> : IDisposable
         }
         finally
         {
-            try { enumerator?.Dispose(); }
-            catch (Exception exception) { Fail(exception); }
+            try
+            {
+                enumerator?.Dispose();
+            }
+            catch (Exception exception)
+            {
+                Fail(exception);
+            }
         }
 
         var complete = false;
@@ -159,16 +203,19 @@ internal sealed class MergeSubscription<T> : IDisposable
         {
             _enumerationComplete = true;
             complete = !_stopped && _active == 0;
-            if (complete) _stopped = true;
+            if (complete)
+                _stopped = true;
         }
-        if (complete) _observer.OnCompleted();
+        if (complete)
+            _observer.OnCompleted();
     }
 
     private bool SubscribeInner(IObservable<T> source)
     {
         lock (_gate)
         {
-            if (_stopped) return false;
+            if (_stopped)
+                return false;
             _active++;
         }
         var slot = new SingleAssignmentDisposable();
@@ -176,7 +223,8 @@ internal sealed class MergeSubscription<T> : IDisposable
         try
         {
             slot.Disposable = source.Subscribe(Next, Fail, () => InnerCompleted(slot));
-            lock (_gate) return !_stopped;
+            lock (_gate)
+                return !_stopped;
         }
         catch (Exception exception)
         {
@@ -189,7 +237,8 @@ internal sealed class MergeSubscription<T> : IDisposable
     {
         lock (_gate)
         {
-            if (_stopped) return;
+            if (_stopped)
+                return;
             _observer.OnNext(value);
         }
     }
@@ -199,21 +248,25 @@ internal sealed class MergeSubscription<T> : IDisposable
         var complete = false;
         lock (_gate)
         {
-            if (_stopped) return;
+            if (_stopped)
+                return;
             _active--;
             complete = _enumerationComplete && _active == 0;
-            if (complete) _stopped = true;
+            if (complete)
+                _stopped = true;
         }
         _subscriptions.Remove(slot);
         slot.Dispose();
-        if (complete) _observer.OnCompleted();
+        if (complete)
+            _observer.OnCompleted();
     }
 
     public void Fail(Exception error)
     {
         lock (_gate)
         {
-            if (_stopped) return;
+            if (_stopped)
+                return;
             _stopped = true;
         }
         _observer.OnError(error);
@@ -222,21 +275,31 @@ internal sealed class MergeSubscription<T> : IDisposable
 
     public void Dispose()
     {
-        lock (_gate) _stopped = true;
+        lock (_gate)
+            _stopped = true;
         _subscriptions.Dispose();
     }
 }
 
 internal sealed class SelectManySubscription<TSource, TResult> : IDisposable
 {
-    private readonly Lock _gate = new();
+    private readonly
+#if NET10_0_OR_GREATER
+    Lock
+#else
+    object
+#endif
+    _gate = new();
     private readonly IObserver<TResult> _observer;
     private readonly Func<TSource, IObservable<TResult>> _selector;
     private readonly MultipleDisposable _subscriptions = new();
     private int _active = 1;
     private bool _stopped;
 
-    public SelectManySubscription(IObserver<TResult> observer, Func<TSource, IObservable<TResult>> selector)
+    public SelectManySubscription(
+        IObserver<TResult> observer,
+        Func<TSource, IObservable<TResult>> selector
+    )
     {
         _observer = observer;
         _selector = selector;
@@ -246,26 +309,52 @@ internal sealed class SelectManySubscription<TSource, TResult> : IDisposable
     {
         var slot = new SingleAssignmentDisposable();
         _subscriptions.Add(slot);
-        try { slot.Disposable = source.Subscribe(OuterNext, Fail, () => OuterCompleted(slot)); }
-        catch (Exception exception) { Fail(exception); }
+        try
+        {
+            slot.Disposable = source.Subscribe(OuterNext, Fail, () => OuterCompleted(slot));
+        }
+        catch (Exception exception)
+        {
+            Fail(exception);
+        }
     }
 
     private void OuterNext(TSource value)
     {
-        lock (_gate) { if (_stopped) return; }
+        lock (_gate)
+        {
+            if (_stopped)
+                return;
+        }
         IObservable<TResult> inner;
-        try { inner = _selector(value) ?? throw new InvalidOperationException("The selector returned a null observable."); }
-        catch (Exception exception) { Fail(exception); return; }
+        try
+        {
+            inner =
+                _selector(value)
+                ?? throw new InvalidOperationException("The selector returned a null observable.");
+        }
+        catch (Exception exception)
+        {
+            Fail(exception);
+            return;
+        }
 
         lock (_gate)
         {
-            if (_stopped) return;
+            if (_stopped)
+                return;
             _active++;
         }
         var slot = new SingleAssignmentDisposable();
         _subscriptions.Add(slot);
-        try { slot.Disposable = inner.Subscribe(Next, Fail, () => Completed(slot)); }
-        catch (Exception exception) { Fail(exception); }
+        try
+        {
+            slot.Disposable = inner.Subscribe(Next, Fail, () => Completed(slot));
+        }
+        catch (Exception exception)
+        {
+            Fail(exception);
+        }
     }
 
     private void OuterCompleted(SingleAssignmentDisposable slot) => Completed(slot);
@@ -275,10 +364,12 @@ internal sealed class SelectManySubscription<TSource, TResult> : IDisposable
         var complete = false;
         lock (_gate)
         {
-            if (_stopped) return;
+            if (_stopped)
+                return;
             _active--;
             complete = _active == 0;
-            if (complete) _stopped = true;
+            if (complete)
+                _stopped = true;
         }
         if (slot is not null)
         {
@@ -296,7 +387,8 @@ internal sealed class SelectManySubscription<TSource, TResult> : IDisposable
     {
         lock (_gate)
         {
-            if (!_stopped) _observer.OnNext(value);
+            if (!_stopped)
+                _observer.OnNext(value);
         }
     }
 
@@ -304,7 +396,8 @@ internal sealed class SelectManySubscription<TSource, TResult> : IDisposable
     {
         lock (_gate)
         {
-            if (_stopped) return;
+            if (_stopped)
+                return;
             _stopped = true;
         }
         _observer.OnError(error);
@@ -313,14 +406,21 @@ internal sealed class SelectManySubscription<TSource, TResult> : IDisposable
 
     public void Dispose()
     {
-        lock (_gate) _stopped = true;
+        lock (_gate)
+            _stopped = true;
         _subscriptions.Dispose();
     }
 }
 
 internal sealed class SwitchSubscription<T> : IDisposable
 {
-    private readonly Lock _gate = new();
+    private readonly
+#if NET10_0_OR_GREATER
+    Lock
+#else
+    object
+#endif
+    _gate = new();
     private readonly IObserver<T> _observer;
     private readonly MultipleDisposable _subscriptions = new();
     private SingleAssignmentDisposable? _currentInner;
@@ -335,13 +435,23 @@ internal sealed class SwitchSubscription<T> : IDisposable
     {
         var slot = new SingleAssignmentDisposable();
         _subscriptions.Add(slot);
-        try { slot.Disposable = source.Subscribe(OuterNext, Fail, () => OuterComplete(slot)); }
-        catch (Exception exception) { Fail(exception); }
+        try
+        {
+            slot.Disposable = source.Subscribe(OuterNext, Fail, () => OuterComplete(slot));
+        }
+        catch (Exception exception)
+        {
+            Fail(exception);
+        }
     }
 
     private void OuterNext(IObservable<T> source)
     {
-        if (source is null) { Fail(new InvalidOperationException("The outer sequence produced a null observable.")); return; }
+        if (source is null)
+        {
+            Fail(new InvalidOperationException("The outer sequence produced a null observable."));
+            return;
+        }
         long version;
         SingleAssignmentDisposable? previous;
         var slot = new SingleAssignmentDisposable();
@@ -371,22 +481,31 @@ internal sealed class SwitchSubscription<T> : IDisposable
             slot.Disposable = source.Subscribe(
                 value => Next(version, value),
                 error => InnerFail(version, error),
-                () => InnerComplete(version, slot));
+                () => InnerComplete(version, slot)
+            );
         }
-        catch (Exception exception) { InnerFail(version, exception); }
+        catch (Exception exception)
+        {
+            InnerFail(version, exception);
+        }
     }
 
     private void Next(long version, T value)
     {
         lock (_gate)
         {
-            if (!_stopped && version == _version) _observer.OnNext(value);
+            if (!_stopped && version == _version)
+                _observer.OnNext(value);
         }
     }
 
     private void InnerFail(long version, Exception error)
     {
-        lock (_gate) { if (_stopped || version != _version) return; }
+        lock (_gate)
+        {
+            if (_stopped || version != _version)
+                return;
+        }
         Fail(error);
     }
 
@@ -395,15 +514,21 @@ internal sealed class SwitchSubscription<T> : IDisposable
         var complete = false;
         lock (_gate)
         {
-            if (_stopped || version != _version || !ReferenceEquals(_currentInner, slot)) return;
+            if (_stopped || version != _version || !ReferenceEquals(_currentInner, slot))
+                return;
             _currentInner = null;
             _hasInner = false;
             complete = _outerCompleted;
-            if (complete) _stopped = true;
+            if (complete)
+                _stopped = true;
         }
         _subscriptions.Remove(slot);
         slot.Dispose();
-        if (complete) { _observer.OnCompleted(); _subscriptions.Dispose(); }
+        if (complete)
+        {
+            _observer.OnCompleted();
+            _subscriptions.Dispose();
+        }
     }
 
     private void OuterComplete(SingleAssignmentDisposable slot)
@@ -411,21 +536,28 @@ internal sealed class SwitchSubscription<T> : IDisposable
         var complete = false;
         lock (_gate)
         {
-            if (_stopped) return;
+            if (_stopped)
+                return;
             _outerCompleted = true;
             complete = !_hasInner;
-            if (complete) _stopped = true;
+            if (complete)
+                _stopped = true;
         }
         _subscriptions.Remove(slot);
         slot.Dispose();
-        if (complete) { _observer.OnCompleted(); _subscriptions.Dispose(); }
+        if (complete)
+        {
+            _observer.OnCompleted();
+            _subscriptions.Dispose();
+        }
     }
 
     private void Fail(Exception error)
     {
         lock (_gate)
         {
-            if (_stopped) return;
+            if (_stopped)
+                return;
             _stopped = true;
         }
         _observer.OnError(error);
@@ -434,40 +566,63 @@ internal sealed class SwitchSubscription<T> : IDisposable
 
     public void Dispose()
     {
-        lock (_gate) _stopped = true;
+        lock (_gate)
+            _stopped = true;
         _subscriptions.Dispose();
     }
 }
 
 internal sealed class ConcatSubscription<T> : IDisposable
 {
-    private readonly Lock _gate = new();
+    private readonly
+#if NET10_0_OR_GREATER
+    Lock
+#else
+    object
+#endif
+    _gate = new();
     private readonly IObserver<T> _observer;
     private readonly IEnumerable<IObservable<T>> _sources;
+    private readonly bool _yieldOnSynchronousCompletion;
     private readonly SerialDisposable _current = new();
+    private readonly SerialDisposable _scheduledContinuation = new();
     private IEnumerator<IObservable<T>>? _enumerator;
     private int _draining;
     private bool _stopped;
 
-    public ConcatSubscription(IObserver<T> observer, IEnumerable<IObservable<T>> sources)
+    public ConcatSubscription(
+        IObserver<T> observer,
+        IEnumerable<IObservable<T>> sources,
+        bool yieldOnSynchronousCompletion = false
+    )
     {
         _observer = observer;
         _sources = sources;
+        _yieldOnSynchronousCompletion = yieldOnSynchronousCompletion;
     }
 
     public void Run()
     {
-        try { _enumerator = _sources.GetEnumerator(); }
-        catch (Exception exception) { Fail(exception); return; }
+        try
+        {
+            _enumerator = _sources.GetEnumerator();
+        }
+        catch (Exception exception)
+        {
+            Fail(exception);
+            return;
+        }
         Drain();
     }
 
     private void Drain()
     {
-        if (Interlocked.Increment(ref _draining) != 1) return;
+        if (Interlocked.Increment(ref _draining) != 1)
+            return;
         do
         {
-            if (IsStopped) continue;
+            if (IsStopped)
+                continue;
             bool moved;
             IObservable<T>? source;
             try
@@ -475,52 +630,146 @@ internal sealed class ConcatSubscription<T> : IDisposable
                 moved = _enumerator!.MoveNext();
                 source = moved ? _enumerator.Current : null;
             }
-            catch (Exception exception) { Fail(exception); continue; }
-            if (!moved) { Complete(); continue; }
-            if (source is null) { Fail(new ArgumentNullException(nameof(_sources), "The source sequence contains a null observable.")); continue; }
+            catch (Exception exception)
+            {
+                Fail(exception);
+                continue;
+            }
+            if (!moved)
+            {
+                Complete();
+                continue;
+            }
+            if (source is null)
+            {
+                Fail(
+                    new ArgumentNullException(
+                        nameof(_sources),
+                        "The source sequence contains a null observable."
+                    )
+                );
+                continue;
+            }
             var slot = new SingleAssignmentDisposable();
             _current.Disposable = slot;
-            try { slot.Disposable = source.Subscribe(Next, Fail, Drain); }
-            catch (Exception exception) { Fail(exception); }
+            var subscribing = 1;
+            var completedSynchronously = 0;
+            try
+            {
+                slot.Disposable = source.Subscribe(
+                    Next,
+                    Fail,
+                    () =>
+                    {
+                        if (_yieldOnSynchronousCompletion && Volatile.Read(ref subscribing) == 1)
+                        {
+                            Volatile.Write(ref completedSynchronously, 1);
+                        }
+                        else
+                        {
+                            Drain();
+                        }
+                    }
+                );
+            }
+            catch (Exception exception)
+            {
+                Fail(exception);
+            }
+            finally
+            {
+                Volatile.Write(ref subscribing, 0);
+            }
+
+            if (Volatile.Read(ref completedSynchronously) == 1)
+            {
+                Interlocked.Decrement(ref _draining);
+                if (!IsStopped)
+                {
+                    ScheduleContinuation();
+                }
+                return;
+            }
         } while (Interlocked.Decrement(ref _draining) != 0);
     }
 
-    private bool IsStopped { get { lock (_gate) return _stopped; } }
+    private bool IsStopped
+    {
+        get
+        {
+            lock (_gate)
+                return _stopped;
+        }
+    }
+
+    private void ScheduleContinuation()
+    {
+        var continuation = new SingleAssignmentDisposable();
+        _scheduledContinuation.Disposable = continuation;
+        continuation.Disposable = ObservableSchedulers.ThreadPool.Schedule(Drain);
+    }
 
     private void Next(T value)
     {
-        lock (_gate) { if (!_stopped) _observer.OnNext(value); }
+        lock (_gate)
+        {
+            if (!_stopped)
+                _observer.OnNext(value);
+        }
     }
 
     private void Complete()
     {
         lock (_gate)
         {
-            if (_stopped) return;
+            if (_stopped)
+                return;
             _stopped = true;
         }
-        try { _enumerator?.Dispose(); }
-        catch (Exception exception) { _observer.OnError(exception); _current.Dispose(); return; }
+        try
+        {
+            _enumerator?.Dispose();
+        }
+        catch (Exception exception)
+        {
+            _observer.OnError(exception);
+            _current.Dispose();
+            _scheduledContinuation.Dispose();
+            return;
+        }
         _observer.OnCompleted();
         _current.Dispose();
+        _scheduledContinuation.Dispose();
     }
 
     private void Fail(Exception error)
     {
         lock (_gate)
         {
-            if (_stopped) return;
+            if (_stopped)
+                return;
             _stopped = true;
         }
-        try { _enumerator?.Dispose(); } catch { }
+        try
+        {
+            _enumerator?.Dispose();
+        }
+        catch { }
         _observer.OnError(error);
         _current.Dispose();
+        _scheduledContinuation.Dispose();
     }
 
     public void Dispose()
     {
-        lock (_gate) _stopped = true;
-        try { _enumerator?.Dispose(); } catch { }
+        lock (_gate)
+            _stopped = true;
+        try
+        {
+            _enumerator?.Dispose();
+        }
+        catch { }
         _current.Dispose();
+        _scheduledContinuation.Dispose();
     }
 }

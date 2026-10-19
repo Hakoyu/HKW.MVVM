@@ -12,18 +12,29 @@ jobs:
       contents: read    # 读取仓库内容
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v3
+        uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 10.0.x
+          dotnet-version: |
+            8.0.x
+            10.0.x
 
       - name: Restore
-        run: dotnet restore
+        run: dotnet restore ./HKW.MVVM.slnx
 
-      - name: Build
-        run: dotnet build --configuration Release ./HKW.MVVM/HKW.MVVM.csproj
+      - name: Build library and benchmark
+        run: dotnet build ./HKW.MVVM.slnx --configuration Release --no-restore
+
+      - name: Test .NET 8
+        run: dotnet test ./HKW.MVVMTest/HKW.MVVMTest.csproj --configuration Release --framework net8.0 --no-build
+
+      - name: Test .NET 10
+        run: dotnet test ./HKW.MVVMTest/HKW.MVVMTest.csproj --configuration Release --framework net10.0 --no-build
+
+      - name: Pack library
+        run: dotnet pack ./HKW.MVVM/HKW.MVVM.csproj --configuration Release --no-build --output ./artifacts
 
       # 登录并获取临时 API Key
       - name: NuGet login (OIDC → temp API key)
@@ -36,4 +47,4 @@ jobs:
 
       # 推送到 NuGet.org
       - name: NuGet push
-        run: dotnet nuget push "./HKW.MVVM/bin/Release/*.nupkg" --api-key ${{ steps.login.outputs.NUGET_API_KEY }} --source "https://api.nuget.org/v3/index.json" --skip-duplicate
+        run: dotnet nuget push "./artifacts/*.nupkg" --api-key ${{ steps.login.outputs.NUGET_API_KEY }} --source "https://api.nuget.org/v3/index.json" --skip-duplicate

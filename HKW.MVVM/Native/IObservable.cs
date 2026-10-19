@@ -46,7 +46,13 @@ internal sealed class ActionDisposable(Action dispose) : IDisposable
 
 internal sealed class SingleAssignmentDisposable : IDisposable
 {
-    private readonly Lock _gate = new();
+    private readonly
+#if NET10_0_OR_GREATER
+    Lock
+#else
+    object
+#endif
+    _gate = new();
     private IDisposable? _disposable;
     private bool _assigned;
     private bool _disposed;
@@ -99,10 +105,17 @@ internal sealed class SingleAssignmentDisposable : IDisposable
 /// <summary>
 /// 串行化已调度的回调,同时保持其入队顺序
 /// </summary>
-internal sealed class SerialActionQueue(Action<Action> schedule) : IDisposable
+internal sealed class SerialActionQueue(Func<Action, IDisposable> schedule) : IDisposable
 {
-    private readonly Lock _gate = new();
+    private readonly
+#if NET10_0_OR_GREATER
+    Lock
+#else
+    object
+#endif
+    _gate = new();
     private readonly Queue<Action> _actions = [];
+    private SingleAssignmentDisposable? _scheduledWork;
     private bool _scheduled;
     private bool _disposed;
 
@@ -127,7 +140,20 @@ internal sealed class SerialActionQueue(Action<Action> schedule) : IDisposable
 
         if (shouldSchedule)
         {
-            schedule(Drain);
+            var scheduledWork = new SingleAssignmentDisposable();
+            lock (_gate)
+            {
+                if (_disposed)
+                {
+                    scheduledWork.Dispose();
+                }
+                else
+                {
+                    _scheduledWork = scheduledWork;
+                }
+            }
+
+            scheduledWork.Disposable = schedule(Drain);
         }
     }
 
@@ -136,15 +162,26 @@ internal sealed class SerialActionQueue(Action<Action> schedule) : IDisposable
         while (true)
         {
             Action? action;
+            SingleAssignmentDisposable? completedWork = null;
             lock (_gate)
             {
                 if (_disposed || _actions.Count == 0)
                 {
                     _scheduled = false;
-                    return;
+                    completedWork = _scheduledWork;
+                    _scheduledWork = null;
+                    action = null;
                 }
+                else
+                {
+                    action = _actions.Dequeue();
+                }
+            }
 
-                action = _actions.Dequeue();
+            if (action is null)
+            {
+                completedWork?.Dispose();
+                return;
             }
 
             action();
@@ -153,32 +190,70 @@ internal sealed class SerialActionQueue(Action<Action> schedule) : IDisposable
 
     public void Dispose()
     {
+        SingleAssignmentDisposable? scheduledWork;
         lock (_gate)
         {
             _disposed = true;
             _actions.Clear();
+            scheduledWork = _scheduledWork;
+            _scheduledWork = null;
         }
+
+        scheduledWork?.Dispose();
     }
 }
 
-internal sealed class ExceptionSubject : IObservable<Exception>, IDisposable
+internal sealed class ExceptionSubject(bool replayLatest = false)
+    : IObservable<Exception>,
+        IDisposable
 {
-    private readonly Lock _gate = new();
+    private readonly
+#if NET10_0_OR_GREATER
+    Lock
+#else
+    object
+#endif
+    _gate = new();
+    private readonly Queue<Notification> _notifications = [];
     private List<IObserver<Exception>>? _observers = [];
+    private Exception? _latest;
+    private bool _isDraining;
 
     public IDisposable Subscribe(IObserver<Exception> observer)
     {
         ArgumentNullException.ThrowIfNull(observer);
 
+        var isCompleted = false;
+        var shouldDrain = false;
         lock (_gate)
         {
             if (_observers is null)
             {
-                observer.OnCompleted();
-                return new ActionDisposable(() => { });
+                isCompleted = true;
             }
+            else
+            {
+                _observers.Add(observer);
+                if (replayLatest && _latest is not null)
+                {
+                    _notifications.Enqueue(new Notification([observer], _latest, false));
+                    if (!_isDraining)
+                    {
+                        _isDraining = true;
+                        shouldDrain = true;
+                    }
+                }
+            }
+        }
 
-            _observers.Add(observer);
+        if (isCompleted)
+        {
+            observer.OnCompleted();
+            return new ActionDisposable(() => { });
+        }
+        if (shouldDrain)
+        {
+            Drain();
         }
 
         return new ActionDisposable(() =>
@@ -192,30 +267,95 @@ internal sealed class ExceptionSubject : IObservable<Exception>, IDisposable
 
     public void OnNext(Exception exception)
     {
-        IObserver<Exception>[] observers;
+        ArgumentNullException.ThrowIfNull(exception);
+        var shouldDrain = false;
         lock (_gate)
         {
-            observers = _observers?.ToArray() ?? [];
+            if (_observers is null)
+            {
+                return;
+            }
+            if (replayLatest)
+            {
+                _latest = exception;
+            }
+            _notifications.Enqueue(new Notification([.. _observers], exception, false));
+            if (!_isDraining)
+            {
+                _isDraining = true;
+                shouldDrain = true;
+            }
         }
 
-        foreach (var observer in observers)
+        if (shouldDrain)
         {
-            observer.OnNext(exception);
+            Drain();
         }
     }
 
     public void Dispose()
     {
-        IObserver<Exception>[] observers;
+        var shouldDrain = false;
         lock (_gate)
         {
-            observers = _observers?.ToArray() ?? [];
+            if (_observers is null)
+            {
+                return;
+            }
+            _notifications.Enqueue(new Notification([.. _observers], null, true));
             _observers = null;
+            if (!_isDraining)
+            {
+                _isDraining = true;
+                shouldDrain = true;
+            }
         }
 
-        foreach (var observer in observers)
+        if (shouldDrain)
         {
-            observer.OnCompleted();
+            Drain();
         }
     }
+
+    private void Drain()
+    {
+        while (true)
+        {
+            Notification notification;
+            lock (_gate)
+            {
+                if (_notifications.Count == 0)
+                {
+                    _isDraining = false;
+                    return;
+                }
+                notification = _notifications.Dequeue();
+            }
+
+            foreach (var observer in notification.Observers)
+            {
+                try
+                {
+                    if (notification.IsCompleted)
+                    {
+                        observer.OnCompleted();
+                    }
+                    else
+                    {
+                        observer.OnNext(notification.Exception!);
+                    }
+                }
+                catch
+                {
+                    // Exception streams must not rethrow from bridge notification threads.
+                }
+            }
+        }
+    }
+
+    private readonly record struct Notification(
+        IObserver<Exception>[] Observers,
+        Exception? Exception,
+        bool IsCompleted
+    );
 }

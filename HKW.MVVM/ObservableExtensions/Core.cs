@@ -33,83 +33,59 @@ public static partial class ObservableExtensions
 
     private static IObservable<TSource> SubscribeOnCore<TSource>(
         IObservable<TSource> source,
-        SynchronizationContext? synchronizationContext
+        IObservableScheduler scheduler
     ) =>
         CreateCore(
             source,
             observer =>
             {
                 var scheduledSubscription = new ScheduledSubscription();
-                Schedule(
-                    synchronizationContext,
-                    () =>
+                var scheduledWork = scheduler.Schedule(() =>
+                {
+                    if (scheduledSubscription.IsDisposed)
                     {
-                        if (scheduledSubscription.IsDisposed)
-                        {
-                            return;
-                        }
-
-                        try
-                        {
-                            var subscription = source.Subscribe(observer);
-                            scheduledSubscription.SetSubscription(subscription);
-                        }
-                        catch (Exception exception)
-                        {
-                            if (scheduledSubscription.IsDisposed is false)
-                            {
-                                observer.OnError(exception);
-                            }
-
-                            scheduledSubscription.Dispose();
-                        }
+                        return;
                     }
-                );
+
+                    try
+                    {
+                        var subscription = source.Subscribe(observer);
+                        scheduledSubscription.SetSubscription(subscription);
+                    }
+                    catch (Exception exception)
+                    {
+                        if (scheduledSubscription.IsDisposed is false)
+                        {
+                            observer.OnError(exception);
+                        }
+
+                        scheduledSubscription.Dispose();
+                    }
+                });
+                scheduledSubscription.SetScheduledWork(scheduledWork);
                 return scheduledSubscription;
             }
         );
 
-    private static void Post(SynchronizationContext context, Action action) =>
-        context.Post(static state => ((Action)state!).Invoke(), action);
-
-    private static SynchronizationContext? GetSynchronizationContext(
-        ObservableSchedulers scheduler
-    ) =>
-        scheduler switch
-        {
-            ObservableSchedulers.Current => SynchronizationContext.Current,
-            ObservableSchedulers.ThreadPool => null,
-            _ => throw new ArgumentOutOfRangeException(
-                nameof(scheduler),
-                scheduler,
-                "Unknown observable scheduler."
-            ),
-        };
-
-    private static void Schedule(SynchronizationContext? synchronizationContext, Action action)
-    {
-        if (synchronizationContext is not null)
-        {
-            Post(synchronizationContext, action);
-            return;
-        }
-
-        ThreadPool.QueueUserWorkItem(static state => ((Action)state!).Invoke(), action);
-    }
-
     private sealed class NotificationDispatcher<T> : IDisposable
     {
         private readonly IObserver<T> _observer;
-        private readonly object _gate = new();
+        private readonly
+#if NET10_0_OR_GREATER
+    Lock
+#else
+    object
+#endif
+    _gate = new();
         private readonly SerialActionQueue _queue;
         private IDisposable? _subscription;
         private bool _stopped;
         private bool _disposed;
 
-        public NotificationDispatcher(IObserver<T> observer, SynchronizationContext? context)
+        public NotificationDispatcher(IObserver<T> observer, IObservableScheduler scheduler)
         {
             _observer = observer;
-            _queue = new SerialActionQueue(action => Schedule(context, action));
+            _queue = new SerialActionQueue(scheduler.Schedule);
         }
 
         public void SetSubscription(IDisposable subscription)
@@ -197,7 +173,14 @@ public static partial class ObservableExtensions
 
     private sealed class ScheduledSubscription : IDisposable
     {
-        private readonly object _gate = new();
+        private readonly
+#if NET10_0_OR_GREATER
+    Lock
+#else
+    object
+#endif
+    _gate = new();
+        private IDisposable? _scheduledWork;
         private IDisposable? _subscription;
         private bool _disposed;
 
@@ -209,6 +192,20 @@ public static partial class ObservableExtensions
                 {
                     return _disposed;
                 }
+            }
+        }
+
+        public void SetScheduledWork(IDisposable scheduledWork)
+        {
+            lock (_gate)
+            {
+                if (_disposed)
+                {
+                    scheduledWork.Dispose();
+                    return;
+                }
+
+                _scheduledWork = scheduledWork;
             }
         }
 
@@ -228,6 +225,7 @@ public static partial class ObservableExtensions
 
         public void Dispose()
         {
+            IDisposable? scheduledWork;
             IDisposable? subscription;
             lock (_gate)
             {
@@ -237,10 +235,13 @@ public static partial class ObservableExtensions
                 }
 
                 _disposed = true;
+                scheduledWork = _scheduledWork;
+                _scheduledWork = null;
                 subscription = _subscription;
                 _subscription = null;
             }
 
+            scheduledWork?.Dispose();
             subscription?.Dispose();
         }
     }

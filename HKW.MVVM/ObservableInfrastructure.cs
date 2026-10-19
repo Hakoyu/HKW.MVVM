@@ -26,7 +26,13 @@ public readonly record struct PropertyChangeEventArgs<TSender>(TSender Sender, s
 
 internal sealed class PropertyChangeSubject<T> : IObservable<T>
 {
-    private readonly Lock _gate = new();
+    private readonly
+#if NET10_0_OR_GREATER
+    Lock
+#else
+    object
+#endif
+    _gate = new();
     private readonly List<IObserver<T>> _observers = [];
 
     public IDisposable Subscribe(IObserver<T> observer)

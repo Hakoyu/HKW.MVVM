@@ -44,7 +44,13 @@ internal sealed class ScanObservable<TSource, TAccumulate> : IObservable<TAccumu
 
 internal sealed class ScanSubscription<TSource, TAccumulate> : IObserver<TSource>, IDisposable
 {
-    private readonly Lock _gate = new();
+    private readonly
+#if NET10_0_OR_GREATER
+    Lock
+#else
+    object
+#endif
+    _gate = new();
     private readonly IObserver<TAccumulate> _observer;
     private readonly Func<TAccumulate, TSource, TAccumulate> _accumulator;
     private readonly SingleAssignmentDisposable _upstream = new();
@@ -69,7 +75,8 @@ internal sealed class ScanSubscription<TSource, TAccumulate> : IObserver<TSource
     {
         try
         {
-            _upstream.Disposable = source.Subscribe(this)
+            _upstream.Disposable =
+                source.Subscribe(this)
                 ?? throw new InvalidOperationException("The source returned a null subscription.");
         }
         catch (Exception error)
@@ -155,12 +162,27 @@ internal sealed class ScanSubscription<TSource, TAccumulate> : IObserver<TSource
     }
 }
 
-internal sealed class RetryObservable<T>(IObservable<T> source, int retryCount) : IObservable<T>
+internal sealed class RetryObservable<T>(
+    IObservable<T> source,
+    int retryCount,
+    Func<Exception, bool> exceptionPredicate,
+    TimeSpan initialDelay,
+    double backoffFactor,
+    TimeProvider timeProvider
+) : IObservable<T>
 {
     public IDisposable Subscribe(IObserver<T> observer)
     {
         ArgumentNullException.ThrowIfNull(observer);
-        var subscription = new RetrySubscription<T>(source, observer, retryCount);
+        var subscription = new RetrySubscription<T>(
+            source,
+            observer,
+            retryCount,
+            exceptionPredicate,
+            initialDelay,
+            backoffFactor,
+            timeProvider
+        );
         subscription.Start();
         return subscription;
     }
@@ -168,20 +190,44 @@ internal sealed class RetryObservable<T>(IObservable<T> source, int retryCount) 
 
 internal sealed class RetrySubscription<T> : IObserver<T>, IDisposable
 {
-    private readonly Lock _gate = new();
+    private readonly
+#if NET10_0_OR_GREATER
+    Lock
+#else
+    object
+#endif
+    _gate = new();
     private readonly IObservable<T> _source;
     private readonly IObserver<T> _observer;
+    private readonly Func<Exception, bool> _exceptionPredicate;
+    private readonly TimeSpan _initialDelay;
+    private readonly double _backoffFactor;
+    private readonly TimeProvider _timeProvider;
     private readonly SerialDisposable _upstream = new();
+    private readonly SerialDisposable _timer = new();
     private int _remaining;
+    private int _retryIndex;
     private int _pending;
     private int _draining;
     private bool _stopped;
 
-    public RetrySubscription(IObservable<T> source, IObserver<T> observer, int retryCount)
+    public RetrySubscription(
+        IObservable<T> source,
+        IObserver<T> observer,
+        int retryCount,
+        Func<Exception, bool> exceptionPredicate,
+        TimeSpan initialDelay,
+        double backoffFactor,
+        TimeProvider timeProvider
+    )
     {
         _source = source;
         _observer = observer;
         _remaining = retryCount;
+        _exceptionPredicate = exceptionPredicate;
+        _initialDelay = initialDelay;
+        _backoffFactor = backoffFactor;
+        _timeProvider = timeProvider;
     }
 
     public void Start() => RequestSubscription();
@@ -206,8 +252,11 @@ internal sealed class RetrySubscription<T> : IObserver<T>, IDisposable
                 _upstream.Disposable = slot;
                 try
                 {
-                    slot.Disposable = _source.Subscribe(this)
-                        ?? throw new InvalidOperationException("The source returned a null subscription.");
+                    slot.Disposable =
+                        _source.Subscribe(this)
+                        ?? throw new InvalidOperationException(
+                            "The source returned a null subscription."
+                        );
                 }
                 catch (Exception error)
                 {
@@ -229,63 +278,139 @@ internal sealed class RetrySubscription<T> : IObserver<T>, IDisposable
 
     public void OnError(Exception error)
     {
-        var retry = false;
-        var terminate = false;
+        ArgumentNullException.ThrowIfNull(error);
+        lock (_gate)
+        {
+            if (_stopped)
+                return;
+        }
+
+        bool accepted;
         try
         {
-            lock (_gate)
+            accepted = _exceptionPredicate(error);
+        }
+        catch (Exception predicateError)
+        {
+            Terminate(predicateError);
+            return;
+        }
+
+        TimeSpan delay = TimeSpan.Zero;
+        var terminate = false;
+        lock (_gate)
+        {
+            if (_stopped)
+                return;
+            if (!accepted || _remaining == 0)
             {
-                if (_stopped)
-                    return;
-                if (_remaining > 0)
+                _stopped = true;
+                terminate = true;
+                _observer.OnError(error);
+            }
+            else
+            {
+                _remaining--;
+                try
                 {
-                    _remaining--;
-                    retry = true;
+                    delay = ComputeDelay(_retryIndex++);
                 }
-                else
+                catch (Exception delayError)
                 {
                     _stopped = true;
                     terminate = true;
-                    _observer.OnError(error);
+                    _observer.OnError(delayError);
                 }
             }
         }
-        finally
+
+        if (terminate)
         {
-            if (terminate)
-                _upstream.Dispose();
+            DisposeResources();
+            return;
         }
 
-        if (retry)
+        if (delay == TimeSpan.Zero)
+        {
             RequestSubscription();
+            return;
+        }
+
+        try
+        {
+            var timer = _timeProvider.CreateTimer(
+                static state => ((RetrySubscription<T>)state!).TimerElapsed(),
+                this,
+                delay,
+                Timeout.InfiniteTimeSpan
+            );
+            _timer.Disposable = timer;
+        }
+        catch (Exception timerError)
+        {
+            Terminate(timerError);
+        }
+    }
+
+    private TimeSpan ComputeDelay(int retryIndex)
+    {
+        if (_initialDelay == TimeSpan.Zero || retryIndex == 0)
+            return _initialDelay;
+
+        var ticks = _initialDelay.Ticks * Math.Pow(_backoffFactor, retryIndex);
+        if (double.IsFinite(ticks) is false || ticks > TimeSpan.MaxValue.Ticks)
+            throw new ArgumentOutOfRangeException(
+                nameof(_backoffFactor),
+                "The retry delay exceeds TimeSpan.MaxValue."
+            );
+        return TimeSpan.FromTicks((long)ticks);
+    }
+
+    private void TimerElapsed()
+    {
+        lock (_gate)
+        {
+            if (_stopped)
+                return;
+        }
+        RequestSubscription();
     }
 
     public void OnCompleted()
     {
-        var terminate = false;
-        try
+        lock (_gate)
         {
-            lock (_gate)
-            {
-                if (_stopped)
-                    return;
-                _stopped = true;
-                terminate = true;
-                _observer.OnCompleted();
-            }
+            if (_stopped)
+                return;
+            _stopped = true;
+            _observer.OnCompleted();
         }
-        finally
+        DisposeResources();
+    }
+
+    private void Terminate(Exception error)
+    {
+        lock (_gate)
         {
-            if (terminate)
-                _upstream.Dispose();
+            if (_stopped)
+                return;
+            _stopped = true;
+            _observer.OnError(error);
         }
+        DisposeResources();
+    }
+
+    private void DisposeResources()
+    {
+        _timer.Dispose();
+        _upstream.Dispose();
     }
 
     public void Dispose()
     {
         lock (_gate)
             _stopped = true;
-        _upstream.Dispose();
+        DisposeResources();
     }
 }
 
@@ -303,7 +428,13 @@ internal sealed class FinallyObservable<T>(IObservable<T> source, Action finally
 
 internal sealed class FinallySubscription<T> : IObserver<T>, IDisposable
 {
-    private readonly Lock _gate = new();
+    private readonly
+#if NET10_0_OR_GREATER
+    Lock
+#else
+    object
+#endif
+    _gate = new();
     private readonly IObserver<T> _observer;
     private readonly Action _finallyAction;
     private readonly SingleAssignmentDisposable _upstream = new();
@@ -320,7 +451,8 @@ internal sealed class FinallySubscription<T> : IObserver<T>, IDisposable
     {
         try
         {
-            _upstream.Disposable = source.Subscribe(this)
+            _upstream.Disposable =
+                source.Subscribe(this)
                 ?? throw new InvalidOperationException("The source returned a null subscription.");
         }
         catch (Exception error)
@@ -427,7 +559,13 @@ internal sealed class TakeUntilObservable<TSource, TOther>(
 
 internal sealed class TakeUntilSubscription<TSource, TOther> : IDisposable
 {
-    private readonly Lock _gate = new();
+    private readonly
+#if NET10_0_OR_GREATER
+    Lock
+#else
+    object
+#endif
+    _gate = new();
     private readonly IObserver<TSource> _observer;
     private readonly SingleAssignmentDisposable _sourceSubscription = new();
     private readonly SingleAssignmentDisposable _otherSubscription = new();
@@ -439,8 +577,11 @@ internal sealed class TakeUntilSubscription<TSource, TOther> : IDisposable
     {
         try
         {
-            _otherSubscription.Disposable = other.Subscribe(new OtherObserver(this))
-                ?? throw new InvalidOperationException("The other source returned a null subscription.");
+            _otherSubscription.Disposable =
+                other.Subscribe(new OtherObserver(this))
+                ?? throw new InvalidOperationException(
+                    "The other source returned a null subscription."
+                );
         }
         catch (Exception error)
         {
@@ -456,7 +597,8 @@ internal sealed class TakeUntilSubscription<TSource, TOther> : IDisposable
 
         try
         {
-            _sourceSubscription.Disposable = source.Subscribe(new SourceObserver(this))
+            _sourceSubscription.Disposable =
+                source.Subscribe(new SourceObserver(this))
                 ?? throw new InvalidOperationException("The source returned a null subscription.");
         }
         catch (Exception error)
@@ -521,7 +663,9 @@ internal sealed class TakeUntilSubscription<TSource, TOther> : IDisposable
         : IObserver<TSource>
     {
         public void OnNext(TSource value) => owner.Next(value);
+
         public void OnError(Exception error) => owner.Error(error);
+
         public void OnCompleted() => owner.Complete();
     }
 
@@ -529,7 +673,9 @@ internal sealed class TakeUntilSubscription<TSource, TOther> : IDisposable
         : IObserver<TOther>
     {
         public void OnNext(TOther value) => owner.Complete();
+
         public void OnError(Exception error) => owner.Error(error);
+
         public void OnCompleted() => owner.OtherCompleted();
     }
 }

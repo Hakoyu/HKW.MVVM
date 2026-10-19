@@ -2,7 +2,13 @@ namespace HKW.MVVM;
 
 internal sealed class WithLatestFromSubscription<TSource, TOther, TResult> : IDisposable
 {
-    private readonly Lock _gate = new();
+    private readonly
+#if NET10_0_OR_GREATER
+    Lock
+#else
+    object
+#endif
+    _gate = new();
     private readonly IObserver<TResult> _observer;
     private readonly Func<TSource, TOther, TResult> _selector;
     private readonly MultipleDisposable _subscriptions = new();
@@ -157,7 +163,13 @@ internal sealed class WithLatestFromSubscription<TSource, TOther, TResult> : IDi
 
 internal sealed class ZipSubscription<TFirst, TSecond, TResult> : IDisposable
 {
-    private readonly Lock _gate = new();
+    private readonly
+#if NET10_0_OR_GREATER
+    Lock
+#else
+    object
+#endif
+    _gate = new();
     private readonly IObserver<TResult> _observer;
     private readonly Func<TFirst, TSecond, TResult> _selector;
     private readonly Queue<TFirst> _firstValues = [];
@@ -276,7 +288,8 @@ internal sealed class ZipSubscription<TFirst, TSecond, TResult> : IDisposable
                 }
             }
 
-            complete = failure is not null
+            complete =
+                failure is not null
                 || (_firstCompleted && _firstValues.Count == 0)
                 || (_secondCompleted && _secondValues.Count == 0);
             if (complete)

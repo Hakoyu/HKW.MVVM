@@ -95,7 +95,9 @@ public static partial class ObservableExtensions
         IObservable<TFourth> fourth
     ) => CombineLatest(first, second, third, fourth, static (a, b, c, d) => (a, b, c, d));
 
-    /// <summary>使用结果选择器组合四个源</summary>
+    /// <summary>
+    /// 使用结果选择器组合四个源
+    /// </summary>
     public static IObservable<TResult> CombineLatest<TFirst, TSecond, TThird, TFourth, TResult>(
         this IObservable<TFirst> first,
         IObservable<TSecond> second,

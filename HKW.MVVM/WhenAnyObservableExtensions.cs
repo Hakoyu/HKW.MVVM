@@ -4,11 +4,11 @@ using System.Reflection;
 
 namespace HKW.MVVM;
 
-#pragma warning disable S2436, S3776
+#pragma warning disable S107, S2436, S3776
 public static partial class WhenAnyExtensions
 {
     /// <summary>
-    /// 观察一个可观察序列属性，并始终转发其最新序列的值
+    /// 观察一个可观察序列属性, 并始终转发其最新序列的值
     /// </summary>
     /// <typeparam name="TSource">属性所有者类型</typeparam>
     /// <typeparam name="TValue">内部序列的值类型</typeparam>
@@ -22,7 +22,7 @@ public static partial class WhenAnyExtensions
         where TSource : class, INotifyPropertyChanged => source.WhenAnyValue(property).Switch();
 
     /// <summary>
-    /// 观察两个可观察序列属性，并发出其最新值的元组
+    /// 观察两个可观察序列属性, 并发出其最新值的元组
     /// </summary>
     public static IObservable<(T1, T2)> WhenAnyObservable<TSource, T1, T2>(
         this TSource source,
@@ -37,7 +37,7 @@ public static partial class WhenAnyExtensions
         );
 
     /// <summary>
-    /// 观察两个可观察序列属性，并投影其最新值
+    /// 观察两个可观察序列属性, 并投影其最新值
     /// </summary>
     public static IObservable<TResult> WhenAnyObservable<TSource, T1, T2, TResult>(
         this TSource source,
@@ -56,7 +56,7 @@ public static partial class WhenAnyExtensions
     }
 
     /// <summary>
-    /// 观察三个可观察序列属性，并发出其最新值的元组
+    /// 观察三个可观察序列属性, 并发出其最新值的元组
     /// </summary>
     public static IObservable<(T1, T2, T3)> WhenAnyObservable<TSource, T1, T2, T3>(
         this TSource source,
@@ -73,7 +73,7 @@ public static partial class WhenAnyExtensions
         );
 
     /// <summary>
-    /// 观察三个可观察序列属性，并投影其最新值
+    /// 观察三个可观察序列属性, 并投影其最新值
     /// </summary>
     public static IObservable<TResult> WhenAnyObservable<TSource, T1, T2, T3, TResult>(
         this TSource source,
@@ -94,7 +94,7 @@ public static partial class WhenAnyExtensions
     }
 
     /// <summary>
-    /// 观察四个可观察序列属性，并发出其最新值的元组
+    /// 观察四个可观察序列属性, 并发出其最新值的元组
     /// </summary>
     public static IObservable<(T1, T2, T3, T4)> WhenAnyObservable<TSource, T1, T2, T3, T4>(
         this TSource source,
@@ -113,7 +113,7 @@ public static partial class WhenAnyExtensions
         );
 
     /// <summary>
-    /// 观察四个可观察序列属性，并投影其最新值
+    /// 观察四个可观察序列属性, 并投影其最新值
     /// </summary>
     public static IObservable<TResult> WhenAnyObservable<TSource, T1, T2, T3, T4, TResult>(
         this TSource source,
@@ -136,16 +136,277 @@ public static partial class WhenAnyExtensions
     }
 
     /// <summary>
-    /// 观察属性路径，并在更改前或更改后发出包含根对象、最终属性名和值的观察结果
-    /// 嵌套节点被替换时会安全地重新绑定；路径含空节点时暂停发出，直到路径恢复
+    /// 观察 5 个可观察序列属性, 并发出最新值元组
+    /// </summary>
+    public static IObservable<(T1, T2, T3, T4, T5)> WhenAnyObservable<TSource, T1, T2, T3, T4, T5>(
+        this TSource source,
+        Expression<Func<TSource, IObservable<T1>>> property1,
+        Expression<Func<TSource, IObservable<T2>>> property2,
+        Expression<Func<TSource, IObservable<T3>>> property3,
+        Expression<Func<TSource, IObservable<T4>>> property4,
+        Expression<Func<TSource, IObservable<T5>>> property5
+    )
+        where TSource : class, INotifyPropertyChanged =>
+        Combine(
+            source.WhenAnyObservable(property1),
+            source.WhenAnyObservable(property2),
+            source.WhenAnyObservable(property3),
+            source.WhenAnyObservable(property4),
+            source.WhenAnyObservable(property5),
+            static (value1, value2, value3, value4, value5) =>
+                (value1, value2, value3, value4, value5)
+        );
+
+    /// <summary>
+    /// 观察 5 个可观察序列属性, 并投影其最新值
+    /// </summary>
+    public static IObservable<TResult> WhenAnyObservable<TSource, T1, T2, T3, T4, T5, TResult>(
+        this TSource source,
+        Expression<Func<TSource, IObservable<T1>>> property1,
+        Expression<Func<TSource, IObservable<T2>>> property2,
+        Expression<Func<TSource, IObservable<T3>>> property3,
+        Expression<Func<TSource, IObservable<T4>>> property4,
+        Expression<Func<TSource, IObservable<T5>>> property5,
+        Func<T1, T2, T3, T4, T5, TResult> selector
+    )
+        where TSource : class, INotifyPropertyChanged
+    {
+        ArgumentNullException.ThrowIfNull(selector);
+        return Combine(
+            source.WhenAnyObservable(property1),
+            source.WhenAnyObservable(property2),
+            source.WhenAnyObservable(property3),
+            source.WhenAnyObservable(property4),
+            source.WhenAnyObservable(property5),
+            selector
+        );
+    }
+
+    /// <summary>
+    /// 观察 6 个可观察序列属性, 并发出最新值元组
+    /// </summary>
+    public static IObservable<(T1, T2, T3, T4, T5, T6)> WhenAnyObservable<
+        TSource,
+        T1,
+        T2,
+        T3,
+        T4,
+        T5,
+        T6
+    >(
+        this TSource source,
+        Expression<Func<TSource, IObservable<T1>>> property1,
+        Expression<Func<TSource, IObservable<T2>>> property2,
+        Expression<Func<TSource, IObservable<T3>>> property3,
+        Expression<Func<TSource, IObservable<T4>>> property4,
+        Expression<Func<TSource, IObservable<T5>>> property5,
+        Expression<Func<TSource, IObservable<T6>>> property6
+    )
+        where TSource : class, INotifyPropertyChanged =>
+        Combine(
+            source.WhenAnyObservable(property1),
+            source.WhenAnyObservable(property2),
+            source.WhenAnyObservable(property3),
+            source.WhenAnyObservable(property4),
+            source.WhenAnyObservable(property5),
+            source.WhenAnyObservable(property6),
+            static (value1, value2, value3, value4, value5, value6) =>
+                (value1, value2, value3, value4, value5, value6)
+        );
+
+    /// <summary>
+    /// 观察 6 个可观察序列属性, 并投影其最新值
+    /// </summary>
+    public static IObservable<TResult> WhenAnyObservable<TSource, T1, T2, T3, T4, T5, T6, TResult>(
+        this TSource source,
+        Expression<Func<TSource, IObservable<T1>>> property1,
+        Expression<Func<TSource, IObservable<T2>>> property2,
+        Expression<Func<TSource, IObservable<T3>>> property3,
+        Expression<Func<TSource, IObservable<T4>>> property4,
+        Expression<Func<TSource, IObservable<T5>>> property5,
+        Expression<Func<TSource, IObservable<T6>>> property6,
+        Func<T1, T2, T3, T4, T5, T6, TResult> selector
+    )
+        where TSource : class, INotifyPropertyChanged
+    {
+        ArgumentNullException.ThrowIfNull(selector);
+        return Combine(
+            source.WhenAnyObservable(property1),
+            source.WhenAnyObservable(property2),
+            source.WhenAnyObservable(property3),
+            source.WhenAnyObservable(property4),
+            source.WhenAnyObservable(property5),
+            source.WhenAnyObservable(property6),
+            selector
+        );
+    }
+
+    /// <summary>
+    /// 观察 7 个可观察序列属性, 并发出最新值元组
+    /// </summary>
+    public static IObservable<(T1, T2, T3, T4, T5, T6, T7)> WhenAnyObservable<
+        TSource,
+        T1,
+        T2,
+        T3,
+        T4,
+        T5,
+        T6,
+        T7
+    >(
+        this TSource source,
+        Expression<Func<TSource, IObservable<T1>>> property1,
+        Expression<Func<TSource, IObservable<T2>>> property2,
+        Expression<Func<TSource, IObservable<T3>>> property3,
+        Expression<Func<TSource, IObservable<T4>>> property4,
+        Expression<Func<TSource, IObservable<T5>>> property5,
+        Expression<Func<TSource, IObservable<T6>>> property6,
+        Expression<Func<TSource, IObservable<T7>>> property7
+    )
+        where TSource : class, INotifyPropertyChanged =>
+        Combine(
+            source.WhenAnyObservable(property1),
+            source.WhenAnyObservable(property2),
+            source.WhenAnyObservable(property3),
+            source.WhenAnyObservable(property4),
+            source.WhenAnyObservable(property5),
+            source.WhenAnyObservable(property6),
+            source.WhenAnyObservable(property7),
+            static (value1, value2, value3, value4, value5, value6, value7) =>
+                (value1, value2, value3, value4, value5, value6, value7)
+        );
+
+    /// <summary>
+    /// 观察 7 个可观察序列属性, 并投影其最新值
+    /// </summary>
+    public static IObservable<TResult> WhenAnyObservable<
+        TSource,
+        T1,
+        T2,
+        T3,
+        T4,
+        T5,
+        T6,
+        T7,
+        TResult
+    >(
+        this TSource source,
+        Expression<Func<TSource, IObservable<T1>>> property1,
+        Expression<Func<TSource, IObservable<T2>>> property2,
+        Expression<Func<TSource, IObservable<T3>>> property3,
+        Expression<Func<TSource, IObservable<T4>>> property4,
+        Expression<Func<TSource, IObservable<T5>>> property5,
+        Expression<Func<TSource, IObservable<T6>>> property6,
+        Expression<Func<TSource, IObservable<T7>>> property7,
+        Func<T1, T2, T3, T4, T5, T6, T7, TResult> selector
+    )
+        where TSource : class, INotifyPropertyChanged
+    {
+        ArgumentNullException.ThrowIfNull(selector);
+        return Combine(
+            source.WhenAnyObservable(property1),
+            source.WhenAnyObservable(property2),
+            source.WhenAnyObservable(property3),
+            source.WhenAnyObservable(property4),
+            source.WhenAnyObservable(property5),
+            source.WhenAnyObservable(property6),
+            source.WhenAnyObservable(property7),
+            selector
+        );
+    }
+
+    /// <summary>
+    /// 观察 8 个可观察序列属性, 并发出最新值元组
+    /// </summary>
+    public static IObservable<(T1, T2, T3, T4, T5, T6, T7, T8)> WhenAnyObservable<
+        TSource,
+        T1,
+        T2,
+        T3,
+        T4,
+        T5,
+        T6,
+        T7,
+        T8
+    >(
+        this TSource source,
+        Expression<Func<TSource, IObservable<T1>>> property1,
+        Expression<Func<TSource, IObservable<T2>>> property2,
+        Expression<Func<TSource, IObservable<T3>>> property3,
+        Expression<Func<TSource, IObservable<T4>>> property4,
+        Expression<Func<TSource, IObservable<T5>>> property5,
+        Expression<Func<TSource, IObservable<T6>>> property6,
+        Expression<Func<TSource, IObservable<T7>>> property7,
+        Expression<Func<TSource, IObservable<T8>>> property8
+    )
+        where TSource : class, INotifyPropertyChanged =>
+        Combine(
+            source.WhenAnyObservable(property1),
+            source.WhenAnyObservable(property2),
+            source.WhenAnyObservable(property3),
+            source.WhenAnyObservable(property4),
+            source.WhenAnyObservable(property5),
+            source.WhenAnyObservable(property6),
+            source.WhenAnyObservable(property7),
+            source.WhenAnyObservable(property8),
+            static (value1, value2, value3, value4, value5, value6, value7, value8) =>
+                (value1, value2, value3, value4, value5, value6, value7, value8)
+        );
+
+    /// <summary>
+    /// 观察 8 个可观察序列属性, 并投影其最新值
+    /// </summary>
+    public static IObservable<TResult> WhenAnyObservable<
+        TSource,
+        T1,
+        T2,
+        T3,
+        T4,
+        T5,
+        T6,
+        T7,
+        T8,
+        TResult
+    >(
+        this TSource source,
+        Expression<Func<TSource, IObservable<T1>>> property1,
+        Expression<Func<TSource, IObservable<T2>>> property2,
+        Expression<Func<TSource, IObservable<T3>>> property3,
+        Expression<Func<TSource, IObservable<T4>>> property4,
+        Expression<Func<TSource, IObservable<T5>>> property5,
+        Expression<Func<TSource, IObservable<T6>>> property6,
+        Expression<Func<TSource, IObservable<T7>>> property7,
+        Expression<Func<TSource, IObservable<T8>>> property8,
+        Func<T1, T2, T3, T4, T5, T6, T7, T8, TResult> selector
+    )
+        where TSource : class, INotifyPropertyChanged
+    {
+        ArgumentNullException.ThrowIfNull(selector);
+        return Combine(
+            source.WhenAnyObservable(property1),
+            source.WhenAnyObservable(property2),
+            source.WhenAnyObservable(property3),
+            source.WhenAnyObservable(property4),
+            source.WhenAnyObservable(property5),
+            source.WhenAnyObservable(property6),
+            source.WhenAnyObservable(property7),
+            source.WhenAnyObservable(property8),
+            selector
+        );
+    }
+
+    /// <summary>
+    /// 观察属性路径, 并在更改前或更改后发出包含根对象、最终属性名和值的观察结果
+    /// 嵌套节点被替换时会安全地重新绑定; 路径含空节点时暂停发出, 直到路径恢复
     /// </summary>
     /// <typeparam name="TSource">属性所有者类型</typeparam>
     /// <typeparam name="TValue">最终属性的值类型</typeparam>
     /// <param name="source">要观察的根对象</param>
     /// <param name="property">以根对象为起点的属性路径</param>
-    /// <param name="beforeChange">为 <see langword="true"/> 时观察更改前通知，否则观察更改后通知</param>
+    /// <param name="beforeChange">为 <see langword="true"/> 时观察更改前通知, 否则观察更改后通知</param>
     /// <param name="skipInitial">是否跳过订阅时可用的当前值</param>
     /// <param name="isDistinct">是否抑制与上次发出值相等的结果</param>
+    /// <param name="comparer">用于去重的比较器; 为 <see langword="null"/> 时使用默认比较器</param>
     /// <returns>属性观察结果构成的冷可观察序列</returns>
     public static IObservable<PropertyObservation<TSource, TValue>> ObservableForProperty<
         TSource,
@@ -155,7 +416,8 @@ public static partial class WhenAnyExtensions
         Expression<Func<TSource, TValue>> property,
         bool beforeChange = false,
         bool skipInitial = true,
-        bool isDistinct = true
+        bool isDistinct = true,
+        IEqualityComparer<TValue>? comparer = null
     )
         where TSource : class, INotifyPropertyChanged
     {
@@ -169,18 +431,49 @@ public static partial class WhenAnyExtensions
                 path,
                 beforeChange,
                 skipInitial,
-                isDistinct
+                isDistinct,
+                comparer ?? EqualityComparer<TValue>.Default
             ),
             source
         );
     }
+
+    /// <summary>
+    /// 观察属性更改前的值
+    /// </summary>
+    public static IObservable<PropertyObservation<TSource, TValue>> WhenAnyChanging<
+        TSource,
+        TValue
+    >(
+        this TSource source,
+        Expression<Func<TSource, TValue>> property,
+        bool skipInitial = true,
+        bool isDistinct = true,
+        IEqualityComparer<TValue>? comparer = null
+    )
+        where TSource : class, INotifyPropertyChanged =>
+        source.ObservableForProperty(property, true, skipInitial, isDistinct, comparer);
+
+    /// <summary>
+    /// 观察属性更改后的值
+    /// </summary>
+    public static IObservable<PropertyObservation<TSource, TValue>> WhenAnyChanged<TSource, TValue>(
+        this TSource source,
+        Expression<Func<TSource, TValue>> property,
+        bool skipInitial = true,
+        bool isDistinct = true,
+        IEqualityComparer<TValue>? comparer = null
+    )
+        where TSource : class, INotifyPropertyChanged =>
+        source.ObservableForProperty(property, false, skipInitial, isDistinct, comparer);
 
     private sealed class PropertyObservationObservable<TSource, TValue>(
         TSource source,
         PropertyInfo[] path,
         bool beforeChange,
         bool skipInitial,
-        bool isDistinct
+        bool isDistinct,
+        IEqualityComparer<TValue> comparer
     ) : IObservable<PropertyObservation<TSource, TValue>>
         where TSource : class, INotifyPropertyChanged
     {
@@ -193,6 +486,7 @@ public static partial class WhenAnyExtensions
                 beforeChange,
                 skipInitial,
                 isDistinct,
+                comparer,
                 observer
             );
         }
@@ -201,13 +495,20 @@ public static partial class WhenAnyExtensions
     private sealed class PropertyObservationSubscription<TSource, TValue> : IDisposable
         where TSource : class, INotifyPropertyChanged
     {
-        private readonly Lock _gate = new();
+        private readonly
+#if NET10_0_OR_GREATER
+        Lock
+#else
+        object
+#endif
+        _gate = new();
         private readonly TSource _source;
         private readonly PropertyInfo[] _path;
         private readonly Func<object, object?>[] _getters;
         private readonly Func<object, TValue> _leafGetter;
         private readonly bool _beforeChange;
         private readonly bool _isDistinct;
+        private readonly IEqualityComparer<TValue> _comparer;
         private readonly IObserver<PropertyObservation<TSource, TValue>> _observer;
         private readonly object?[] _owners;
         private readonly INotifyPropertyChanged?[] _changedNotifiers;
@@ -226,6 +527,7 @@ public static partial class WhenAnyExtensions
             bool beforeChange,
             bool skipInitial,
             bool isDistinct,
+            IEqualityComparer<TValue> comparer,
             IObserver<PropertyObservation<TSource, TValue>> observer
         )
         {
@@ -233,6 +535,7 @@ public static partial class WhenAnyExtensions
             _path = path;
             _beforeChange = beforeChange;
             _isDistinct = isDistinct;
+            _comparer = comparer;
             _observer = observer;
             _owners = new object?[path.Length];
             _changedNotifiers = new INotifyPropertyChanged?[path.Length];
@@ -420,11 +723,7 @@ public static partial class WhenAnyExtensions
 
         private bool Accept(TValue value)
         {
-            if (
-                _isDistinct
-                && _hasValue
-                && EqualityComparer<TValue>.Default.Equals(_lastValue!, value)
-            )
+            if (_isDistinct && _hasValue && _comparer.Equals(_lastValue!, value))
                 return false;
             _hasValue = true;
             _lastValue = value;
@@ -466,4 +765,4 @@ public static partial class WhenAnyExtensions
         }
     }
 }
-#pragma warning restore S2436, S3776
+#pragma warning restore S107, S2436, S3776

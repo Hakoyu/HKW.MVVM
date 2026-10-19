@@ -11,7 +11,7 @@ public static partial class ObservableExtensions
     ) => Timeout(source, dueTime, TimeProvider.System);
 
     /// <summary>
-    /// 使用提供的时间提供程序，在源保持静默时失败
+    /// 使用提供的时间提供程序, 在源保持静默时失败
     /// </summary>
     public static IObservable<TSource> Timeout<TSource>(
         this IObservable<TSource> source,
@@ -42,7 +42,7 @@ public static partial class ObservableExtensions
     ) => Timeout(source, dueTime, fallback, TimeProvider.System);
 
     /// <summary>
-    /// 使用提供的时间提供程序，当源保持静默时切换到 <paramref name="fallback"/>
+    /// 使用提供的时间提供程序, 当源保持静默时切换到 <paramref name="fallback"/>
     /// </summary>
     public static IObservable<TSource> Timeout<TSource>(
         this IObservable<TSource> source,

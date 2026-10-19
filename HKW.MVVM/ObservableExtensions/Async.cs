@@ -40,6 +40,15 @@ public static partial class ObservableExtensions
     }
 
     /// <summary>
+    /// 将值任务转换为发出其结果的可观察序列
+    /// </summary>
+    public static IObservable<TSource> FromAsync<TSource>(ValueTask<TSource> task) =>
+        FromAsync(task.AsTask());
+
+    /// <summary>将值任务转换为发出 <see cref="Unit"/> 的可观察序列</summary>
+    public static IObservable<Unit> FromAsync(ValueTask task) => FromAsync(task.AsTask());
+
+    /// <summary>
     /// 使用异步工厂为每个订阅创建可观察序列
     /// </summary>
     /// <typeparam name="TSource">任务结果类型</typeparam>
@@ -143,7 +152,13 @@ public static partial class ObservableExtensions
 
     private sealed class AsyncSubscription<T>(IObserver<T> observer) : IDisposable
     {
-        private readonly Lock _gate = new();
+        private readonly
+#if NET10_0_OR_GREATER
+    Lock
+#else
+    object
+#endif
+    _gate = new();
         private readonly CancellationTokenSource _cancellation = new();
         private bool _stopped;
 
@@ -240,7 +255,13 @@ public static partial class ObservableExtensions
 
     private sealed class ToTaskObserver<T>(CancellationToken cancellationToken) : IObserver<T>
     {
-        private readonly Lock _gate = new();
+        private readonly
+#if NET10_0_OR_GREATER
+    Lock
+#else
+    object
+#endif
+    _gate = new();
         private readonly SingleAssignmentDisposable _subscription = new();
         private readonly TaskCompletionSource<T> _completion = new(
             TaskCreationOptions.RunContinuationsAsynchronously

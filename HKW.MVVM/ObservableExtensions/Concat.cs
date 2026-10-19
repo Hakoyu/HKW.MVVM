@@ -21,10 +21,17 @@ public static partial class ObservableExtensions
         return ConcatCore(sources);
     }
 
-    private static IObservable<T> ConcatCore<T>(IEnumerable<IObservable<T>> sources) =>
+    private static IObservable<T> ConcatCore<T>(
+        IEnumerable<IObservable<T>> sources,
+        bool yieldOnSynchronousCompletion = false
+    ) =>
         new AnonymousObservable<T>(observer =>
         {
-            var subscription = new ConcatSubscription<T>(observer, sources);
+            var subscription = new ConcatSubscription<T>(
+                observer,
+                sources,
+                yieldOnSynchronousCompletion
+            );
             subscription.Run();
             return subscription;
         });

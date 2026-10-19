@@ -71,37 +71,20 @@ public sealed class ObservableAsPropertyHelperTests
     }
 
     [TestMethod]
-    public void SchedulerOverload_CurrentUsesCapturedSynchronizationContext()
+    public void SchedulerOverload_CurrentThreadUpdatesImmediately()
     {
         var source = new ManualObservable<string>();
         var owner = new PropertyOwner();
-        var context = new QueuedSynchronizationContext();
-        var previousContext = SynchronizationContext.Current;
-        SynchronizationContext.SetSynchronizationContext(context);
-        ObservableAsPropertyHelper<string> helper;
-        try
-        {
-            helper = source.ToProperty(
-                owner,
-                owner => owner.Result,
-                initialValue: "Initial",
-                ObservableSchedulers.Current
-            );
-        }
-        finally
-        {
-            SynchronizationContext.SetSynchronizationContext(previousContext);
-        }
+        using var helper = source.ToProperty(
+            owner,
+            owner => owner.Result,
+            initialValue: "Initial",
+            ObservableSchedulers.CurrentThread
+        );
 
-        using (helper)
-        {
-            source.Emit("Updated");
+        source.Emit("Updated");
 
-            Assert.AreEqual("Initial", helper.Value);
-            Assert.AreEqual(1, context.PendingCount);
-            context.RunAll();
-            Assert.AreEqual("Updated", helper.Value);
-        }
+        Assert.AreEqual("Updated", helper.Value);
     }
 
     [TestMethod]
@@ -158,16 +141,20 @@ public sealed class ObservableAsPropertyHelperTests
     }
 
     [TestMethod]
-    public void SchedulerOverload_RejectsUnknownScheduler()
+    public void SchedulerOverload_RejectsNullScheduler()
     {
         var source = new ManualObservable<string>();
         var owner = new PropertyOwner();
 
-        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() =>
-            source.ToProperty(owner, owner => owner.Result, (ObservableSchedulers)999)
+        Assert.ThrowsExactly<ArgumentNullException>(() =>
+            source.ToProperty(owner, owner => owner.Result, (IObservableScheduler)null!)
         );
-        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() =>
-            source.ToProperty(owner, nameof(PropertyOwner.Result), (ObservableSchedulers)999)
+        Assert.ThrowsExactly<ArgumentNullException>(() =>
+            source.ToProperty(
+                owner,
+                nameof(PropertyOwner.Result),
+                (IObservableScheduler)null!
+            )
         );
     }
 
@@ -244,6 +231,30 @@ public sealed class ObservableAsPropertyHelperTests
         source.Fail(expected);
 
         Assert.AreSame(expected, received);
+    }
+
+    [TestMethod]
+    public void ComparerError_IsPublishedByThrownExceptionsAndStopsSource()
+    {
+        var source = new ManualObservable<string>();
+        var owner = new PropertyOwner();
+        using var helper = source.ToProperty(
+            owner,
+            x => x.Result,
+            "Initial",
+            new ObservableAsPropertyOptions<string>
+            {
+                Comparer = new ThrowingComparer<string>(),
+            }
+        );
+        Exception? received = null;
+        helper.ThrownExceptions.Subscribe(error => received = error);
+
+        source.Emit("Updated");
+
+        Assert.IsInstanceOfType<TestException>(received);
+        Assert.AreEqual(1, source.DisposalCount);
+        Assert.AreEqual("Initial", helper.Value);
     }
 
     [TestMethod]
@@ -411,5 +422,12 @@ public sealed class ObservableAsPropertyHelperTests
         Assert.AreEqual("Recovered", helper.Value);
         Assert.IsTrue(helper.IsSubscribed);
         Assert.AreEqual(2, attempts);
+    }
+
+    private sealed class ThrowingComparer<T> : IEqualityComparer<T>
+    {
+        public bool Equals(T? x, T? y) => throw new TestException("Comparison failed.");
+
+        public int GetHashCode(T value) => EqualityComparer<T>.Default.GetHashCode(value!);
     }
 }
