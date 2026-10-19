@@ -443,6 +443,7 @@ observable.SubscribeOn(ObservableSchedulers.ThreadPool);
 
 - `ObservableSchedulers.Immediate` 在调用线程上立即执行。
 - `ObservableSchedulers.CurrentThread` 在当前线程使用 FIFO 蹦床队列，嵌套调度不会递归执行。
+- `ObservableSchedulers.Current` 在访问属性时捕获当前 `SynchronizationContext`；当前线程没有同步上下文时抛出异常。
 - `ObservableSchedulers.ThreadPool` 始终使用线程池。
 - `ObservableSchedulers.FromSynchronizationContext(context)` 将工作投递到指定上下文。
 - 所有调度都返回可释放的取消句柄；`ObserveOn` 保持值与终止通知的顺序。

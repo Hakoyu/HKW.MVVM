@@ -32,6 +32,16 @@ public static class ObservableSchedulers
     public static IObservableScheduler CurrentThread { get; } = new CurrentThreadScheduler();
 
     /// <summary>
+    /// 捕获并获取当前 <see cref="SynchronizationContext"/> 的调度器.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">当前线程没有同步上下文.</exception>
+    /// <remarks>每次访问此属性时捕获 <see cref="SynchronizationContext.Current"/>.</remarks>
+    public static IObservableScheduler Current =>
+        SynchronizationContext.Current is { } context
+            ? FromSynchronizationContext(context)
+            : throw new InvalidOperationException("The current thread has no synchronization context.");
+
+    /// <summary>
     /// 获取在线程池上执行操作的调度器.
     /// </summary>
     public static IObservableScheduler ThreadPool { get; } = new ThreadPoolScheduler();

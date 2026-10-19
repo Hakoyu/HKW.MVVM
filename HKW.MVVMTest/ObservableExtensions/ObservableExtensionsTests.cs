@@ -292,6 +292,47 @@ public sealed class ObservableExtensionsTests
     }
 
     [TestMethod]
+    public void CurrentScheduler_CapturesSynchronizationContextWhenAccessed()
+    {
+        var originalContext = SynchronizationContext.Current;
+        var context = new QueuedSynchronizationContext();
+        try
+        {
+            SynchronizationContext.SetSynchronizationContext(context);
+            var scheduler = ObservableSchedulers.Current;
+            SynchronizationContext.SetSynchronizationContext(null);
+            var invoked = false;
+
+            scheduler.Schedule(() => invoked = true);
+
+            Assert.IsFalse(invoked);
+            Assert.AreEqual(1, context.PendingCount);
+            context.RunAll();
+            Assert.IsTrue(invoked);
+        }
+        finally
+        {
+            SynchronizationContext.SetSynchronizationContext(originalContext);
+        }
+    }
+
+    [TestMethod]
+    public void CurrentScheduler_WithoutSynchronizationContextThrows()
+    {
+        var originalContext = SynchronizationContext.Current;
+        try
+        {
+            SynchronizationContext.SetSynchronizationContext(null);
+
+            Assert.ThrowsExactly<InvalidOperationException>(() => _ = ObservableSchedulers.Current);
+        }
+        finally
+        {
+            SynchronizationContext.SetSynchronizationContext(originalContext);
+        }
+    }
+
+    [TestMethod]
     public void CurrentThreadScheduler_TrampolinesNestedWorkAndSupportsCancellation()
     {
         var events = new List<string>();
