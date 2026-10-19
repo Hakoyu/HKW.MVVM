@@ -15,7 +15,7 @@ public static partial class ObservableExtensions
         ArgumentOutOfRangeException.ThrowIfNegative(count);
         if (count == 0)
         {
-            return Create(
+            return CreateCore(
                 source,
                 observer =>
                 {
@@ -25,7 +25,7 @@ public static partial class ObservableExtensions
             );
         }
 
-        return Create(
+        return CreateCore(
             source,
             observer =>
             {

@@ -72,7 +72,7 @@ public static partial class ObservableExtensions
     ) =>
         PreserveLogger(
             source,
-            Create<IList<TSource>>(observer => new BufferSubscription<TSource>(
+            CreateCore<IList<TSource>>(observer => new BufferSubscription<TSource>(
                 source,
                 observer,
                 timeSpan,

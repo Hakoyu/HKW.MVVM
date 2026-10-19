@@ -9,7 +9,7 @@ public static partial class ObservableExtensions
     /// <param name="value">要发出的单个值</param>
     /// <returns>仅包含一个值的可观察序列</returns>
     public static IObservable<TSource> Return<TSource>(TSource value) =>
-        Create<TSource>(observer =>
+        CreateCore<TSource>(observer =>
         {
             observer.OnNext(value);
             observer.OnCompleted();

@@ -208,12 +208,127 @@ public sealed class ObservableCombinationExtensionsTests
     }
 
     [TestMethod]
+    public void WithLatestFrom_UsesLatestValue_AndPrimaryControlsCompletion()
+    {
+        var source = new TestObservable<int>();
+        var other = new TestObservable<string>();
+        var values = new List<string>();
+        var completed = false;
+        using var subscription = source.WithLatestFrom(other, (value, latest) => $"{value}:{latest}")
+            .Subscribe(values.Add, _ => Assert.Fail(), () => completed = true);
+
+        source.Next(0);
+        other.Next("a");
+        source.Next(1);
+        other.Next("b");
+        other.Complete();
+        source.Next(2);
+        Assert.IsFalse(completed);
+        source.Complete();
+
+        CollectionAssert.AreEqual(new[] { "1:a", "2:b" }, values);
+        Assert.IsTrue(completed);
+        Assert.AreEqual(1, source.DisposeCount);
+        Assert.AreEqual(1, other.DisposeCount);
+    }
+
+    [TestMethod]
+    public void WithLatestFrom_SynchronousOtherError_DoesNotSubscribePrimary()
+    {
+        var source = new TestObservable<int>();
+        var expected = new InvalidOperationException("other");
+        Exception? received = null;
+        var other = new InlineObservable<string>(observer => observer.OnError(expected));
+
+        using var subscription = source.WithLatestFrom(other).Subscribe(_ => Assert.Fail(), error => received = error);
+
+        Assert.AreSame(expected, received);
+        Assert.AreEqual(0, source.SubscribeCount);
+    }
+
+    [TestMethod]
+    public void Zip_QueuesPairsAndCompletesWhenCompletedSideIsDrained()
+    {
+        var first = new TestObservable<int>();
+        var second = new TestObservable<string>();
+        var values = new List<(int, string)>();
+        var completed = false;
+        using var subscription = first.Zip(second).Subscribe(values.Add, _ => Assert.Fail(), () => completed = true);
+
+        first.Next(1);
+        first.Next(2);
+        first.Complete();
+        Assert.IsFalse(completed);
+        second.Next("a");
+        Assert.IsFalse(completed);
+        second.Next("b");
+
+        CollectionAssert.AreEqual(new[] { (1, "a"), (2, "b") }, values);
+        Assert.IsTrue(completed);
+        Assert.AreEqual(1, first.DisposeCount);
+        Assert.AreEqual(1, second.DisposeCount);
+    }
+
+    [TestMethod]
+    public void Zip_SynchronousEmptyFirst_CompletesWithoutSubscribingSecond()
+    {
+        var second = new TestObservable<int>();
+        var completed = false;
+        var first = new InlineObservable<int>(observer => observer.OnCompleted());
+
+        using var subscription = first.Zip(second).Subscribe(_ => Assert.Fail(), _ => Assert.Fail(), () => completed = true);
+
+        Assert.IsTrue(completed);
+        Assert.AreEqual(0, second.SubscribeCount);
+    }
+
+    [TestMethod]
+    public async Task Zip_ConcurrentProducers_SerializesAndPairsEveryValue()
+    {
+        var first = new TestObservable<int>();
+        var second = new TestObservable<int>();
+        var values = new List<(int, int)>();
+        using var subscription = first.Zip(second).Subscribe(values.Add);
+
+        await Task.WhenAll(
+            Task.Run(() => { for (var index = 0; index < 1_000; index++) first.Next(index); }),
+            Task.Run(() => { for (var index = 0; index < 1_000; index++) second.Next(index); })
+        );
+
+        Assert.AreEqual(1_000, values.Count);
+        for (var index = 0; index < values.Count; index++)
+            Assert.AreEqual((index, index), values[index]);
+    }
+
+    [TestMethod]
+    public void Zip_SelectorFailure_ErrorsOnceAndDisposesBothSources()
+    {
+        var first = new TestObservable<int>();
+        var second = new TestObservable<int>();
+        var errors = new List<Exception>();
+        using var subscription = first.Zip<int, int, int>(second, (_, _) => throw new InvalidOperationException("selector"))
+            .Subscribe(_ => Assert.Fail(), errors.Add);
+
+        first.Next(1);
+        second.Next(2);
+        first.Next(3);
+        second.Next(4);
+
+        Assert.AreEqual(1, errors.Count);
+        Assert.AreEqual("selector", errors[0].Message);
+        Assert.AreEqual(1, first.DisposeCount);
+        Assert.AreEqual(1, second.DisposeCount);
+    }
+
+    [TestMethod]
     public void CombinationOperators_PreserveLoggerFromPrimarySource()
     {
         var raw = new TestObservable<int>();
         IObservable<int> source = new ObservableWithLogger<int>(raw, () => NullLogger.Instance);
 
         Assert.IsInstanceOfType<IObservableWithLogger>(source.CombineLatest(new TestObservable<int>()));
+        Assert.IsInstanceOfType<IObservableWithLogger>(source.WithLatestFrom(new TestObservable<int>()));
+        Assert.IsInstanceOfType<IObservableWithLogger>(source.Zip(new TestObservable<int>()));
         Assert.IsInstanceOfType<IObservableWithLogger>(source.Merge(new TestObservable<int>()));
         Assert.IsInstanceOfType<IObservableWithLogger>(source.Concat(new TestObservable<int>()));
         Assert.IsInstanceOfType<IObservableWithLogger>(source.SelectMany(_ => new TestObservable<string>()));
@@ -228,6 +343,10 @@ public sealed class ObservableCombinationExtensionsTests
     {
         var source = new TestObservable<int>();
         Assert.ThrowsExactly<ArgumentNullException>(() => ObservableExtensions.CombineLatest<int, int>(source, null!));
+        Assert.ThrowsExactly<ArgumentNullException>(() => ObservableExtensions.WithLatestFrom<int, int>(source, null!));
+        Assert.ThrowsExactly<ArgumentNullException>(() => ObservableExtensions.Zip<int, int>(source, null!));
+        Assert.ThrowsExactly<ArgumentNullException>(() => ObservableExtensions.WithLatestFrom<int, int, int>(source, new TestObservable<int>(), null!));
+        Assert.ThrowsExactly<ArgumentNullException>(() => ObservableExtensions.Zip<int, int, int>(source, new TestObservable<int>(), null!));
         Assert.ThrowsExactly<ArgumentNullException>(() => ObservableExtensions.SelectMany<int, int>(source, null!));
 
         Exception? selectorError = null;

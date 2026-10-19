@@ -16,7 +16,7 @@ public static partial class ObservableExtensions
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(synchronizationContext);
-        return Create(
+        return CreateCore(
             source,
             observer =>
             {
@@ -55,7 +55,7 @@ public static partial class ObservableExtensions
         ArgumentNullException.ThrowIfNull(source);
         var synchronizationContext = GetSynchronizationContext(scheduler);
 
-        return Create(
+        return CreateCore(
             source,
             observer =>
             {

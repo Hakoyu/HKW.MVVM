@@ -17,7 +17,7 @@ public readonly record struct PropertyObservation<TSender, TValue>(
 /// <summary>
 /// 将 <see cref="INotifyPropertyChanged"/> 属性转换为冷可观察序列
 /// </summary>
-public static class WhenAnyExtensions
+public static partial class WhenAnyExtensions
 {
     /// <summary>
     /// 观察一条属性路径,在订阅时发出其当前值,随后发出去重后的变更值

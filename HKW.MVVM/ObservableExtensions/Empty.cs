@@ -8,7 +8,7 @@ public static partial class ObservableExtensions
     /// <typeparam name="TSource">序列值类型</typeparam>
     /// <returns>立即完成的空可观察序列</returns>
     public static IObservable<TSource> Empty<TSource>() =>
-        Create<TSource>(observer =>
+        CreateCore<TSource>(observer =>
         {
             observer.OnCompleted();
             return _emptyDisposable;

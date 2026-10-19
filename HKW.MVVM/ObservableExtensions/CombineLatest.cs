@@ -2,14 +2,18 @@ namespace HKW.MVVM;
 
 public static partial class ObservableExtensions
 {
-    /// <summary>组合两个源的最新值</summary>
+    /// <summary>
+    /// 组合两个源的最新值
+    /// </summary>
     public static IObservable<(TFirst First, TSecond Second)> CombineLatest<TFirst, TSecond>(
         this IObservable<TFirst> first,
         IObservable<TSecond> second
     ) =>
         CombineLatest(first, second, static (firstValue, secondValue) => (firstValue, secondValue));
 
-    /// <summary>使用结果选择器组合两个源</summary>
+    /// <summary>
+    /// 使用结果选择器组合两个源
+    /// </summary>
     public static IObservable<TResult> CombineLatest<TFirst, TSecond, TResult>(
         this IObservable<TFirst> first,
         IObservable<TSecond> second,
@@ -35,7 +39,9 @@ public static partial class ObservableExtensions
         );
     }
 
-    /// <summary>组合三个源的最新值</summary>
+    /// <summary>
+    /// 组合三个源的最新值
+    /// </summary>
     public static IObservable<(TFirst First, TSecond Second, TThird Third)> CombineLatest<
         TFirst,
         TSecond,
@@ -43,7 +49,9 @@ public static partial class ObservableExtensions
     >(this IObservable<TFirst> first, IObservable<TSecond> second, IObservable<TThird> third) =>
         CombineLatest(first, second, third, static (a, b, c) => (a, b, c));
 
-    /// <summary>使用结果选择器组合三个源</summary>
+    /// <summary>
+    /// 使用结果选择器组合三个源
+    /// </summary>
     public static IObservable<TResult> CombineLatest<TFirst, TSecond, TThird, TResult>(
         this IObservable<TFirst> first,
         IObservable<TSecond> second,
@@ -72,7 +80,9 @@ public static partial class ObservableExtensions
         );
     }
 
-    /// <summary>组合四个源的最新值</summary>
+    /// <summary>
+    /// 组合四个源的最新值
+    /// </summary>
     public static IObservable<(
         TFirst First,
         TSecond Second,

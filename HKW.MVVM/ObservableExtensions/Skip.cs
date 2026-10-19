@@ -13,7 +13,7 @@ public static partial class ObservableExtensions
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentOutOfRangeException.ThrowIfNegative(count);
-        return Create(
+        return CreateCore(
             source,
             observer =>
             {

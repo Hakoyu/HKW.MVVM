@@ -8,12 +8,16 @@
 
 | 功能 | API | 说明 |
 | --- | --- | --- |
-| 属性观察 | `WhenAnyValue`、`WhenAny` | 观察 1～4 个直接或嵌套属性；订阅时发出当前值，路径节点替换后自动重新绑定 |
+| 属性观察 | `WhenAnyValue`、`WhenAny`、`ObservableForProperty`、`WhenAnyObservable` | 观察属性值、完整观察信息或 Observable 属性；支持嵌套路径重绑定和切换到最新内部序列 |
 | 响应式对象 | `ObservableObjectEx` | 扩展 CommunityToolkit 的 `ObservableObject`，公开通知方法以及 `Changing`、`Changed` 流 |
 | 属性绑定 | `BindTo`、`TwoWayBind` | 单向/双向绑定，支持类型转换、自定义赋值和嵌套可写属性路径 |
 | 派生属性 | `ObservableAsPropertyHelper<T>`、`ToProperty` | 将流的最新值公开为只读属性，支持初始值、延迟订阅、调度和错误流 |
-| Observable 操作符 | `Select`、`Where`、`CombineLatest`、`Switch`、`Merge`、`SelectMany`、`Concat`、`Scan`、`Retry`、`Finally`、`Delay`、`Timeout`、`Sample`、`TakeUntil` 等 | 不依赖 System.Reactive 的组合、转换、生命周期和时间操作符 |
-| Observable 创建与订阅 | `Return`、`Empty`、`Subscribe` | 创建单值/空序列，并通过回调订阅值、错误和完成通知 |
+| Observable 创建与异步 | `Create`、`Defer`、`Return`、`Empty`、`FromAsync`、`ToTask`、`FirstAsync`、`Subscribe` | 创建冷序列或任务桥接，并通过回调订阅值、错误和完成通知 |
+| 条件与组合 | `TakeWhile`、`SkipWhile`、`CombineLatest`、`Zip`、`WithLatestFrom`、`Switch`、`Merge`、`Concat` | 筛选、配对或组合多个序列 |
+| 事件与时间 | `FromEventPattern`、`Timer`、`Interval`、`Delay`、`Timeout`、`Throttle`、`Sample` | 将 .NET 事件和计时器转换为 Observable，并控制通知时间 |
+| 多播 | `Publish`、`Replay`、`RefCount` | 在订阅者间共享单个源订阅，并可重放有界历史值 |
+| 命令桥接 | `InvokeCommand` | 将序列值传给 `ICommand` 或动态跟踪的命令属性 |
+| 其他 Observable 操作符 | `Select`、`Where`、`SelectMany`、`Scan`、`Retry`、`Finally`、`TakeUntil` 等 | 不依赖 System.Reactive 的转换、生命周期和错误处理操作符 |
 | 资源管理 | `MultipleDisposable`、`DisposeWith` | 线程安全地集中管理订阅和其他 `IDisposable` |
 | 日志 | `IEnableLogger`、`IEnableLoggerWithLogger`、`LogHost`、`LogIfEnabled`、Observable `Log` | 使用 `Microsoft.Extensions.Logging` 记录对象日志或完整 Observable 通知 |
 | 调度 | `ObservableSchedulers` | 使用捕获的 `SynchronizationContext` 或线程池调度订阅、通知与派生属性更新 |
@@ -26,7 +30,7 @@
 dotnet add package HKW.MVVM
 ```
 
-当前包版本为 `0.1.3`，目标框架为 `.NET 10`，并声明支持 Native AOT。
+当前包版本为 `0.1.4`，目标框架为 `.NET 10`，并声明支持 Native AOT。
 
 ## 快速开始
 
@@ -237,7 +241,9 @@ disposables.Dispose();
 | `Select` / `Where` | 投影或筛选值 |
 | `DistinctUntilChanged` | 使用默认或自定义比较器抑制连续重复值 |
 | `StartWith` / `Skip` / `Take` | 添加初始值、跳过前 N 个值或最多获取前 N 个值 |
+| `TakeWhile` / `SkipWhile` | 在条件保持为真时获取值，或跳过连续满足条件的起始值；均支持索引重载 |
 | `CombineLatest` | 组合 2～4 个源的最新值；每个源至少发值一次后，返回元组或 selector 结果 |
+| `Zip` / `WithLatestFrom` | 按索引配对两个源，或由主源触发并附加另一个源的最新值 |
 | `Switch` | 只转发最新内部 Observable 的通知 |
 | `Merge` / `Concat` | 并发交错多个序列，或按顺序逐个订阅序列 |
 | `SelectMany` | 将每个值仅投影为 `IObservable<TResult>`，并并发合并内部序列 |
@@ -252,7 +258,75 @@ disposables.Dispose();
 | `Delay` | 延迟所有通知并保持顺序，包括错误和完成通知 |
 | `Timeout` | 静默超时后发送 `TimeoutException`，或切换到指定 fallback Observable |
 | `Sample` | 在周期 tick 发出期间最新值；源完成后在下一个 tick 完成 |
+| `FromEventPattern` / `Timer` / `Interval` | 将事件、单次计时器或周期计时器转换为 Observable |
+| `Publish` / `Replay` / `RefCount` | 显式连接共享源、重放有界历史，或按订阅者数量自动连接 |
 | `Catch` | 源失败后切换到异常处理器返回的替代序列 |
+
+### 创建与异步桥接
+
+`Create` 负责每个订阅的资源，`Defer` 在订阅时才调用工厂；`FromAsync` 支持已有任务、任务工厂和可取消工厂，`ToTask` 与 `FirstAsync` 将序列转换回任务：
+
+```csharp
+var deferred = ObservableExtensions.Defer(() =>
+    ObservableExtensions.Create<int>(observer =>
+    {
+        observer.OnNext(ReadCurrentValue());
+        observer.OnCompleted();
+        return new MultipleDisposable();
+    }));
+
+var result = await ObservableExtensions
+    .FromAsync(token => service.LoadAsync(token))
+    .FirstAsync(cancellationToken);
+```
+
+### 条件与组合
+
+```csharp
+var paired = temperatures
+    .TakeWhile(static value => value < 100)
+    .Zip(labels, static (value, label) => $"{label}: {value}");
+
+var enriched = requests.WithLatestFrom(
+    settings,
+    static (request, latestSettings) => (request, latestSettings));
+```
+
+`Zip` 等待两侧按顺序配对；`WithLatestFrom` 仅由主源触发，并在另一源产生首值前忽略主源值。
+
+### 事件、时间与多播
+
+```csharp
+var clicks = ObservableExtensions.FromEventPattern<EventArgs>(
+    handler => button.Click += handler,
+    handler => button.Click -= handler);
+
+var ticks = ObservableExtensions.Interval(TimeSpan.FromSeconds(1));
+var shared = ticks.Replay(bufferSize: 1).RefCount();
+
+using var clickSubscription = clicks.Subscribe(pattern => Console.WriteLine(pattern.Sender));
+using var tickSubscription = shared.Subscribe(Console.WriteLine);
+```
+
+`Publish`/`Replay` 返回 `IConnectableObservable<T>`，可调用 `Connect()` 显式控制单个共享源订阅；`RefCount` 在首个订阅者到达时连接，并在最后一个订阅者离开时断开。
+
+### 属性序列与命令桥接
+
+```csharp
+using var propertyChanges = viewModel
+    .ObservableForProperty(x => x.SearchText, skipInitial: true)
+    .Subscribe(change => Console.WriteLine(change.Value));
+
+using var latestResults = viewModel
+    .WhenAnyObservable(x => x.ResultsStream)
+    .Subscribe(Render);
+
+using var commandBridge = viewModel
+    .WhenAnyValue(x => x.SelectedItem)
+    .InvokeCommand(viewModel, x => x.OpenItemCommand);
+```
+
+`ObservableForProperty` 可选择更改前/后通知、是否跳过初始值及是否去重；`WhenAnyObservable` 自动切换到属性当前的内部序列。`InvokeCommand` 每次先检查 `CanExecute`，命令属性重载会跟踪属性路径替换。
 
 `Buffer` 返回 `IObservable<IList<T>>`。数量模式在缓冲区满时发出；时间模式会在每个窗口结束时发出，包括空窗口；组合模式在时间或数量边界先到时发出并开启新窗口：
 

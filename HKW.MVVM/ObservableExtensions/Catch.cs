@@ -16,7 +16,7 @@ public static partial class ObservableExtensions
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(handler);
-        return Create(
+        return CreateCore(
             source,
             observer =>
             {

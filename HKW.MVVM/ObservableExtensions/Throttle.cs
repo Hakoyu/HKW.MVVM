@@ -47,7 +47,7 @@ public static partial class ObservableExtensions
         ArgumentNullException.ThrowIfNull(timeProvider);
         ArgumentOutOfRangeException.ThrowIfLessThan(dueTime, TimeSpan.Zero);
 
-        return Create(
+        return CreateCore(
             source,
             observer => new ThrottleSubscription<TSource>(source, observer, dueTime, timeProvider)
         );

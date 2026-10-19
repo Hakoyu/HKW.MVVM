@@ -2,7 +2,9 @@ namespace HKW.MVVM;
 
 public static partial class ObservableExtensions
 {
-    /// <summary>按顺序串联两个可观察序列</summary>
+    /// <summary>
+    /// 按顺序串联两个可观察序列
+    /// </summary>
     public static IObservable<T> Concat<T>(this IObservable<T> first, IObservable<T> second)
     {
         ArgumentNullException.ThrowIfNull(first);
@@ -10,7 +12,9 @@ public static partial class ObservableExtensions
         return PreserveLogger(first, ConcatCore(new[] { first, second }));
     }
 
-    /// <summary>按顺序串联一组可观察序列</summary>
+    /// <summary>
+    /// 按顺序串联一组可观察序列
+    /// </summary>
     public static IObservable<T> Concat<T>(this IEnumerable<IObservable<T>> sources)
     {
         ArgumentNullException.ThrowIfNull(sources);

@@ -75,7 +75,6 @@ internal sealed class MemoizingLRUCache<TKey, TValue>
             if (_entries.TryGetValue(key, out var existingEntry))
             {
                 Refresh(existingEntry.Node);
-                _inflight.TryRemove(new KeyValuePair<TKey, Lazy<TValue>>(key, actual));
                 return existingEntry.Value;
             }
 
@@ -86,10 +85,10 @@ internal sealed class MemoizingLRUCache<TKey, TValue>
             {
                 var leastRecentlyUsedNode = _mostRecentlyUsedKeys.Last!;
                 _entries.Remove(leastRecentlyUsedNode.Value);
+                _inflight.TryRemove(leastRecentlyUsedNode.Value, out _);
                 _mostRecentlyUsedKeys.RemoveLast();
             }
 
-            _inflight.TryRemove(new KeyValuePair<TKey, Lazy<TValue>>(key, actual));
             return value;
         }
     }

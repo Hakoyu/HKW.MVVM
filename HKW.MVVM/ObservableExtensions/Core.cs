@@ -23,19 +23,19 @@ public static partial class ObservableExtensions
             ? new ObservableWithLogger<TResult>(result, observableWithLogger.GetLogger)
             : result;
 
-    private static IObservable<T> Create<T>(Func<IObserver<T>, IDisposable> subscribe) =>
+    private static IObservable<T> CreateCore<T>(Func<IObserver<T>, IDisposable> subscribe) =>
         new AnonymousObservable<T>(subscribe);
 
-    private static IObservable<TSource> Create<TSource>(
+    private static IObservable<TSource> CreateCore<TSource>(
         IObservable<TSource> source,
         Func<IObserver<TSource>, IDisposable> subscribe
-    ) => PreserveLogger(source, Create(subscribe));
+    ) => PreserveLogger(source, CreateCore(subscribe));
 
     private static IObservable<TSource> SubscribeOnCore<TSource>(
         IObservable<TSource> source,
         SynchronizationContext? synchronizationContext
     ) =>
-        Create(
+        CreateCore(
             source,
             observer =>
             {
@@ -367,9 +367,9 @@ public static partial class ObservableExtensions
         private static Expression GetPropertyBody(LambdaExpression expression) =>
             expression.Body
                 is UnaryExpression
-                {
-                    NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked
-                } conversion
+            {
+                NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked
+            } conversion
                 ? conversion.Operand
                 : expression.Body;
 
